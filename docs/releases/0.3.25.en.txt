@@ -1,0 +1,9 @@
+HappyCheats 0.3.25 — Alphabetical Library sorting
+
+The Library now offers A–Z and Z–A sorting buttons. A–Z is the default for new users and when a saved sorting preference is missing or invalid. Your choice is remembered for future launches.
+
+Both English and Chinese interfaces sort by English game titles, keeping the order consistent when switching languages. Sorting works with the existing search and keeps the currently selected game.
+
+This client update is included in both the signed LAN update and the fresh standalone EXE. Trainer payloads and existing cheat behavior are unchanged.
+
+Offline validation covers WPF sorting, search, saved settings, both interface languages, layout regressions and packaged-client smoke checks. Actual gameplay and second-PC LAN connectivity were not tested.

@@ -1,0 +1,9 @@
+HappyCheats 0.3.35 — Civilization VII for Steam
+
+Adds experimental Civilization VII trainer 0.1.0 (Steam app 1295660) to both the signed LAN update and complete standalone EXE. Fifteen controls cover unlimited movement, fast unit/building/wonder/project production, research and civics, selected-unit damage and movement restoration, adding XP, setting gold and influence, adding rural population, completing the food queue, wildcard leader attribute points and celebrations. Includes English/Chinese UI and F1–F11, Shift+F1–F4 shortcuts; F12 stops continuous effects.
+
+Uses the game's local JavaScript Tuner, with API bindings inspected in Firaxis's installed panels/scripts for Steam build 25245002. Steam's pending target 25516395 was not inspected. Close the game and choose Install / update to enable Tuner, then start it yourself and load single-player. Keep the Civilization VII page open for continuous effects. XP/population/attributes add amounts; gold/influence set totals. The food queue can contain growth or food-trained units. Production/research acknowledgement confirms dispatch; engine completion can be asynchronous.
+
+Setup backs up and owns only the Tuner setting, including Civ VII's commented default. The client authenticates local socket ownership, restricts commands to the local single-player turn and owned selections, checks ranges and sessions, and does not retry uncertain actions. Civilization VI behavior is preserved. Additional potential controls and differences from Civ VI are documented in docs/civilization-vii-research.md.
+
+Validation: offline runtime, protocol, setup, module, UI/hotkey and packaging checks. No game was launched, save opened or real profile modified during development. Real Tuner connection, gameplay effects, achievements, physical in-game shortcuts and second-PC access remain unverified. Both distribution paths contain the same new trainer.

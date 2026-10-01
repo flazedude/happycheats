@@ -1,0 +1,9 @@
+HappyCheats 0.3.2
+
+- Show each cheat in a compact row with inline controls, reducing empty space and scrolling.
+- Tighten spacing and shrink the game header so more cheats fit on screen.
+- Keep full descriptions and numeric input hints available on hover in English and Chinese.
+- Synchronize the client, single-file wrapper and updater release versions to 0.3.2.
+- Distribute the complete launcher and all five trainers as HappyCheats.exe inside HappyCheats-0.3.2-win-x64-single-exe.zip, with a separate SHA-256 checksum.
+
+Extract HappyCheats.exe from the single-EXE ZIP and run it. Existing settings and updates applied to the cached client are preserved. Game module versions and trainer functionality are unchanged; existing game requirements and gameplay validation limits still apply. The complete-folder ZIP remains available for server updates.

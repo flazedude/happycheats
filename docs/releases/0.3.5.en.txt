@@ -1,0 +1,7 @@
+HappyCheats 0.3.5
+
+- Use the selected metallic-blue gamepad and wrench design as the Windows client and standalone EXE icon.
+- Include icon sizes from 16 to 256 pixels for normal and high-DPI Windows displays.
+- Preserve existing trainer features, game module versions and gameplay behavior.
+
+Validation scope is offline checks, release builds and packaged-client startup. These checks do not establish gameplay behavior or connectivity from another PC; no new gameplay validation is claimed for this icon-only release.

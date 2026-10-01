@@ -1,0 +1,11 @@
+HappyCheats 0.3.17 — Dawnwalker Auto teleport
+
+Dawnwalker trainer 0.3.2 adds an Auto teleport toggle. Enable it, then place a NEW custom map marker. The trainer attempts travel once when player control permits; close the map if it is waiting for control. Existing markers do not trigger when the toggle is enabled.
+
+Use NumPad4 or hold Menu briefly and press X on any controller page. Manual teleport remains F7 / Menu+Y. Both teleport controls appear on every overlay page, with English and Chinese labels.
+
+Auto teleport uses the existing loaded-ground, slope, overlap, capsule-clearance, player and world checks. Unsafe destinations are refused without repeated attempts. Turning Auto teleport off, removing the marker, disabling all cheats or changing player session cancels queued travel. It starts disabled and does not add a polling timer.
+
+Close Dawnwalker and choose Install / update in the new HappyCheats client to install trainer 0.3.2, then relaunch the game.
+
+Validation scope: offline Lua lifecycle and travel fixtures, client command/controller tests and WPF overlay checks. Actual automatic travel, physical-controller use and connectivity from a second PC have not been verified. Distant unloaded destinations remain unavailable. This release includes the complete signed LAN update and standalone EXE.

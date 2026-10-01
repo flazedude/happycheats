@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net35</TargetFramework>
+    <AssemblyName>HappyCheats.ProjectHospital</AssemblyName>
+    <RootNamespace>HappyCheats.ProjectHospital</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Version>0.1.0</Version>
+    <GameDirectory Condition="'$(GameDirectory)' == ''">E:\Games\SteamLibrary\steamapps\common\Project Hospital</GameDirectory>
+    <BepInExDirectory>$(MSBuildThisFileDirectory)..\..\.tools\bepinex\5.4.23.5-x64\extracted\BepInEx</BepInExDirectory>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net35" Version="1.0.3" PrivateAssets="all" />
+    <Reference Include="BepInEx"><HintPath>$(BepInExDirectory)\core\BepInEx.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="0Harmony"><HintPath>$(BepInExDirectory)\core\0Harmony.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine"><HintPath>$(GameDirectory)\ProjectHospital_Data\Managed\UnityEngine.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameDirectory)\ProjectHospital_Data\Managed\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.InputModule"><HintPath>$(GameDirectory)\ProjectHospital_Data\Managed\UnityEngine.InputModule.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+  <ItemGroup><Compile Remove="tests\**\*.cs" /></ItemGroup>
+</Project>

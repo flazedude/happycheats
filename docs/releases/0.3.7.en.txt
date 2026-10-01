@@ -1,0 +1,9 @@
+HappyCheats 0.3.7
+
+- Replace the in-app letter mark with the generated metallic-blue gamepad and wrench icon.
+- Bundle recognizable game icons for all six library entries and official game logos in each selected game's banner. Artwork works offline in both distribution formats.
+- Fit the window to the monitor's available work area and support smaller Windows handheld layouts down to 800 x 480 logical pixels. Narrow windows reflow trainer labels and controls onto separate rows instead of shrinking text.
+- Enable vertical finger-swipe scrolling in the game library, trainer pages, status messages and Updates. Keep mouse wheel and scrollbar support. Increase buttons and numeric inputs to 44-pixel minimum touch heights.
+- Make Updates scroll as a complete page with accessible actions on short screens, and show full trainer descriptions in the compact layout.
+
+Validation: offline automated suites, English/Chinese layout renders at desktop and handheld logical sizes, packaged standalone-client previews, signed LAN feed and downloaded archive/EXE verification. Physical handheld touch gestures, second-PC connectivity and gameplay were not tested. This release changes client presentation only; trainer payloads are unchanged. No games were launched or saves edited.

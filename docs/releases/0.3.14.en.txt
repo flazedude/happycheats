@@ -1,0 +1,15 @@
+The Blood of Dawnwalker controls and controller pages
+
+This release supersedes the briefly published 0.3.13. Its automatic XP availability probe lacked a proven native initialization guard; the LAN feed/download was restored to 0.3.12 while that path was corrected. Use 0.3.14 and reinstall the Dawnwalker trainer; do not use 0.3.13.
+
+Rename the resource controls to Infinite health and Infinite stamina. Health is periodically refilled; the separate Invulnerability control blocks health damage with the game's native effect.
+
+Add Invulnerability, Super damage (10x base melee/claw/magic/unarmed multipliers), Fly, Infinite carry weight, Infinite money (999,999 coin floor), Unlimited item use for ordinary non-quest consumables, and Add XP instantly. Each XP press grants exactly the remaining XP to reach the next level once. It uses guarded checks of the actual level cache, never the quest reward cache. It requires positive next/following level data and can be unavailable near the cap. Added coins and XP remain after disabling and may enter normal saves.
+
+Add three overlay/controller pages: Survival, Combat & movement, and Inventory & XP. Hold Menu for 350 ms, then press View to cycle pages. F6 or Menu+RB shows/hides the overlay; Menu+LB disables all. Flight uses normal directional movement, Space/Left Ctrl or right/left trigger for vertical motion. The fast flight timer exists only while enabled. The overlay supports bounded scrolling and preserves controls across polling.
+
+Map-marker teleport and enemy invisibility are not included. Native streamed travel exists, but map-pin height/ground placement still needs read-only live inspection. A reversible player-only enemy-detection binding has not been established. No placeholder is presented as a working cheat.
+
+Validation: offline Lua lifecycle/native-boundary fixtures, client/controller/protocol/installer checks, WPF regression checks, package hashes and the minimal startup hook profile. New gameplay effects and physical-controller gameplay have not been tested. This release preserves the earlier connection fixes; residual gameplay lag remains unresolved. No game was launched, cheat activated or save edited for this release.
+
+Close Dawnwalker, open this new HappyCheats client, select the game and choose Install / update, then restart the game and load a save. All toggles start off. The signed LAN update and standalone EXE both include trainer 0.2.1 and its six Lua scripts.

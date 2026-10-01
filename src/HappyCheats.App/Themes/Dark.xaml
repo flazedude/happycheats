@@ -1,0 +1,29 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <SolidColorBrush x:Key="BackgroundBrush" Color="#13171C"/>
+  <SolidColorBrush x:Key="SidebarBrush" Color="#191E24"/>
+  <SolidColorBrush x:Key="CardBrush" Color="#1D232A"/>
+  <SolidColorBrush x:Key="InputBrush" Color="#20262E"/>
+  <SolidColorBrush x:Key="RaisedBrush" Color="#29313A"/>
+  <SolidColorBrush x:Key="InkBrush" Color="#F0EFE9"/>
+  <SolidColorBrush x:Key="MutedBrush" Color="#A3AFBA"/>
+  <SolidColorBrush x:Key="SubtleBrush" Color="#8A98A6"/>
+  <SolidColorBrush x:Key="GoldBrush" Color="#DBB975"/>
+  <SolidColorBrush x:Key="GoldInkBrush" Color="#1B1C1E"/>
+  <SolidColorBrush x:Key="LineBrush" Color="#2C333C"/>
+  <SolidColorBrush x:Key="StrongLineBrush" Color="#4B5663"/>
+  <SolidColorBrush x:Key="ButtonBrush" Color="#29313A"/>
+  <SolidColorBrush x:Key="ButtonBorderBrush" Color="#414C59"/>
+  <SolidColorBrush x:Key="SelectionBrush" Color="#3B3325"/>
+  <SolidColorBrush x:Key="SelectionBorderBrush" Color="#8C7344"/>
+  <SolidColorBrush x:Key="SelectionInkBrush" Color="#E2C68A"/>
+  <SolidColorBrush x:Key="SuccessBrush" Color="#A7CDA4"/>
+  <SolidColorBrush x:Key="SuccessSurfaceBrush" Color="#1C2A23"/>
+  <SolidColorBrush x:Key="SuccessBorderBrush" Color="#3A5545"/>
+  <SolidColorBrush x:Key="ErrorBrush" Color="#E1A498"/>
+  <SolidColorBrush x:Key="ErrorSurfaceBrush" Color="#2B2222"/>
+  <SolidColorBrush x:Key="ErrorBorderBrush" Color="#65463F"/>
+  <SolidColorBrush x:Key="HeroBrush" Color="#292C29"/>
+  <SolidColorBrush x:Key="ArtworkBrush" Color="#36392E"/>
+  <SolidColorBrush x:Key="ScrollThumbBrush" Color="#596472"/>
+</ResourceDictionary>

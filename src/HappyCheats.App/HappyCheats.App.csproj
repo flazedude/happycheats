@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>HappyCheats</AssemblyName>
+    <RootNamespace>HappyCheats.App</RootNamespace>
+    <Version>0.3.37</Version>
+    <Product>HappyCheats</Product>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>../../assets/branding/HappyCheats.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../HappyCheats.Core/HappyCheats.Core.csproj" />
+    <Resource Include="../../assets/branding/HappyCheats.png" Link="Assets/Branding/HappyCheats.png" />
+    <Resource Include="../../assets/games/*.png" Link="Assets/Games/%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

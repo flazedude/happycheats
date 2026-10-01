@@ -1,0 +1,102 @@
+HappyCheats: bundled SMAPI 4.5.2 notices
+=====================================
+
+HappyCheats includes the unmodified official SMAPI 4.5.2 installer archive.
+SMAPI is a separate program by Pathoschild and the SMAPI contributors.
+Project: https://smapi.io/
+Release: https://github.com/Pathoschild/SMAPI/releases/tag/4.5.2
+Source: https://github.com/Pathoschild/SMAPI/tree/4.5.2
+
+SMAPI, its installer and toolkit, ConsoleCommands, and SaveBackup are licensed
+under GNU LGPL version 3. The complete license is SMAPI-LGPL-3.0.txt; the GPL
+version 3 text it incorporates is GPL-3.0.txt. These license terms apply to
+SMAPI independently of HappyCheats. The upstream copyright, license, and
+warranty terms are retained in the accompanying source archive and notices.
+No SMAPI binaries or source files have been modified by HappyCheats.
+
+SMAPI-4.5.2-source.zip contains the corresponding source at upstream tag 4.5.2,
+including the installer, toolkit, bundled mods, project files, and build
+scripts. Build information is in SMAPI-4.5.2/docs/README.md and the build/
+directory within that archive. Building requires the documented development
+tools and a separately installed copy of Stardew Valley. Game files are not
+included. The installer is shipped with its own .NET runtime.
+
+You may modify SMAPI under its license, and reverse engineer the relevant
+combined work for debugging such modifications. HappyCheats does not restrict
+those rights. SMAPI is installed as separate files in the game's directory,
+and the HappyCheats mod uses SMAPI's public interfaces through shared .NET
+assemblies. Interface-compatible replacements can be installed with their
+own installer or by replacing the SMAPI files while the game is closed.
+Retain the corresponding source and these notices when redistributing the
+bundled installer or a HappyCheats release that contains it.
+
+Bundled dependencies
+--------------------
+The official archive includes Windows, Linux, and macOS installer runtimes;
+HappyCheats executes the Windows installer. The following dependency notices
+cover the archive's installer and game payloads. The indicated license files
+are in this same directory and contain the complete upstream license text.
+
+* .NET Runtime 6.0.36 (Microsoft and contributors)
+  MIT and component-specific notices.
+  DOTNET-LICENSE.txt; DOTNET-THIRD-PARTY-NOTICES.txt
+  https://github.com/dotnet/runtime/tree/v6.0.36
+
+* Html Agility Pack 1.12.4 (ZZZ Projects)
+  Package copyright: Copyright ZZZ Projects Inc.
+  MIT. HTMLAGILITYPACK-LICENSE.txt
+  https://github.com/zzzprojects/html-agility-pack
+
+* Markdig 0.44.0 (Alexandre Mutel)
+  BSD-2-Clause. MARKDIG-LICENSE.txt
+  https://github.com/xoofx/markdig
+
+* Microsoft.AspNet.WebApi.Client 6.0.0 / System.Net.Http.Formatting
+  Copyright Microsoft Corporation. All rights reserved.
+  Microsoft .NET Library license terms.
+  microsoft.aspnet.webapi.client.6.0.0-LICENSE.txt
+  https://www.nuget.org/packages/Microsoft.AspNet.WebApi.Client/6.0.0
+
+* Newtonsoft.Json 13.0.4 (James Newton-King)
+  MIT. newtonsoft.json.13.0.4-LICENSE.txt
+  https://github.com/JamesNK/Newtonsoft.Json
+
+* Newtonsoft.Json.Bson 1.0.2 (James Newton-King)
+  MIT. newtonsoft.json.bson.1.0.2-LICENSE.txt
+  https://github.com/JamesNK/Newtonsoft.Json.Bson
+
+* Pathoschild.Http.FluentClient 4.4.2 (Jesse Plamondon-Willard / Pathoschild)
+  MIT. FLUENTCLIENT-LICENSE.txt
+  https://github.com/Pathoschild/FluentHttpClient
+
+* VdfConverter 1.0.3 (Gerhard van Zyl)
+  Copyright 2021. MIT. VDFCONVERTER-LICENSE.txt
+  The NuGet package declares the MIT license and provides the preceding
+  author and copyright metadata. Its repository has no separate license
+  file; the supplied notice retains that metadata and the MIT terms.
+  https://www.nuget.org/packages/VdfConverter/1.0.3
+
+* Mono.Cecil 0.11.6, including its Pdb and Mdb assemblies (Jb Evain)
+  MIT. MONO-CECIL-LICENSE.txt
+  https://github.com/jbevain/cecil/tree/0.11.6
+
+* MonoMod.Common 22.3.5.1 (0x0ade)
+  Package copyright: Copyright 2022 0x0ade.
+  MIT. MONOMOD-LICENSE.txt
+  https://github.com/MonoMod/MonoMod.Common
+
+* Pintail 2.9.1 (Michal Dolas / Nanoray)
+  MIT. pintail.2.9.1-LICENSE.txt
+  https://github.com/Nanoray-pl/Pintail
+
+* Platonymous.TMXTile 1.5.9 (Platonymous)
+  MIT. TMXTILE-LICENSE.txt
+  https://github.com/Platonymous/TMXTile
+
+* Harmony 2.2.2.0 (Andreas Pardeike), the 0Harmony.dll supplied by SMAPI
+  Assembly copyright: Copyright (c) 2016 Andreas Pardeike.
+  MIT. HARMONY-LICENSE.txt
+  https://github.com/pardeike/Harmony/tree/v2.2.2.0
+
+provenance.json records the upstream URLs and SHA-256 hashes of the installer,
+source archive, and every notice shipped in this directory.

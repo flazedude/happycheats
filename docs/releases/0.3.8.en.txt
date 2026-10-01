@@ -1,0 +1,8 @@
+HappyCheats 0.3.8
+
+- Add a Light / Dark theme toggle beside the language buttons. The choice applies immediately and is remembered for the next launch; existing installations keep the dark theme until changed.
+- Use one consistent theme across the library, game pages, numeric inputs, status messages, Updates and the companion overlay.
+- Replace default Windows text-field, checkbox and progress-bar surfaces with themed controls, including focused, read-only and disabled states. Supported Windows title bars now follow the chosen theme too.
+- Preserve the handheld layout, 44-pixel touch targets, finger scrolling, game artwork and English/Chinese labels.
+
+Validation: offline automated suites; both themes in English/Chinese at desktop and handheld sizes; update states, live theme switching and isolated preference persistence; packaged standalone previews and signed LAN download verification. Physical touch hardware, actual gameplay and connectivity from a second PC were not tested. Trainer payloads are unchanged. No games were launched or saves edited.

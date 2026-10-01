@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><LangVersion>latest</LangVersion>
+    <GameDirectory Condition="'$(GameDirectory)' == ''">D:\Steam\steamapps\common\Stardew Valley</GameDirectory>
+    <SmapiDirectory Condition="'$(SmapiDirectory)' == ''">$(MSBuildThisFileDirectory)..\..\..\..\.tools\smapi\4.5.2\reference</SmapiDirectory>
+    <ModAssembly Condition="'$(ModAssembly)' == ''">$(MSBuildThisFileDirectory)..\..\HappyCheats.StardewValley\bin\Release\net6.0\HappyCheats.StardewValley.dll</ModAssembly>
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="HappyCheats.StardewValley" HintPath="$(ModAssembly)" Private="true" />
+    <Reference Include="Stardew Valley" HintPath="$(GameDirectory)\Stardew Valley.dll" Private="true" />
+    <Reference Include="StardewValley.GameData" HintPath="$(GameDirectory)\StardewValley.GameData.dll" Private="true" />
+    <Reference Include="MonoGame.Framework" HintPath="$(GameDirectory)\MonoGame.Framework.dll" Private="true" />
+    <Reference Include="xTile" HintPath="$(GameDirectory)\xTile.dll" Private="true" />
+    <Reference Include="StardewModdingAPI" HintPath="$(SmapiDirectory)\StardewModdingAPI.dll" Private="true" />
+    <Reference Include="SMAPI.Toolkit.CoreInterfaces" HintPath="$(SmapiDirectory)\smapi-internal\SMAPI.Toolkit.CoreInterfaces.dll" Private="true" />
+    <Reference Include="0Harmony" HintPath="$(SmapiDirectory)\smapi-internal\0Harmony.dll" Private="true" />
+    <Reference Include="MonoMod.Common" HintPath="$(SmapiDirectory)\smapi-internal\MonoMod.Common.dll" Private="true" />
+    <Reference Include="Mono.Cecil" HintPath="$(SmapiDirectory)\smapi-internal\Mono.Cecil.dll" Private="true" />
+  </ItemGroup>
+  <Target Name="ValidateLocalReferences" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('$(GameDirectory)\Stardew Valley.dll')" Text="Install Stardew Valley or set GameDirectory." />
+    <Error Condition="!Exists('$(SmapiDirectory)\StardewModdingAPI.dll')" Text="Set SmapiDirectory to installed SMAPI or local extracted references." />
+    <Error Condition="!Exists('$(ModAssembly)')" Text="Build the Release mod before running hook checks, or set ModAssembly." />
+  </Target>
+</Project>

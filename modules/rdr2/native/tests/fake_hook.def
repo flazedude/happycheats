@@ -1,0 +1,8 @@
+LIBRARY ScriptHookRDR2.dll
+EXPORTS
+    "?nativeInit@@YAX_K@Z"=fakeInit
+    "?nativePush64@@YAX_K@Z"=fakePush
+    "?nativeCall@@YAPEA_KXZ"=fakeCall
+    "?scriptRegister@@YAXPEAUHINSTANCE__@@P6AXXZ@Z"=fakeRegister
+    "?scriptUnregister@@YAXPEAUHINSTANCE__@@@Z"=fakeUnregister
+    "?scriptWait@@YAXK@Z"=fakeWait

@@ -1,0 +1,74 @@
+HappyCheats Elden Ring resource refills 0.1.0
+Original managed implementation compiled into HappyCheats.Core; no third-party game or trainer binaries, Cheat Engine scripts or injected code are included.
+Interface facts were checked against these primary sources:
+
+fromsoftware-rs, commit 59fbd3b3b7daaf14aca47c9f73530493dba6bc79 (MIT option):
+https://github.com/vswarte/fromsoftware-rs/tree/59fbd3b3b7daaf14aca47c9f73530493dba6bc79
+crates/eldenring/src/rva.rs and rva/rva_ww.rs: exact worldwide file 2.7.1.0 and PlayerIns vtable, GameMan/GameDataMan RVAs.
+crates/eldenring/src/cs/game_man.rs: offline mode byte, server-enabled boolean and local/remote event world enum.
+crates/eldenring/src/cs/session_manager.rs: lobby and protocol None=0 states.
+crates/eldenring/src/cs/chr_ins/module/data.rs: current/max health, FP, stamina and resource owner.
+
+MIT License
+
+Copyright (c) 2025 Vincent Swarte
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+elden-x, commit 363961dac2858b6bad9ced3900d2b1b0026aee0f (MIT):
+https://github.com/ThomasJClark/elden-x/tree/363961dac2858b6bad9ced3900d2b1b0026aee0f
+include/elden-x/chr/world_chr_man_er.hpp: main player offset 0x1E508.
+include/elden-x/session.hpp: empty remote player range and Steam session count layout.
+include/elden-x/game_man.hpp and src/elden-x/game_man.cpp: online-state byte and GameMan signature.
+
+elden-x
+Copyright (c) 2024 Tom Clark
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+Numeric addresses were cross-checked against Elden Ring Practice Tool 1.9.9:
+https://github.com/veeenu/eldenring-practice-tool/blob/cc1a36c6138dba5d387dc7e33a00e0434635fc0b/lib/libeldenring/src/codegen/base_addresses.rs
+WorldChrMan RVA 0x3D69FF8; CSSessionManager RVA 0x3D7E540; GameMan RVA 0x3D6D988; GameDataMan RVA 0x3D61F98.
+The repository is AGPL-3.0; no implementation code is copied or linked. Only interface facts are referenced.
+Release 1.9.7 documents in-game 1.17.1 as executable 2.7.1.
+
+The Grand Archives table 1.19.1, commit 7926205c5a2ed236dd31278c4f5579c964ceec35:
+https://github.com/The-Grand-Archives/Elden-Ring-CT-TGA/tree/7926205c5a2ed236dd31278c4f5579c964ceec35
+Statistics/Character entries independently confirm WorldChrMan->0x10EF8->0->0x190->0 and current fields 0x138/0x148/0x154.
+Main .cea documents unique GameDataMan/GameMan signatures. No table/scripts are distributed.
+
+This profile is experimental. Source layouts and fixtures were validated offline; actual gameplay was not tested.

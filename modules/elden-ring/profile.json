@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "id": "elden-ring-ww-2.7.1.0-resources-v1",
+  "gameVersion": "1.17.1",
+  "fileVersion": "2.7.1.0",
+  "region": "worldwide",
+  "gameplayVerified": false,
+  "features": [
+    "health-refill",
+    "fp-refill",
+    "stamina-refill"
+  ],
+  "globals": {
+    "WorldChrMan": "0x3D69FF8",
+    "GameMan": "0x3D6D988",
+    "CSSessionManager": "0x3D7E540",
+    "GameDataMan": "0x3D61F98"
+  },
+  "guards": [
+    "exact executable file version",
+    "unique GameMan and GameDataMan text signatures with expected RIP targets",
+    "manager RTTI and local PlayerIns vtable",
+    "offline local event world",
+    "no lobby or protocol session",
+    "empty remote player range",
+    "zero Steam sessions",
+    "no EAC/protected launcher or known co-op/mod-loader modules"
+  ],
+  "sources": [
+    {
+      "repository": "vswarte/fromsoftware-rs",
+      "commit": "59fbd3b3b7daaf14aca47c9f73530493dba6bc79"
+    },
+    {
+      "repository": "ThomasJClark/elden-x",
+      "commit": "363961dac2858b6bad9ced3900d2b1b0026aee0f"
+    },
+    {
+      "repository": "veeenu/eldenring-practice-tool",
+      "commit": "cc1a36c6138dba5d387dc7e33a00e0434635fc0b"
+    },
+    {
+      "repository": "The-Grand-Archives/Elden-Ring-CT-TGA",
+      "commit": "7926205c5a2ed236dd31278c4f5579c964ceec35"
+    }
+  ]
+}

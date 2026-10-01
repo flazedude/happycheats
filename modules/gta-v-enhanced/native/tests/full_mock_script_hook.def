@@ -1,0 +1,10 @@
+LIBRARY ScriptHookV.dll
+EXPORTS
+    ?nativeInit@@YAX_K@Z=MockNativeInit
+    ?nativePush64@@YAX_K@Z=MockNativePush
+    ?nativeCall@@YAPEA_KXZ=MockNativeCall
+    ?scriptRegister@@YAXPEAUHINSTANCE__@@P6AXXZ@Z=MockRegister
+    ?scriptUnregister@@YAXPEAUHINSTANCE__@@@Z=MockUnregister
+    ?scriptWait@@YAXK@Z=MockWait
+    ?keyboardHandlerRegister@@YAXP6AXKGEHHHH@Z@Z=MockKeyboardRegister
+    ?keyboardHandlerUnregister@@YAXP6AXKGEHHHH@Z@Z=MockKeyboardUnregister

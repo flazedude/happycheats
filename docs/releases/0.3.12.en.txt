@@ -1,0 +1,17 @@
+HappyCheats 0.3.12
+
+- Update the experimental Dawnwalker trainer to 0.1.2. Correct the player ownership check to use Unreal's reflected K2_GetPawn method, addressing a lookup that could leave a living player unavailable.
+- Cache native setter-function availability per player session. Revalidate cached objects and keep unavailable controls disabled without repeating global lookups every poll.
+- Keep resource maintenance at 250 ms while writing routine status heartbeats once per second. Publish readiness, session and control changes and command acknowledgements immediately.
+- Handle exFAT timestamp rounding that caused the observed alternating waiting states: a fresh file was reported about 1.74 seconds ahead of the clock. Accept up to two seconds ahead, while retaining the six-second expiry, process-start check and rejection of larger future timestamps.
+- Retry brief status-file replacement gaps before reporting a lost connection. Stale, malformed and mismatched sessions still disable controls.
+- Keep the overlay's buttons in place during heartbeat updates, including language, theme and connection-state changes. Inspect processes and windows on a background thread so that work does not block the interface.
+- Reuse routine package comparisons while the relevant file metadata is unchanged. File changes invalidate that cache; installation and removal still perform full checksum checks.
+
+Restart HappyCheats after updating so it uses the corrected status reader. Close Dawnwalker and choose Install / update, then restart the game. Existing health, stamina and blood top-ups and shortcut assignments remain. All continuous controls start off; map teleport remains unavailable.
+
+Offline validation: 437 Lua assertions passed (257 bindings, 128 startup/mailbox/hotkeys, 52 protocol), along with 228 core checks and 25 WPF cases containing 640 assertions. Regression fixtures cover the reflected pawn method, session-scoped lookups, heartbeat cadence, timestamp limits, temporary status-file gaps, cache invalidation and stable overlay controls. WPF tests exercise state changes, English/Chinese labels, both themes and simulated button actions without sending commands to a game. A stationary overlay fixture produced no native window movements across 100 follow calls.
+
+Live validation: the earlier 0.1.1 trainer passed a title-screen startup check. In a subsequent user-run 0.1.2 session, the loaded world was visible and the trainer reported a ready player with all four resource controls available. The corrected core reader then passed a 60-second read-only probe: all 60 samples were connected and ready, with zero dropouts, errors or session changes. The probe sent no game commands. The open test GUI still used the older reader during that observation and needs restarting.
+
+Health and stamina toggles had been enabled by the user; observing their flags and current values does not establish correct refill behavior. The user reports reduced lag, but some remains; frame times have not been measured and the remaining lag is unresolved. Health/stamina/blood effects, physical controller operation and long-session stability remain unverified. See docs/validation.md for the final release checks and docs/dawnwalker.md for setup and limits.

@@ -1,0 +1,18 @@
+HappyCheats 0.3.26 — Project Hospital, Hotel Architect and Civilization VI
+
+Adds Project Hospital for Steam (app 868360, inspected build 21161440), with all five requested controls:
+- Max Money: raise hospital funds to at least 999,999,999 once.
+- Freeze Time of Day: toggle the hospital day/time clock freeze.
+- Max Staff: raise the staff hiring limit to 1,000 while enabled; this is staff capacity, not skills or needs.
+- Unlock All Campaigns: make installed campaigns selectable while enabled without writing campaign completion. DLC ownership requirements remain.
+- Max Prestige: keep current hospital prestige at 100% while enabled.
+
+The English/Chinese library includes the game, its controls and bundled artwork. Hospital-only actions are unavailable at the main menu; campaign unlocking remains available once the profile is loaded. Close Project Hospital and choose Install / update to install the included BepInEx loader and trainer, then launch the game. Reopen campaign selection after changing its unlock toggle.
+
+Also adds experimental Hotel Architect trainer 0.1.0 for inspected Steam build 25340122, with 24 hotel, character, clock and furniture controls (four toggles and twenty numeric editors). Editors follow the selected person, staff member or furniture. The pinned UE4SS loader is bundled. Game speed uses the native 0–3 pause/normal/faster/fastest settings. Game startup and actual effects remain unverified.
+
+Also adds the experimental Civilization VI single-player FireTuner trainer with 15 implemented controls for movement, production, research, civics, unit damage/moves/promotions/XP, gold, faith, diplomatic favor and city population. Four requested raw editors (unit level, influence points, amenities bonus and housing bonus) are explicitly unavailable. Install / update enables Tuner, which disables achievements while enabled. Keep the Civilization VI page open for continuous effects. No local Civilization VI installation or gameplay was used for validation.
+
+Both the signed LAN update and the freshly built standalone EXE include all three new payloads, bringing the library to thirteen games. Installers check payload hashes and compatibility and preserve conflicting or modified files. Existing trainers are unchanged.
+
+Validation is offline: read-only inspection of actual game bindings, trainer compilation, isolated behavior/protocol tests, installer and session checks, and English/Chinese interface checks. No game was launched, no trainer was installed into the real game and no saves were changed. Loader startup, actual gameplay, large-hospital performance and second-PC LAN connectivity remain unverified. Money and staff changes can persist when the game saves; turning off a toggle does not undo earlier saved progression.

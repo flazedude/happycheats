@@ -1,0 +1,11 @@
+HappyCheats 0.3.36 — Crimson Desert marker teleport correction
+
+Includes Crimson Desert trainer 0.2.3 in the signed LAN update and complete standalone EXE. Manual Teleport to marker (F5) and Auto teleport (F9) now write after the enclosing movement routine, beyond its conditional saved-position rollback. The existing movement-speed hook keeps its original role. Teleport requires its own exact-build, code-byte and hook-readiness checks.
+
+At most six complete movement updates write the destination, rather than counting nested substeps. The final write remains pending until another complete native movement update has run. That observation performs no position write; rejection, changed context, canceled marker or timeout ends the request without a deferred retry. A one-world-unit reporting tolerance accommodates small movement. Observing position near the marker does not confirm terrain, landing, streaming or long-term game authority. Status retains requested/observed coordinates and progress for diagnosis.
+
+HappyCheats now displays the native teleport state after manual/auto requests and during subsequent polling. Queuing a command no longer claims it was applied in game, and later cancellation or failure replaces the pending message. Old-session results are cleared. Chinese and English messages are included.
+
+Close Crimson Desert, update HappyCheats, choose Install / update for Crimson Desert, then launch the game yourself, load gameplay and Connect trainer. Close the map after placing a marker. Existing markers do not trigger when Auto teleport is enabled. The ten-second request deadline, player/session checks, current-elevation fallback for pins without height, and disabled unlimited-item control remain.
+
+Validation: static inspection of the pinned Steam build 25477059 / executable 1.0.0.2976, isolated native rollback and later-observation fixtures, protocol/UI regression tests, package and signed-hosted-download checks. No game was launched or save changed for this update. The ordering and false-reporting defects were reproduced offline; successful travel on the user's other PC, safe landing and distant streaming remain unverified.

@@ -1,0 +1,9 @@
+HappyCheats 0.3.37 — Elden Ring offline resource trainer
+
+Adds Elden Ring (Steam App ID 1245620) to the library with trainer 0.1.0 in both the signed LAN update and the complete standalone EXE. Four experimental controls: periodic health, FP and stamina refill (F1–F3), and restore all resources once (F4). F12 disables all refills. Health refill is not invulnerability; lethal damage can still kill. Maximum resources, runes, inventory and attributes are not edited.
+
+Includes explicit Connect / Disconnect actions, a direct Offline launch action, Chinese and English UI, and shortcuts scoped to the connected game or HappyCheats. Leaving the page, disconnecting, changing characters or losing the polling session clears all toggles. Trainer setup does not change game files or saves. Offline launch sets the child Steam application identity and leaves the protected launcher and Easy Anti-Cheat files untouched.
+
+The initial profile targets App Ver. 1.17.1 (worldwide Windows executable version 2.7.1.0), based on maintained modding-source layouts. Other versions are rejected. The runtime requires supported executable metadata, matching memory signatures, a living local player and positive offline evidence before writes. Active anti-cheat/protected launchers, online state and detected Seamless Co-op are rejected. No anti-cheat component is hidden, disabled, patched or unloaded. This is for offline single-player only; no guarantee of account safety is made for later online play.
+
+Validation: isolated memory and policy fixtures, stale-session and rejection tests, UI checks, complete package checks and signed hosted-download verification. Elden Ring is not installed in this host's registered Steam libraries. No game was started or save changed during development. Gameplay effects, actual launch on the gaming PC and second-PC LAN connectivity remain unverified. See docs/elden-ring.md for setup and limitations.

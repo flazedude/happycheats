@@ -1,0 +1,9 @@
+HappyCheats 0.3.21 — Remove the Onimusha teleport option
+
+Removes Onimusha's unfinished Teleport to map pin card, F7 action, Menu/View + Y shortcut, and teleport status messages. Old teleport commands are rejected.
+
+Keeps unlimited health, auto-parry, enemy one-hit stun and player stun immunity on F1–F4, F5 disable all, and F6 status display. The four D-pad shortcuts, LB disable all and RB status display remain. REFramework still starts hidden with the Onimusha status panel at the top right. Other games and their teleport controls are unchanged.
+
+The Onimusha gameplay payload remains 0.4.0; this client update needs no in-game trainer reinstall. Both the signed LAN update and complete standalone EXE include the removal.
+
+Validation: offline module, command, controller, installer and release checks, plus packaged-client smoke checks. No game was started and no saves were changed. Gameplay and second-PC LAN connectivity were not tested for this release.

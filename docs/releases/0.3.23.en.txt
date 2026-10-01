@@ -1,0 +1,9 @@
+HappyCheats 0.3.23 — GTA V Enhanced Story Mode menu
+
+Adds trainer 0.1.0 with seven companion controls and an F11 in-game menu: invincibility, unlimited clip/no reload, never wanted, refill health and armor, repair current vehicle, set noon and clear weather. F10 disables continuous controls. The companion includes English and Chinese labels and bundled game artwork.
+
+Compatibility limitation: this experimental module targets GTA5_Enhanced.exe 1.0.1158.13 and verifies the matching official ScriptHookV 3889.0/1158.13 DLL. The development PC has game 1.0.1158.16, which is newer and explicitly blocked. This release does not make the menu usable on that installed build. A reviewed compatibility update is required. ScriptHookV and its ASI loader are external prerequisites, not bundled. No game or loader files were replaced during development.
+
+GTA Online is unsupported, including invite-only sessions. The native module locks controls when Online is detected. Commands are process/session-bound, expire after eight seconds and require acknowledgements without automatic retries. Toggles reset on character/death/loading/pause transitions. Installation and removal preserve other trainers and loaders using checksums and ownership receipts.
+
+Validation: compiled native ASI, offline native dispatch and bridge fixtures, Core installer/protocol/compatibility checks, English/Chinese WPF menu checks, complete release suites, and packaged-client smoke checks. No actual game was launched, no saves were changed, and neither gameplay nor second-PC LAN connectivity was tested. Both distribution formats contain the same freshly built GTA payload. Existing RDR2 and other game modules are preserved.

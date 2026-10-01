@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(AppAssemblyDirectory)' == ''">
+    <ProjectReference Include="../../src/HappyCheats.App/HappyCheats.App.csproj" />
+  </ItemGroup>
+  <!-- A saved release can be tested without rebuilding it to demonstrate a regression. -->
+  <ItemGroup Condition="'$(AppAssemblyDirectory)' != ''">
+    <Reference Include="HappyCheats"><HintPath>$(AppAssemblyDirectory)/HappyCheats.dll</HintPath></Reference>
+    <Reference Include="HappyCheats.Core"><HintPath>$(AppAssemblyDirectory)/HappyCheats.Core.dll</HintPath></Reference>
+    <Reference Include="LaundryTrainer.Setup.Core"><HintPath>$(AppAssemblyDirectory)/LaundryTrainer.Setup.Core.dll</HintPath></Reference>
+  </ItemGroup>
+</Project>

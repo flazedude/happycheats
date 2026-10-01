@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><LangVersion>latest</LangVersion>
+    <AssemblyName>HappyCheats.StardewValley</AssemblyName><Version>0.1.1</Version>
+    <GameDirectory Condition="'$(GameDirectory)' == ''">D:\Steam\steamapps\common\Stardew Valley</GameDirectory>
+    <SmapiDirectory Condition="'$(SmapiDirectory)' == ''">$(GameDirectory)</SmapiDirectory>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Stardew Valley" HintPath="$(GameDirectory)\Stardew Valley.dll" Private="false" />
+    <Reference Include="StardewValley.GameData" HintPath="$(GameDirectory)\StardewValley.GameData.dll" Private="false" />
+    <Reference Include="MonoGame.Framework" HintPath="$(GameDirectory)\MonoGame.Framework.dll" Private="false" />
+    <Reference Include="xTile" HintPath="$(GameDirectory)\xTile.dll" Private="false" />
+    <Reference Include="StardewModdingAPI" HintPath="$(SmapiDirectory)\StardewModdingAPI.dll" Private="false" />
+    <Reference Include="SMAPI.Toolkit.CoreInterfaces" HintPath="$(SmapiDirectory)\smapi-internal\SMAPI.Toolkit.CoreInterfaces.dll" Private="false" />
+    <Reference Include="0Harmony" HintPath="$(SmapiDirectory)\smapi-internal\0Harmony.dll" Private="false" />
+  </ItemGroup>
+  <Target Name="ValidateGameReferences" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('$(GameDirectory)\Stardew Valley.dll')" Text="Install Stardew Valley and set GameDirectory to its folder." />
+    <Error Condition="!Exists('$(SmapiDirectory)\StardewModdingAPI.dll')" Text="Install SMAPI or set SmapiDirectory to its extracted reference files." />
+  </Target>
+</Project>

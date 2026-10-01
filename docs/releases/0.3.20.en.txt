@@ -1,0 +1,21 @@
+HappyCheats 0.3.20 — Crimson Desert connection fix and Black Myth: Wukong
+
+Crimson Desert trainer 0.2.1 fixes all controls remaining disabled after Connect trainer on the supported Steam build. The expected PE image size was one 4 KB page too small (0x173AA000 instead of the actual 0x173AB000), so initialization rejected the game before any hooks were installed. The corrected value preserves the exact executable hash, timestamp and native code guards.
+
+Initialization failures now show “Initialization failed” instead of the misleading “Waiting for gameplay.” Connecting retains the trainer's diagnostic message. Native compatibility errors identify the failed check.
+
+Speed and marker teleport also resolve the current client-side character through the game's world-map player accessor. The previous movement lookup incorrectly followed the server-side combat character. Combat stats keep their server-side identity checks, while movement and navigation use a separately validated client identity. Neither path falls back to an arbitrary actor.
+
+Close Crimson Desert, update HappyCheats, select Crimson Desert and choose Install / update. Then launch/load the game and select Connect trainer again. The old trainer stays loaded until the game exits; updating the client alone cannot replace it in the running game.
+
+Validation includes read-only inspection of the user's already running game: its PE headers, exact executable hash and all six native code guards match the corrected build definition. Regression checks cover the image-size error and client failure labels. Full release tests, fresh payload compilation, complete standalone packaging and signed LAN download verification are required for this release. No game was launched by the agent, no replacement trainer was injected into the running game, no cheat was activated and no saves were edited. Actual cheat behavior, teleport landing and second-PC connectivity remain unverified.
+
+Existing health, stamina, Spirit, outgoing damage, speed and manual/automatic marker teleport behavior is preserved. Custom pins retain the current elevation without ground detection. Unlimited item usage remains unavailable. Dawnwalker trainer 0.3.3 and its rotation fix are retained. Both the complete standalone EXE and signed LAN update include this fix.
+
+Black Myth: Wukong — new experimental Steam trainer 0.1.0
+
+Adds unlimited health (F1), mana (F2), stamina (F3), 10x attack / super damage (F4), unlimited gourd meter (F5), instant max focus (F6), add experience (F7), add sparks (F8), and add will (F9). F10 disables all toggles. XP, Sparks and Will have editable one-shot amounts; defaults are 1,000 / 1 / 1,000. In-game hotkeys use those defaults. Resource refills run every 100 ms; lethal damage between health refills can still kill. Focus fills existing capacity and does not unlock more capacity.
+
+Close Wukong, select it in HappyCheats and choose Install / update, then launch through Steam and load a living player. The package includes its UE4SS runtime; existing foreign or modified mod files are preserved. Targets installed Steam build 21393610 with a pinned executable hash. All toggles start off and clear on death or player changes. Super damage restores its captured attack modifier when it is still owned; game-driven changes are preserved. Progression uses the game's own commands without automatic retry. Dispatch is acknowledged, but the API exposes no resulting balance: check the in-game total. The game may persist grants normally.
+
+Validation: offline binding/command/installer/UI regression checks and payload hashes. API evidence comes from external reference metadata, with local installed executable/build identity and historical UE5.0 crash metadata. Wukong was not launched, trainer files were not installed into the game, and saves were not changed during development. Loader startup, current-build runtime bindings, actual gameplay effects and progression persistence remain unverified. Both the signed LAN package and fresh standalone EXE include all nine controls, the trainer and loader. See docs/wukong.md and docs/wukong-bindings.md.

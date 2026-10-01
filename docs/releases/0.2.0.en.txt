@@ -1,0 +1,8 @@
+HappyCheats 0.2.0
+
+- Check a configured HTTPS server for new client releases.
+- Read English and Chinese changelogs and see newly supported games before updating.
+- Download signed, verified complete releases containing the launcher and trainer library.
+- Install updates with a separate updater and restart HappyCheats.
+
+Existing clients need this first updater-capable release installed manually. After a client update, close the affected game and choose Install / update to refresh its installed trainer.

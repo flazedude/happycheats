@@ -1,0 +1,114 @@
+{
+  "component": "SMAPI",
+  "version": "4.5.2",
+  "license": "LGPL-3.0",
+  "retrieved_at": "2026-09-25",
+  "project_url": "https://smapi.io/",
+  "release_url": "https://github.com/Pathoschild/SMAPI/releases/tag/4.5.2",
+  "installer": {
+    "path": "SMAPI-4.5.2-installer.zip",
+    "source_url": "https://github.com/Pathoschild/SMAPI/releases/download/4.5.2/SMAPI-4.5.2-installer.zip",
+    "sha256": "dd01ddca7b566bfe0d3b3d2d03833496abc56c53da976241f2ab443f5484acc4"
+  },
+  "source": {
+    "path": "SMAPI-4.5.2-source.zip",
+    "sha256": "36288b1414cd9919462be74de1bdf9327ad9704814430b578ef3af26d7eee89c",
+    "tag": "4.5.2"
+  },
+  "notes": [
+    "Official installer and source archives are unmodified.",
+    "NuGet license files are copied from the named package archives; VdfConverter terms are accompanied by its upstream license expression and copyright metadata.",
+    "THIRD-PARTY-NOTICES.txt is the HappyCheats attribution index; complete upstream license texts are separate files."
+  ],
+  "files": [
+    {
+      "path": "DOTNET-LICENSE.txt",
+      "sha256": "cfc21f5e8bd655ae997eec916138b707b1d290b83272c02a95c9f821b8c87310",
+      "source_url": "https://raw.githubusercontent.com/dotnet/runtime/v6.0.36/LICENSE.TXT"
+    },
+    {
+      "path": "DOTNET-THIRD-PARTY-NOTICES.txt",
+      "sha256": "6cd1c020de674c8c7fb07783a26ca386e03c33be4960d0ee7d9a9005498a4284",
+      "source_url": "https://raw.githubusercontent.com/dotnet/runtime/v6.0.36/THIRD-PARTY-NOTICES.TXT"
+    },
+    {
+      "path": "FLUENTCLIENT-LICENSE.txt",
+      "sha256": "9a8cdad162210444186a2e0df3d23366bb68e2ce7c0c569dc52a82d7d384adfd",
+      "source_url": "https://raw.githubusercontent.com/Pathoschild/FluentHttpClient/c3fb6835c08b47b3559a84d0f8efb766b7658aa6/LICENSE.txt"
+    },
+    {
+      "path": "GPL-3.0.txt",
+      "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903",
+      "source_url": "https://raw.githubusercontent.com/gcc-mirror/gcc/master/COPYING3"
+    },
+    {
+      "path": "HARMONY-LICENSE.txt",
+      "sha256": "a5883d0c45eb7e176d3d1631220e7f96e958e37064773d40245ae6db560bbd6d",
+      "source_url": "https://raw.githubusercontent.com/pardeike/Harmony/v2.2.2.0/LICENSE"
+    },
+    {
+      "path": "HTMLAGILITYPACK-LICENSE.txt",
+      "sha256": "601b80e87b30b47c7b5389d3077fda67a37e7cb6b200405e4524217989c1fe92",
+      "source_url": "https://raw.githubusercontent.com/zzzprojects/html-agility-pack/master/LICENSE"
+    },
+    {
+      "path": "MARKDIG-LICENSE.txt",
+      "sha256": "ae543293657b6782e3d4a76257dc4157210ce88a352ef8392065d3f04dcd88d1",
+      "source_url": "https://raw.githubusercontent.com/xoofx/markdig/cd7b9ca0ef66cb582232cbceaefbfe4195cf575b/license.txt"
+    },
+    {
+      "path": "microsoft.aspnet.webapi.client.6.0.0-LICENSE.txt",
+      "sha256": "45b71a39607f04388bafdf2a1b7925eb5be912b0ea626b242d5f704bb567dd84",
+      "source_url": "https://api.nuget.org/v3-flatcontainer/microsoft.aspnet.webapi.client/6.0.0/microsoft.aspnet.webapi.client.6.0.0.nupkg"
+    },
+    {
+      "path": "MONO-CECIL-LICENSE.txt",
+      "sha256": "13d58ecbed676511c0c4c4009bff107025e50007ff5e7901dc562700ec62509e",
+      "source_url": "https://raw.githubusercontent.com/jbevain/cecil/0.11.6/LICENSE.txt"
+    },
+    {
+      "path": "MONOMOD-LICENSE.txt",
+      "sha256": "206ffec502564c3bd09be6c6370c817963ae69bef8e8f0cf208d19bd94ce28bd",
+      "source_url": "https://raw.githubusercontent.com/MonoMod/MonoMod.Common/master/LICENSE"
+    },
+    {
+      "path": "newtonsoft.json.13.0.4-LICENSE.txt",
+      "sha256": "b98a397897ff55f76cddc380041507a95a896b2946e0188703bf0496793d6516",
+      "source_url": "https://api.nuget.org/v3-flatcontainer/newtonsoft.json/13.0.4/newtonsoft.json.13.0.4.nupkg"
+    },
+    {
+      "path": "newtonsoft.json.bson.1.0.2-LICENSE.txt",
+      "sha256": "dc6151b10ebdc66284e36ccacd80530cec7a2ce7cd2e32bfcc6c27d576956dae",
+      "source_url": "https://api.nuget.org/v3-flatcontainer/newtonsoft.json.bson/1.0.2/newtonsoft.json.bson.1.0.2.nupkg"
+    },
+    {
+      "path": "pintail.2.9.1-LICENSE.txt",
+      "sha256": "1d9b2898070a8ae02ad2273d6e0df6edc599eb58d9d282e6882fd4249b76a1ca",
+      "source_url": "https://api.nuget.org/v3-flatcontainer/pintail/2.9.1/pintail.2.9.1.nupkg"
+    },
+    {
+      "path": "SMAPI-4.5.2-source.zip",
+      "sha256": "36288b1414cd9919462be74de1bdf9327ad9704814430b578ef3af26d7eee89c",
+      "source_url": "https://codeload.github.com/Pathoschild/SMAPI/zip/refs/tags/4.5.2"
+    },
+    {
+      "path": "SMAPI-LGPL-3.0.txt",
+      "sha256": "ea8af5e789cb2d4e9b10bce3874982ade163b749b6bfbdb32e2df21c4d106de1",
+      "source_url": "https://raw.githubusercontent.com/Pathoschild/SMAPI/4.5.2/LICENSE.txt"
+    },
+    {
+      "path": "THIRD-PARTY-NOTICES.txt",
+      "sha256": "4cdc6315ba00ddd5be5afee9a9750b3cd4113fbc64e98b44dcc18d72c5a93873"
+    },
+    {
+      "path": "TMXTILE-LICENSE.txt",
+      "sha256": "6dbb9e81c6cd984e68071add3e66462d02ef0217e4ea60773807d1b8b4bc6360",
+      "source_url": "https://raw.githubusercontent.com/Platonymous/TMXTile/master/LICENSE"
+    },
+    {
+      "path": "VDFCONVERTER-LICENSE.txt",
+      "sha256": "c0725a26958172ba55f2d4de60c72630af08dbf4852fe81ac74d65a5dc0473f1",
+      "source_url": "https://api.nuget.org/v3-flatcontainer/vdfconverter/1.0.3/vdfconverter.1.0.3.nupkg"
+    }
+  ]
+}

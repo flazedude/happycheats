@@ -1,0 +1,9 @@
+HappyCheats 0.3.30 — Black Myth: Wukong connection repair
+
+Wukong trainer 0.1.1 corrects the engine dispatch entry that kept all nine controls unavailable after loading a save. Read-only inspection of Steam build 21393610 confirmed that the previous loader profile called the adjacent function instead of UObject::ProcessEvent. The bundled custom profile selects the verified virtual slot while retaining the existing player ownership and executable checks.
+
+Connection diagnostics now identify the failed discovery step, missing library or unavailable resource call. The client and UE4SS log report useful failure details instead of always asking the user to load a save. The installer owns and verifies the new profile, supports upgrading the prior eight-file trainer, and preserves foreign or modified files.
+
+Offline validation covers Lua bindings and command handling, the loader profile, installer upgrade/rollback/ownership, core and English/Chinese UI regressions, signed packages and the packaged client. Live startup and the original connection failure were inspected in the user's running game. Actual cheat effects, progression changes, save/load persistence and second-PC connectivity remain unverified. No progression commands were sent and no save files were edited during diagnosis.
+
+Both the signed LAN update and fresh standalone EXE include the corrected trainer. Close Wukong, update HappyCheats, choose Install / update for Wukong, then launch through Steam and load a save. Existing game integrations and prior release archives are retained.

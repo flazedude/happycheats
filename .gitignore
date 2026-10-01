@@ -1,0 +1,13 @@
+**/bin/
+**/obj/
+.tools/
+artifacts/
+dist/
+payload/
+*.user
+*.log
+.happycheats-updates/
+update-settings.json
+*.private.pem
+__pycache__/
+*.py[cod]

@@ -1,0 +1,13 @@
+HappyCheats 0.3.31
+
+New game: The Witcher 3: Wild Hunt — Remastered (Steam).
+Adds experimental trainer 0.1.0 for inspected Steam build 25575366, executable 5.0.0.1041720 (DirectX 12). Earlier 4.x and DX11 executables are not supported by this profile.
+
+Eight controls: infinite health (living Geralt refills, not damage immunity), infinite stamina, full adrenaline, continuous potion toxicity clearing, refill health and stamina once, add 1,000 crowns, add 1,000 base XP, and add one skill point. Decoction toxicity is retained. XP follows game rules, including New Game+ modifiers and the level cap; an unchanged total is rejected.
+Keep the Witcher page open for continuous effects. Refills stop after the script's six-second client lease expires. Currency and progression additions may persist in normal saves; disabling the trainer does not undo them.
+
+Adds the game to the bilingual library with Steam artwork. Both the signed LAN update and complete standalone EXE contain the same new trainer payload.
+Installation generates a mod override from the exact verified local vanilla script, leaving original game files unchanged. It rejects conflicting r4game.ws mods and preserves foreign or edited files. Removal uses an ownership receipt and retains changed files. Close the game before Install / update or Remove trainer.
+Commands use a session-bound, expiring mailbox, duplicate-request protection, and script acknowledgements. Unsupported builds and stale status cannot issue commands.
+
+Validation scope: offline C# protocol and installer fixtures, existing project regression suites, script API checks against installed game source and read-only native I/O inspection, payload checks, and packaged-client smoke checks. WitcherScript is compiled by the game at startup; no offline game script compiler is installed. Game startup, actual script compilation, in-game bridge behavior, cheat effects, save behavior and second-PC LAN connectivity are NOT gameplay-verified. The game was not launched and its saves were not changed during development.

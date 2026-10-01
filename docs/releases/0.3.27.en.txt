@@ -1,0 +1,11 @@
+HappyCheats 0.3.27 — RDR2 automatic ScriptHook setup
+
+Red Dead Redemption 2 Install / update now downloads and configures the official ScriptHookRDR2 runtime and original ASI loader automatically with the Story Mode trainer. A fresh SteamCMD query on 27 September 2026 confirmed public Steam build 13773296, matching the installed executable 1.0.1491.50. No downgrade is required for this profile.
+
+First setup needs internet. Existing verified runtime files are reused offline; unknown or modified loaders are preserved and reported as conflicts. The installer verifies the author's HTTPS download, pinned archive/component hashes, archive layout and x64 exports before writing files. Runtime and trainer changes share one rollback transaction, and removal retains the shared runtime, author readme and other mods. The author's sample trainer is not installed.
+
+The current official runtime is numbered 1.0.1491.17 and documents automatic address detection for later game versions. The official SDK provides plugin headers and samples, not the runtime implementation source. Its terms prohibit redistributing the runtime with plugins, so both HappyCheats distribution formats include direct-author setup rather than embedding the runtime DLL.
+
+The seven existing Story Mode controls and all thirteen game modules are retained. Official Red Dead Online remains unimplemented; ScriptHookRDR2 itself does not support multiplayer.
+
+Validation: actual production downloader fetched and verified the author's runtime; 29 existing RDR2 tests and 27 runtime/setup test groups passed, alongside native, client and packaging regression checks. The inspected real game folder and saves were unchanged. RDR2 startup, actual cheat effects, interaction with existing Rampage and second-PC LAN connectivity have not been verified. This release does not claim gameplay validation.

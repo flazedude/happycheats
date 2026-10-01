@@ -1,0 +1,35 @@
+local P = dofile("modules/astroneer/Scripts/protocol.lua")
+local function command(extra)
+    return "schema_version=1\nsession_id=test-session\nrequest_id=0123456789abcdef0123456789abcdef\naction=add_bytes\nenabled=0\ncreated_utc=100\n" .. (extra or "")
+end
+assert(P.parse(command(), "test-session", 100).action == "add_bytes")
+assert(not P.parse(command(), "other-session", 100))
+assert(not P.parse(command(), "test-session", 109))
+assert(not P.parse(command(), "test-session", 97))
+assert(not P.parse(command("action=add_bytes\n"), "test-session", 100))
+assert(not P.parse(command("surprise=1\n"), "test-session", 100))
+assert(not P.parse(command():gsub("enabled=0", "enabled=false"), "test-session", 100))
+assert(not P.parse(command():gsub("action=add_bytes", "action=execute"), "test-session", 100))
+assert(not P.parse(string.rep("x", 2049), "test-session", 100))
+assert(P.json({enabled=false, message='x\n"\\'}) == '{"enabled":false,"message":"x\\n\\"\\\\"}')
+assert(P.json({}) == '{}')
+assert(P.json(0/0) == 'null')
+local function selection(multiplier, enabled)
+    local text = command():gsub("action=add_bytes", "action=set_collection_multiplier")
+        :gsub("enabled=0", "enabled=" .. (enabled or "0"))
+    return text .. (multiplier and "multiplier=" .. multiplier .. "\n" or "")
+end
+for _, multiplier in ipairs({ "10", "20" }) do
+    local parsed = assert(P.parse(selection(multiplier), "test-session", 100))
+    assert(parsed.multiplier == tonumber(multiplier))
+    assert(parsed.enabled == false)
+end
+assert(not P.parse(selection(nil), "test-session", 100))
+assert(not P.parse(selection("20", "1"), "test-session", 100))
+for _, invalid in ipairs({ "0", "1", "15", "30", "-10", "10.0", "020", "2e1", "true", "NaN" }) do
+    assert(not P.parse(selection(invalid), "test-session", 100))
+end
+assert(not P.parse(selection("20") .. "multiplier=10\n", "test-session", 100))
+assert(not P.parse(command("multiplier=20\n"), "test-session", 100))
+assert(not P.parse(command("multiplier=10\n"):gsub("action=add_bytes", "action=resource_collection_10x"), "test-session", 100))
+print("PASS Astroneer protocol: session, expiry, malformed/duplicate fields, strict 10x/20x selection, escaping")

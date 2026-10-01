@@ -1,0 +1,9 @@
+HappyCheats 0.3.1
+
+- Distribute the complete launcher and all five trainers as one HappyCheats.exe inside HappyCheats-0.3.1-win-x64-single-exe.zip.
+- Verify and extract the bundled files automatically into AppData on first launch, then reuse the local client on later launches.
+- Preserve existing settings and updates applied to the cached client.
+- Synchronize the client, single-file wrapper and updater release versions to 0.3.1.
+- Keep the complete-folder ZIP format for server updates and provide a separate SHA-256 checksum for the single-EXE ZIP.
+
+Extract HappyCheats.exe from the single-EXE ZIP and run it. The raw executable is also available for direct distribution. Game module versions and gameplay features are unchanged. Stardew Valley was added in HappyCheats 0.3.0; its SMAPI requirement and existing gameplay validation limits still apply.

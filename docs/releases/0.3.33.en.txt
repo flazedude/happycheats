@@ -1,0 +1,11 @@
+HappyCheats 0.3.33 — Civilization VI connection compatibility and function keys
+
+Civilization VI trainer 0.1.1 removes the setup-receipt requirement for connecting to an already enabled Tuner. Missing or ambiguous profile metadata no longer blocks an authenticated connection to the detected running game. Manual discovery also accepts the executable folder, and automatic discovery can use a running game's exact path when Steam metadata is unavailable.
+
+Missing optional human/alive/turn flags no longer disable all controls. A verified InGame local player can supply information unavailable in GameCore; explicit conflicting identity, multiplayer or ineligible player state still blocks commands. Missing unit/city selection affects only its editors. Tuner handshake errors are now reported correctly.
+
+All 15 implemented controls have function keys, usable with the connected Civilization VI game or HappyCheats focused while its page stays selected: F1 movement, F2 units, F3 buildings/wonders, F4 districts, F5 projects, F6 research, F7 civics, F8 damage, F9 moves, F10 promotion availability, F11 XP; Shift+F1 gold, Shift+F2 faith, Shift+F3 diplomatic favor, Shift+F4 population. Numeric shortcuts apply the entered card value. F12 disables continuous effects; completed edits are not reversed. Held keys do not repeat commands. Mapped keys are reserved while the connected game has focus to avoid triggering game shortcuts at the same time.
+
+Raw influence, unit level, amenities bonus and housing bonus remain unavailable. A real local Tuner connection and loaded single-player game are still required. Tuner disables achievements. If Tuner is already enabled, opening the updated client loads the new runtime. Otherwise close the game, choose Install / update, restart and load single-player; keep other Tuner clients closed.
+
+Validation: offline Lua compatibility/selection tests, local TCP protocol and endpoint checks, configuration ownership tests, hotkey routing and WPF checks. Both the signed LAN update and fresh standalone EXE contain the new client and runtime. Actual Civilization VI connectivity, physical in-game key handling, cheat effects and the friend's PC remain unverified; no game or save was opened for testing.

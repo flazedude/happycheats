@@ -1,0 +1,15 @@
+HappyCheats 0.3.29 — GTA V Enhanced current-build backend and runtime setup
+
+GTA V trainer 0.2.0 targets the current public Steam build 25261616 / 1.0.1158.16, verified against live Steam metadata on 27 September 2026. The included experimental Story Mode backend supplies its own limited native integration for this build; it no longer depends on an older ScriptHookV version to initialize. The existing seven controls and F11 menu are retained.
+
+Install / update checks the reviewed executable and obtains the required author ASI loader automatically when missing. Enhanced 1.0.1158.13 retains the ScriptHookV path with automatic, checksum-verified direct-author runtime setup. Known older hook files are backed up before replacement on that path; unknown loaders and mods are preserved. The 1158.16 path leaves other trainers and their ScriptHookV files untouched, so an incompatible external mod can still prevent game startup.
+
+Alexander Blade's runtime source is not available in the SDK and its binary redistribution is prohibited. The new limited source backend instead uses attributed current Enhanced interface/hash information under GPL-2.0. Its complete corresponding source, build scripts, vendor source and licenses accompany the trainer in Source.zip. Proprietary ScriptHookV/loader binaries are downloaded locally from the author when required and are not embedded in either distribution.
+
+The new backend validates the loaded build, unique signatures, memory permissions, function boundaries and script context before enabling controls. Missing interfaces keep it inactive with diagnostics. Online sessions, including invite-only, remain disabled. Setup does not change launch arguments, anti-cheat settings, other trainers or saves.
+
+Offline validation covers the real compiled ASI on inert hosts, real scheduler detours in a synthetic PE, native argument mapping, TLS restoration, lifecycle and Online lockout, transactional setup/rollback, executable identity, English/Chinese UI, and packaged-client checks. The user requested that GTA remain closed: actual native startup, gameplay and second-PC connectivity have not been verified. This remains an experimental target, not a claim of tested gameplay compatibility.
+
+The updated trainer and source archive are included in both the signed LAN update and the fresh standalone EXE. Existing game integrations are retained.
+
+This release also synchronizes Source.zip with the final native test suite, including the queued-worker lifetime regression test. The prior 0.3.28 runtime sources matched, but its source archive omitted this last test update. All prior signed release archives are retained.

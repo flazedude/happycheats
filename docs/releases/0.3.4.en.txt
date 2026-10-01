@@ -1,0 +1,7 @@
+HappyCheats 0.3.4
+
+- Download client and trainer-library releases from the HappyCheats server on your local network.
+- Read release notes in the client, then download and restart to install.
+- LAN downloads verify the publisher signature and package hash before installation.
+
+Close supported games before updating. After restarting, use Install / update for each affected game to refresh its trainer.

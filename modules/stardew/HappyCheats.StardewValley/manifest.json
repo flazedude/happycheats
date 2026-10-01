@@ -1,0 +1,10 @@
+{
+  "Name": "HappyCheats — Stardew Valley",
+  "Author": "HappyCheats",
+  "Version": "0.1.1",
+  "Description": "Single-player trainer controls connected to the HappyCheats launcher.",
+  "UniqueID": "HappyCheats.StardewValley",
+  "EntryDll": "HappyCheats.StardewValley.dll",
+  "MinimumApiVersion": "4.5.2",
+  "UpdateKeys": []
+}

@@ -1,0 +1,13 @@
+HappyCheats 0.3.18 — Crimson Desert automatic marker teleport
+
+Crimson Desert trainer 0.2.0 adds Auto teleport (F9). Turn it on, then place a new custom map marker. It queues one teleport when the game's destination matches, then applies it on the next controlled-player movement update; close the map if waiting. Selecting a map icon as a new destination also counts. Existing markers are ignored when enabling; autonomous quest/navigation updates do not trigger it.
+
+Manual Teleport to marker (F5) now uses the same native positioning backend. New placements replace pending requests. Marker removal, auto-off, F10, changed player/movement identity or loss of the client connection cancels pending travel. Requests expire after ten seconds and cannot retry later after a failed update. The native position hold lasts at most six movement updates. Controls begin off and require explicit Connect trainer.
+
+Important limitation: custom pins have no terrain height. Missing height uses the character's current world elevation, captured once per request. This does not resolve ground, test landing clearance or guarantee distant terrain streaming. Falling, terrain overlap and streaming behavior are unverified. Unlimited item usage remains unavailable. Existing health, stamina, spirit, damage and speed controls are preserved.
+
+Validation is offline: exact PE2976 executable/build and hook guards; world-map RTTI, sender callsite and navigation-object provenance; player-only position fields and native physics synchronization; native caller/argument/event/queue/acknowledgement/height/rebasing tests; Core protocol, installer and UI regression checks; native hook and unsupported-host fixtures. Release validation includes both complete distribution formats, signed hosted feed/download hashes and packaged-client smoke checks. No game was launched or attached, no live teleport or other cheat was activated, and no saves were edited. Gameplay and second-PC connectivity remain unverified.
+
+Close Crimson Desert, update HappyCheats, select Install / update, start/load the game yourself, then Connect trainer. Keep Crimson Desert selected in the client. F9 enables auto teleport; F5 is manual and F10 disables all. A running older trainer requires restarting the game before installing this version.
+
+Includes a fresh complete standalone EXE and signed LAN update using the existing host and trust key. Dawnwalker trainer 0.3.2 and its automatic marker teleport from 0.3.17 are retained.

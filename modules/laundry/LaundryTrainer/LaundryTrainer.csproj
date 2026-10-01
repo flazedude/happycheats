@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>LaundryTrainer</AssemblyName>
+    <Version>0.3.0</Version>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- The loader supplies runtime dependencies. Its legacy Microsoft.Bcl
+         dependency is unused by this .NET 6 mod. -->
+    <PackageReference Include="LavaGang.MelonLoader" Version="0.7.3" IncludeAssets="compile" NoWarn="NU1701" />
+    <PackageReference Include="Microsoft.Bcl" Version="1.1.10" IncludeAssets="none" NoWarn="NU1701" />
+  </ItemGroup>
+</Project>

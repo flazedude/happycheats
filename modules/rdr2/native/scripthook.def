@@ -1,0 +1,3 @@
+LIBRARY ScriptHookRDR2.dll
+EXPORTS
+    "?scriptRegister@@YAXPEAUHINSTANCE__@@P6AXXZ@Z"

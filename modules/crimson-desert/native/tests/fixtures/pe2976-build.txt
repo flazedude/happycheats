@@ -1,0 +1,3 @@
+Captured from artifacts/crimson-research/installed-binary-inspection.json; PE 1.0.0.2976; independently confirmed by live-readonly-report.json on 2026-09-27.
+SHA256 57da440d72f4db974f25fef047cf84c4dadd999a88cb2a3c5af4c9bd67fde1e7
+34404 1790086912 389722112

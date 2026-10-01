@@ -1,0 +1,14 @@
+HappyCheats 0.3.15 — Dawnwalker movement, inventory and stealth
+
+Dawnwalker trainer 0.3.0 for the inspected Steam build 25232147:
+- Fix vertical flight using collision-checked movement: Space / Left Ctrl or RT / LT to ascend / descend. Normal directional movement remains available.
+- Explicitly cancel flight timers on disable. The pinned loader ignores callback return values, which previously allowed inactive timers to accumulate after repeated toggles. Frame-time improvement has not been measured.
+- Fix Unlimited item use's returned-inventory format and opaque item-handle conversion. Native item identity and quest classification are checked before any consumable flag changes. Failures identify the failed stage and clean up owned overrides.
+- Add Teleport to map marker: F7 or hold Menu + Y on any page. Place a new custom marker after the trainer loads, close the map, then trigger travel. Loaded walkable ground and capsule clearance are required; distant unloaded, steep or obstructed destinations are refused. The game owns the travel/loading sequence, and uncertain requests are not repeated automatically.
+- Add Invisibility: F9 or hold Menu + D-pad down on page 2. Blocks normal enemy perception and targeting for the player while keeping the player model visible. Existing alerts, scripted encounters and forced events may persist. Disable restores the owned player visibility bit.
+- Correct wrapped damage-attribute descriptors and validate invulnerability's returned effect handle. Preserve the existing resource, currency and guarded next-level XP behavior.
+- English and Chinese overlay labels and controller hints include all 13 controls. F6 / Menu + RB shows or hides the overlay; Menu + View changes pages.
+
+Validation: offline Lua regression suites, client/controller tests, WPF regression and overlay captures, rebuilt trainer hashes and the existing minimal loader profile. Signed LAN download verification and a headless smoke check of the actual standalone EXE verify both distribution formats. Binding research used read-only inspection of the already-running game and the exact pinned loader source. No game functions or cheat actions were invoked by the inspection tools, and no saves were edited. Live flight, consumable use, teleport, invisibility, physical-controller operation and remaining gameplay lag still need user verification.
+
+Install: close Dawnwalker, open this HappyCheats release, select The Blood of Dawnwalker and choose Install / update, then relaunch the game. Place the custom marker again after loading. Updating HappyCheats alone cannot replace trainer scripts inside a running game.

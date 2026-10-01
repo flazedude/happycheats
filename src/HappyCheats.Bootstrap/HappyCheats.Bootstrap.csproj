@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
+    <AssemblyName>HappyCheats.Bootstrap</AssemblyName>
+    <RootNamespace>HappyCheats.Bootstrap</RootNamespace>
+    <Product>HappyCheats</Product><Description>HappyCheats single-file launcher</Description><Version>0.3.10</Version>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>../../assets/branding/HappyCheats.ico</ApplicationIcon>
+    <PublishSingleFile>true</PublishSingleFile><SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <PublishTrimmed>true</PublishTrimmed><TrimMode>link</TrimMode>
+    <DebugType>none</DebugType><DebugSymbols>false</DebugSymbols>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(BundleArchive)' != ''">
+    <EmbeddedResource Include="$(BundleArchive)" LogicalName="HappyCheats.Bundle.zip" />
+    <EmbeddedResource Include="$(BundleArchive).sha256" LogicalName="HappyCheats.Bundle.sha256" />
+  </ItemGroup>
+  <Target Name="RequireBundle" BeforeTargets="PrepareForBuild">
+    <Error Condition="'$(BundleArchive)' == '' or !Exists('$(BundleArchive)') or !Exists('$(BundleArchive).sha256')" Text="Use scripts/Build-SingleExe.ps1 to prepare the embedded release bundle." />
+  </Target>
+</Project>

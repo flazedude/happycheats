@@ -1,0 +1,12 @@
+HappyCheats 0.3.3
+
+- Include the official SMAPI 4.5.2 installer with Stardew Valley's trainer, including its corresponding source, license and redistribution notices.
+- Choose Install / update to install bundled SMAPI when needed, then the HappyCheats mod, without downloading setup files.
+- Reuse compatible existing SMAPI 4.5.2+ installations. Preserve incomplete or unrecognized installations and show repair guidance.
+- Launch Stardew Valley through SMAPI. Remove trainer continues to leave SMAPI and other mods installed.
+- Retain the compact cheat rows, inline controls and hover descriptions introduced in 0.3.2.
+- Synchronize the client, single-file wrapper and updater release versions to 0.3.3.
+
+Extract HappyCheats.exe from HappyCheats-0.3.3-win-x64-single-exe.zip and run it. The single EXE contains the complete release, including SMAPI; its SHA-256 checksum is supplied separately. Existing settings and updates applied to the cached client are preserved. The complete-folder ZIP remains available for server updates.
+
+Stardew Valley requires the Windows Steam game 1.6.15 or later within the 1.6 series. Close the game before installing or updating, then launch and load a single-player save. Game module versions and cheat features are unchanged. Actual Stardew startup and gameplay validation remain pending.

@@ -1,0 +1,9 @@
+HappyCheats 0.3.24 — Crimson Desert hook failure diagnostics
+
+Updates the Crimson Desert trainer to 0.2.2. Native hook setup errors now identify the affected hook, whether creation or enabling failed, and the exact MinHook status. The status file retains target and detour memory protections, dynamic-code policy, and a bounded nearby-address-space snapshot when allocation fails. Diagnostic collection does not retry hooks or change process mitigations.
+
+This release improves diagnosis of “Some native hooks could not be installed.” The underlying failure in the user's game has not yet been established or fixed. Affected controls remain unavailable when their hooks fail. Existing compatibility checks and cheat behavior are preserved; unlimited item usage remains unavailable, and marker teleport still uses current elevation when height is missing.
+
+Before the next run: close Crimson Desert, open the new HappyCheats client, select Crimson Desert and choose Install / update. Start the game, load gameplay and click Connect trainer. Leave the game running if an error appears so its detailed failure state can be inspected.
+
+Validation covers native compilation, the four exact hook prologues in isolated fixtures, create/enable failure reporting, bounded diagnostic scans, protocol and installer tests, the full release suites, and packaged-client smoke checks. No actual game was started, no saves were changed, and hook success, cheat behavior and second-PC LAN connectivity remain unverified. Both the signed LAN update and fresh standalone EXE contain trainer 0.2.2. Existing GTA V, RDR2 and other modules are retained.

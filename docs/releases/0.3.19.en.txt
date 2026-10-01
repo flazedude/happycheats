@@ -1,0 +1,9 @@
+HappyCheats 0.3.19 — Dawnwalker teleport rotation fix
+
+Dawnwalker trainer 0.3.3 fixes "Player rotation unavailable" when using manual or automatic map-marker teleport. Captured game metadata exposes the pitch field with a lowercase name, while the trainer expected "Pitch". The corrected conversion reads valid rotation values and preserves their reflected field names when passing the rotation to the game's travel function.
+
+The trainer still checks all three angles and refuses missing, malformed or non-finite rotation data. Ground, slope, clearance, player ownership, streaming and one-attempt Auto teleport checks remain in place. It does not substitute a guessed or zero rotation.
+
+Close Dawnwalker, open the new HappyCheats client and choose Install / update to install trainer 0.3.3. Relaunch the game and place a fresh custom marker. Manual teleport uses F7 / Menu+Y; Auto teleport uses NumPad4 / Menu+X.
+
+Validation: captured reflection metadata and pinned loader source inspection, offline regression fixtures for manual and automatic travel, and the full release checks. Actual in-game travel and second-PC connectivity remain unverified. Both the signed LAN update and complete standalone EXE include the fix.

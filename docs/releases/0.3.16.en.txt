@@ -1,0 +1,17 @@
+HappyCheats 0.3.16 — initial Crimson Desert Steam trainer
+
+Adds a real native Crimson Desert module and bundled trainer 0.1.0 for Steam build 25477059 / executable 1.0.0.2976, pinned to the inspected executable SHA-256.
+
+Implemented controls: Unlimited health (F1), Unlimited stamina (F2), One-hit kill (F3, amplified outgoing player health damage), Unlimited spirit (F4), and character movement speed (0.25x–3x; 1x restores normal speed). One-hit damage does not bypass scripted invulnerability or boss phase protection. Spirit is the resource requested as heroism.
+
+Teleport to map marker and Unlimited item usage are NOT implemented in this initial release. Their rows are explicitly unavailable and commands are rejected. Marker validity, safe placement/streaming and consumption-only inventory semantics still need investigation. This release does not complete all seven requested controls.
+
+Close the game, choose Install / update, start Crimson Desert yourself, load gameplay, then choose Connect trainer. Passive discovery never injects a DLL. All controls start off. F10 disables all. Keep Crimson Desert selected in HappyCheats; losing its matching connection lease for five seconds disables the controls and restores normal movement speed. The DLL remains loaded until the game exits. No proxy loader or game executable replacement is installed. The installer preserves foreign/modified files and supports rollback.
+
+Validation scope: exact executable hash, unique signatures, disassembled player identity/stat layouts and player-only movement chain; offline binary-parser, native behavior, actual MinHook fixture, installer/protocol and existing client/payload regression tests; unsupported-fixture DLL startup rejection; both distribution formats and configured LAN feed verification. No Crimson Desert game was launched, no trainer was injected into it, no gameplay cheat was activated, and no saves were edited. Actual gameplay effects, character switching, marker teleport and second-PC connectivity are unverified.
+
+The verified player identity filter can reject secondary-character Mercenary bodies or ambiguous transitions. All-protagonist gameplay support is not established. Body changes disable all controls and restore 1x movement.
+
+Dawnwalker trainer 0.3.1 fixes teleport falsely rejecting nearby flat ground. The pinned loader misread packed collision flags, treating a normal ground hit as starting inside solid ground. The trainer now decodes the flags correctly; ground, slope, overlap, clearance, ownership and streaming checks remain. Errors identify the failing check. Flight collision reporting is corrected. Its 2,323 offline Lua checks pass; gameplay travel remains unverified. Close Dawnwalker, Install / update, relaunch and place a new custom marker. Distant unloaded terrain remains unsupported.
+
+Includes the fresh complete standalone EXE and signed LAN update with the same Crimson Desert and Dawnwalker payloads. Native dependency licenses and source provenance are bundled.

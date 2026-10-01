@@ -1,0 +1,13 @@
+HappyCheats 0.3.11
+
+- Update the experimental Dawnwalker trainer to 0.1.1 and fix the observed black-screen startup failure. The full rebuilt trainer now reaches the title screen in a user-authorized launch test.
+- Correct the loader profile: disable an unused script hook whose scan incorrectly matched the game's stack-cookie checker, along with other unused optional hooks. Retain the engine-tick and UObject ProcessEvent hooks required by the trainer.
+- Replace repeated whole-object player discovery with construction notifications and a bounded list of 16 candidates. If that list overflows, controls remain unavailable until the game restarts.
+- Use one game-thread timer instead of the asynchronous polling handoff, explicitly select the inspected Unreal Engine 5.5 family, and publish early startup status and first-poll diagnostics.
+- Preserve the existing health, stamina and blood top-ups, keyboard controls, controller shortcuts and companion overlay. Toggles start disabled. Map teleport remains unavailable.
+
+After updating HappyCheats, close Dawnwalker and choose Install / update for the game. Restart the game after installation; the trainer cannot discover a player created before its construction notification was registered.
+
+Offline validation: 375 Lua assertions passed (231 bindings, 92 startup/mailbox/hotkeys and 52 protocol), and the full C# test run passed. A packaged-settings guard verifies the required engine and hook profile and rejects 15 unsafe configuration variants. Checks cover candidate lifetime and ambiguity, overflow refusal, scheduling, startup status, command freshness and existing resource guards. They do not execute the real game's functions.
+
+Runtime validation: the complete rebuilt trainer reached the title screen on 26 September 2026. Its first game-thread poll ran and a fresh waiting-for-player status showed all toggles disabled. Steam later recorded a normal exit with code 0. No save was loaded and no cheat was activated. Actual resource behavior, physical controller use and overlay interaction over the game remain unverified; map teleport remains unavailable. Technical evidence is recorded in docs/dawnwalker-startup.md.

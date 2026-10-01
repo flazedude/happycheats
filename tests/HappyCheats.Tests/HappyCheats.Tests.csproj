@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><StartupObject>HappyCheats.Tests.Program</StartupObject><NoWarn>$(NoWarn);CA1416</NoWarn></PropertyGroup>
+  <ItemGroup><ProjectReference Include="../../src/HappyCheats.Core/HappyCheats.Core.csproj" /></ItemGroup>
+  <ItemGroup><Compile Include="../../src/HappyCheats.App/ControllerInput.cs" Link="ControllerInput.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="../../src/HappyCheats.Updater/UpdateInstaller.cs" Link="UpdateInstaller.cs" /></ItemGroup>
+</Project>

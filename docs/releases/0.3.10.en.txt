@@ -1,0 +1,9 @@
+HappyCheats 0.3.10
+
+- Update Stardew Valley's trainer to 0.1.1. Unlimited use items (F4) now preserves items when giving normal gifts to NPCs, including the last item in a stack.
+- Keep normal gift acceptance, friendship effects and daily/weekly gift limits. Special quest hand-ins, machine inputs, shopping, shipping, inventory transfers, fishing bait and tackle remain excluded.
+- Preserve existing unlimited direct use, eating, planting and placing behavior. English and Chinese descriptions now explain gift support and its limits.
+
+After updating HappyCheats, close Stardew Valley, select it in the launcher and choose Install / update. Launch the game again and enable Unlimited use items before gifting.
+
+Offline validation: the trainer compiled without warnings against the installed game assemblies. The Harmony harness passed 50 assertions across all 10 patched methods, including item stacks of one and three, normal consumption when disabled or unavailable, and preserving the six separate special quest consumption paths. Actual in-game gifting and second-PC connectivity remain unverified. No game was launched or save edited.

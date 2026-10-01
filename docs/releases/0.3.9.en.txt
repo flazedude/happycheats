@@ -1,0 +1,8 @@
+HappyCheats 0.3.9
+
+- Fix the library turning white behind the Updates dialog in dark mode. The library now uses the selected theme while disabled, instead of the Windows default disabled ListBox background and text colors.
+- Keep game selection locked while Updates is open, with a subtle dimmed appearance. Closing Updates restores the normal library state without changing the selected game.
+- Preserve scrolling, touch panning, selection and keyboard focus indicators in the themed library.
+- Add an automated UI regression check that opens the actual Updates dialog and inspects its disabled owner, rather than checking the dialog in isolation.
+
+Validation: reproduce the old disabled-library failure; check actual Updates open/close cycles in English/Chinese, dark/light themes and desktop/handheld layouts; run release test suites, packaged-client smoke checks and signed LAN download verification. Physical handheld touch, gameplay and second-PC connectivity were not tested. Trainer payloads are unchanged. No games were launched or saves edited.

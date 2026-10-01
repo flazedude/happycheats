@@ -1,0 +1,11 @@
+HappyCheats 0.3.6
+
+- Add experimental The Blood of Dawnwalker support for Windows Steam build 25232147: maintain health, stamina and blood, plus one-shot health/stamina refill.
+- Use reflected native resource setters. Replenishment is periodic, not invincibility; lethal hits can still kill. Toggles reset on player/world changes and start disabled.
+- Filling the blood bar also restores damaged blood segments through the game's native behavior; those changes may persist in normal saves.
+- Add Dawnwalker Xbox shortcuts: hold Menu, then D-pad up/right/down/left for health/stamina/refill/blood, LB to disable all and RB to show the overlay. Preserve the existing Onimusha profile.
+- Add a non-activating companion overlay for windowed/borderless play, toggled with F6 or Menu+RB. Keep HappyCheats open with Dawnwalker selected.
+- Bundle the new UE4SS/Lua payload in both the signed LAN update and complete standalone EXE, with exact-build checks, ownership-preserving installation and session-checked commands.
+- Investigate map-pin teleport: the shipped DebugTeleportPlayer entry point is a disabled stub, so teleport is not exposed.
+
+Validation uses read-only inspection of the installed game, offline runtime/protocol/installer/controller checks and packaged-client UI smoke checks. Game loader startup, actual gameplay effects, physical gamepad use and connectivity from another PC have not been verified. Close Dawnwalker before using Install / update, then launch and load a save. No game saves were edited or games launched by this work.

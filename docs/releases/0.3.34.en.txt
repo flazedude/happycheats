@@ -1,0 +1,9 @@
+HappyCheats 0.3.34 — Witcher 3 command connection repair
+
+Witcher 3 trainer 0.1.1 puts command and connection files under content/content0/happycheats_witcher3. The game's LoadCSVDirect reader uses this physical content directory; the previous mod-content location did not reach that reader. The installer supports the previous ownership receipt and preserves unrelated game files.
+
+Clicking a control now queues its command immediately. Returning to HappyCheats no longer prevents an acknowledgement from completing, and a paused game's current-session status no longer expires after four seconds. Available buttons keep their normal Turn on / Turn off labels; an outstanding command says Queued. Commands are sent once, and missing command files produce a specific repair message.
+
+Close The Witcher 3 and choose Install / update once to apply trainer 0.1.1, then start the game normally and load Geralt. Keep the Witcher page open for continuous effects. If switching windows pauses the game, resume gameplay to process the queued command.
+
+Validation was limited to the affected command flow, Witcher UI, installer migration, payload checks and packaged-client release smoke check. The signed LAN update and standalone EXE both include the repair. Native code inspection established the command path; live command acknowledgement and cheat effects after this change remain unverified. No game or save was opened for testing.

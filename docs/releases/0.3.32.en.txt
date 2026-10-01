@@ -1,0 +1,11 @@
+HappyCheats 0.3.32
+
+Fixes Witcher 3 controls getting stuck on Please wait / waiting for a fresh heartbeat when switching to HappyCheats pauses the game.
+The client now identifies background pause, keeps the last validated same-process session available for choosing a control, and shows Game paused / Return to game. Select a control, then return to active gameplay within 60 seconds. The client waits for advancing game time and a fresh heartbeat before it sends anything.
+Commands retain their short in-game expiry and are sent only once. Game/session changes cancel the request. A resume timeout sends no command; missing acknowledgements never automatically repeat currency or progression grants. Brief incomplete status writes no longer cause an immediate false session-change error.
+
+Client-only fix: Witcher trainer payload 0.1.0 is unchanged. Existing installations do not need a trainer reinstall or a game restart when using the new standalone EXE. Close the old HappyCheats client first. The normal in-app updater still requires supported games to be closed.
+Both the signed LAN update and freshly built complete standalone EXE include the fix.
+
+Validation: observed the installed script's real ready heartbeat with all effects off and the heartbeat stopping while the game was in the background; the user confirmed pause on focus loss. A live non-mutating probe timed out without publishing a command because the game remained paused. Deterministic protocol tests cover paused/resumed delivery, session changes, exact-once publication, lost acknowledgements, and wall-clock deadlines. Installer, UI and full regression checks passed. Standalone packaging and hosted download checks are recorded separately.
+Actual cheat effects and the resumed live acknowledgement path have not been verified. No game saves or pause settings were edited. Second-PC connectivity was not tested.

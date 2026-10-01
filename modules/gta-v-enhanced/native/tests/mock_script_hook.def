@@ -1,0 +1,3 @@
+LIBRARY ScriptHookV.dll
+EXPORTS
+    ?nativeInit@@YAX_K@Z=MockNativeInit

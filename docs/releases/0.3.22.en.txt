@@ -1,0 +1,11 @@
+HappyCheats 0.3.22 — Red Dead Redemption 2 Story Mode menu
+
+Adds experimental RDR2 trainer 0.1.0 to the library, with English/Chinese controls for health, stamina, Dead Eye, infinite clip, horse health, horse stamina and one-shot wanted clearing. Requires executable 1.0.1491.50, ScriptHookRDR2 and its dinput8.dll ASI loader. The runtime/loader must be obtained separately from the author; existing mods and game files are preserved. Use the HappyCheats buttons; this initial payload has no keyboard shortcuts or in-game overlay.
+
+Official Red Dead Online is not supported. ScriptHookRDR2 does not support multiplayer and closes RDR2 when entering it; the HappyCheats payload also rejects online sessions. This release does not fulfill Online cheat functionality.
+
+Toggles start off and reset when player/session readiness is lost. Horse controls apply to the active living mount. Health refills do not guarantee survival of lethal damage. Infinite clip does not grant reserve ammo; wanted clearing does not promise removal of regional bounties. Normal saves may retain gameplay changes.
+
+The signed LAN update and fresh complete standalone EXE both include the RDR2 module and newly compiled ASI payload. Close RDR2, install the loader prerequisites, then select Install / update in HappyCheats and load Story Mode. Other trainer payloads are unchanged.
+
+Validation is offline: native command and state-machine fixtures, unsupported-host and loader-ABI checks, installer ownership and protocol tests, bilingual UI checks and packaged-client smoke checks. The installed Steam build 13773296 / executable 1.0.1491.50 was inspected read-only. No game was launched or injected into, no trainer was installed into the real game, and no saves were changed. Actual gameplay, loader startup in RDR2, other-mod interactions and second-PC LAN connectivity remain unverified. See docs/rdr2.md.

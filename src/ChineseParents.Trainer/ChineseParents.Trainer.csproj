@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <AssemblyName>HappyCheats.ChineseParents</AssemblyName>
+    <RootNamespace>HappyCheats.ChineseParents</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <Version>0.1.0</Version>
+    <GameDirectory Condition="'$(GameDirectory)' == ''">E:\Games\SteamLibrary\steamapps\common\ChineseParent</GameDirectory>
+    <BepInExDirectory Condition="'$(BepInExDirectory)' == ''">$(MSBuildThisFileDirectory)..\..\.tools\bepinex\5.4.23.5\extracted\BepInEx</BepInExDirectory>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="BepInEx"><HintPath>$(BepInExDirectory)\core\BepInEx.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameDirectory)\game_Data\Managed\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine"><HintPath>$(GameDirectory)\game_Data\Managed\UnityEngine.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.InputLegacyModule"><HintPath>$(GameDirectory)\game_Data\Managed\UnityEngine.InputLegacyModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Newtonsoft.Json"><HintPath>$(GameDirectory)\game_Data\Managed\Newtonsoft.Json.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+  <Target Name="CheckGameReferences" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('$(GameDirectory)\game_Data\Managed\Assembly-CSharp.dll')" Text="Set GameDirectory to your installed Chinese Parents folder." />
+    <Error Condition="!Exists('$(BepInExDirectory)\core\BepInEx.dll')" Text="Run tools/InspectChineseParents/Prepare-BepInEx.ps1 to fetch the pinned loader." />
+  </Target>
+</Project>
