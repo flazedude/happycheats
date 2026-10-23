@@ -80,12 +80,39 @@ function Assert-HcReleaseSource {
     return $hcCommit
 }
 
+function Get-HcGitHubRelease {
+    param([Net.Http.HttpClient]$Client, [string]$Repository, [string]$Version, [long]$ReleaseId)
+    if ($ReleaseId) {
+        $hcRelease = Invoke-HcGitHub -Client $Client -Path "/repos/$Repository/releases/$ReleaseId" -AllowNotFound
+        if (!$hcRelease) { throw 'Prepared GitHub release ID is no longer available.' }
+    } else {
+        $hcRelease = Invoke-HcGitHub -Client $Client -Path "/repos/$Repository/releases/tags/v$Version" -AllowNotFound
+        if (!$hcRelease) {
+            # The tag endpoint omits unpublished drafts, even for an authorized
+            # publisher. Discover retries in the authenticated, paginated list.
+            for ($hcPage = 1; ; $hcPage++) {
+                $hcReleases = @(Invoke-HcGitHub -Client $Client -Path "/repos/$Repository/releases?per_page=100&page=$hcPage" | Where-Object { $null -ne $_ })
+                $hcMatches = @($hcReleases | Where-Object tag_name -CEQ "v$Version")
+                if ($hcMatches.Count -gt 1) { throw 'Multiple GitHub drafts use this release tag; resolve the conflicting drafts before publishing.' }
+                if ($hcMatches.Count -eq 1) {
+                    $hcRelease = Invoke-HcGitHub -Client $Client -Path "/repos/$Repository/releases/$($hcMatches[0].id)" -AllowNotFound
+                    if (!$hcRelease) { throw 'Listed GitHub release disappeared before it could be verified.' }
+                    break
+                }
+                if ($hcReleases.Count -lt 100) { break }
+            }
+        }
+    }
+    if ($hcRelease -and $hcRelease.tag_name -cne "v$Version") { throw 'GitHub release ID or lookup returned a different version tag.' }
+    return $hcRelease
+}
+
 function Assert-HcGitHubPreflight {
-    param([Net.Http.HttpClient]$Client, [string]$Repository, [string]$Version, [string]$SourceCommit)
+    param([Net.Http.HttpClient]$Client, [string]$Repository, [string]$Version, [string]$SourceCommit, [long]$ReleaseId)
     if ($Repository -cnotmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$' -or $Version -cnotmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$') { throw 'Invalid repository or release version.' }
     $hcRepo = Invoke-HcGitHub -Client $Client -Path "/repos/$Repository"
     if ($hcRepo.private -or $hcRepo.archived -or !$hcRepo.permissions.push) { throw 'GitHub releases require a public, writable, unarchived repository. No visibility change is made by this script.' }
-    $hcRelease = Invoke-HcGitHub -Client $Client -Path "/repos/$Repository/releases/tags/v$Version" -AllowNotFound
+    $hcRelease = Get-HcGitHubRelease -Client $Client -Repository $Repository -Version $Version -ReleaseId $ReleaseId
     if ($hcRelease -and !$hcRelease.draft) { throw "GitHub v$Version is already published; immutable releases cannot be overwritten." }
     if ($hcRelease -and $SourceCommit -and $hcRelease.target_commitish -cne $SourceCommit) { throw 'Existing draft belongs to a different source commit.' }
     $hcLatest = Invoke-HcGitHub -Client $Client -Path "/repos/$Repository/releases/latest" -AllowNotFound

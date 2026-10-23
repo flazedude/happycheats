@@ -87,11 +87,12 @@ try {
     Assert-HcRejected { Assert-HcGitHubAsset -Client $null -Repository 'example/happycheats' -Asset $hcAsset -Path $hcExePath } 'incomplete upload cannot pass verification'
 
     # API responses are fully in-memory; these tests never access GitHub or credentials.
-    function Invoke-HcGitHub { param($Client, $Method, $Path, $Body, [switch]$AllowNotFound) return $script:hcApiFixtures[$Path] }
+    function Invoke-HcGitHub { param($Client, $Method, $Path, $Body, [switch]$AllowNotFound) $script:hcApiCalls.Add($Path); return $script:hcApiFixtures[$Path] }
     $hcRepoPath = '/repos/example/happycheats'
     $script:hcApiFixtures = @{}
+    $script:hcApiCalls = [Collections.Generic.List[string]]::new()
     $script:hcApiFixtures[$hcRepoPath] = [pscustomobject]@{ private=$false; archived=$false; permissions=@{push=$true} }
-    $hcDraft = [pscustomobject]@{ draft=$true; target_commitish=('a'*40); id=123 }
+    $hcDraft = [pscustomobject]@{ draft=$true; target_commitish=('a'*40); id=123; tag_name='v0.0.1'; assets=@() }
     $script:hcApiFixtures["$hcRepoPath/releases/tags/v0.0.1"] = $hcDraft
     $hcActualDraft = Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -SourceCommit ('a'*40)
     Assert-HcTest ($hcActualDraft.id -eq 123) 'matching interrupted draft can resume'
@@ -108,6 +109,30 @@ try {
     $script:hcApiFixtures.Remove("$hcRepoPath/releases/latest")
     $script:hcApiFixtures["$hcRepoPath/git/ref/tags/v0.0.1"] = [pscustomobject]@{object=@{type='commit';sha=('b'*40)}}
     Assert-HcRejected { Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -SourceCommit ('a'*40) } 'conflicting remote tag rejected'
+    $script:hcApiFixtures.Remove("$hcRepoPath/git/ref/tags/v0.0.1")
+
+    # A draft is invisible at /releases/tags but is visible in list/by-ID responses.
+    $script:hcApiFixtures.Remove("$hcRepoPath/releases/tags/v0.0.1")
+    $script:hcApiFixtures["$hcRepoPath/releases?per_page=100&page=1"] = @($hcDraft)
+    $script:hcApiFixtures["$hcRepoPath/releases/123"] = $hcDraft
+    $hcDiscovered = Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -SourceCommit ('a'*40)
+    Assert-HcTest ($hcDiscovered.id -eq 123) 'tag 404 discovers existing authenticated draft for retry'
+    $hcDraft.assets = @([pscustomobject]@{name='latest.json';state='uploaded'})
+    $script:hcApiCalls.Clear()
+    $hcRefreshed = Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -SourceCommit ('a'*40) -ReleaseId 123
+    Assert-HcTest ($hcRefreshed.assets.Count -eq 1 -and !$script:hcApiCalls.Contains("$hcRepoPath/releases/tags/v0.0.1")) 'post-upload refresh uses stable ID and sees prepared assets'
+    $script:hcApiFixtures["$hcRepoPath/releases?per_page=100&page=1"] = @(1..100 | ForEach-Object { [pscustomobject]@{id=(1000+$_);tag_name="v9.0.$_";draft=$false} })
+    $script:hcApiFixtures["$hcRepoPath/releases?per_page=100&page=2"] = @($hcDraft)
+    $hcPaginated = Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -SourceCommit ('a'*40)
+    Assert-HcTest ($hcPaginated.id -eq 123) 'draft discovery follows later release pages'
+    $hcDraft.tag_name = 'v0.0.2'
+    Assert-HcRejected { Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -SourceCommit ('a'*40) -ReleaseId 123 } 'refreshed ID cannot silently switch release tags'
+    $hcDraft.tag_name = 'v0.0.1'; $hcDraft.draft = $false
+    Assert-HcRejected { Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -SourceCommit ('a'*40) -ReleaseId 123 } 'draft published concurrently is rejected on refresh'
+    $hcDraft.draft = $true; $hcDraft.target_commitish = 'b'*40
+    Assert-HcRejected { Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -SourceCommit ('a'*40) -ReleaseId 123 } 'refreshed draft source drift rejected'
+    $script:hcApiFixtures.Remove("$hcRepoPath/releases/123")
+    Assert-HcRejected { Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -SourceCommit ('a'*40) -ReleaseId 123 } 'missing prepared release ID fails explicitly'
 
     # Mock Git at the process boundary: push chatter must never enter the returned SHA.
     $script:hcGitDirty = $false; $script:hcGitPushFails = $false; $script:hcPushCount = 0

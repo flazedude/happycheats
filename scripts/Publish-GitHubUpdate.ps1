@@ -39,7 +39,7 @@ try {
         if ($hcExisting.Count -eq 1 -and $hcExisting[0].state -eq 'starter') {
             # GitHub may retain an empty starter after a failed upload. Only this
             # uncompleted asset in the same verified draft may be removed on retry.
-            $hcCurrentDraft = Assert-HcGitHubPreflight -Client $hcClient -Repository $GitHubRepository -Version $Version -SourceCommit $hcStage.commit
+            $hcCurrentDraft = Assert-HcGitHubPreflight -Client $hcClient -Repository $GitHubRepository -Version $Version -SourceCommit $hcStage.commit -ReleaseId $hcRelease.id
             if (!$hcCurrentDraft -or $hcCurrentDraft.id -ne $hcRelease.id) { throw 'Draft changed while resuming the interrupted upload.' }
             $null = Invoke-HcGitHub -Client $hcClient -Method DELETE -Path "/repos/$GitHubRepository/releases/assets/$($hcExisting[0].id)"
             $hcExisting = @()
@@ -53,7 +53,7 @@ try {
     }
     $null = Get-HcReleaseStage -Directory $ReleaseDirectory -Version $Version -Repository $GitHubRepository
     $null = Assert-HcReleaseSource -Root $hcRoot -Repository $GitHubRepository -ExpectedCommit $hcStage.commit
-    $hcRelease = Assert-HcGitHubPreflight -Client $hcClient -Repository $GitHubRepository -Version $Version -SourceCommit $hcStage.commit
+    $hcRelease = Assert-HcGitHubPreflight -Client $hcClient -Repository $GitHubRepository -Version $Version -SourceCommit $hcStage.commit -ReleaseId $hcRelease.id
     if (!$hcRelease) { throw 'Prepared GitHub draft disappeared.' }
     foreach ($hcFile in $hcUploads) {
         $hcName = [IO.Path]::GetFileName($hcFile.path)
