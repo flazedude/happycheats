@@ -10,6 +10,7 @@ namespace HappyCheats.Core;
 
 public sealed class StardewModule(string baseDirectory) : IGameModule, IFeatureValueModule
 {
+    public IReadOnlyList<string> GameExecutables { get; } = [SmapiExecutable, Executable];
     public const string Executable = "Stardew Valley.exe";
     public const string SmapiExecutable = "StardewModdingAPI.exe";
     public const string BridgeRoot = "Mods/HappyCheats.StardewValley/bridge/";

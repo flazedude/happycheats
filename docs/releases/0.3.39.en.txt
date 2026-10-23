@@ -1,0 +1,7 @@
+HappyCheats 0.3.39 — Ctrl+Del menu shortcut
+
+Changes the shared in-game menu toggle from Ctrl+Home to Ctrl+Del (the Delete key) for all games. Ctrl+Del shows or hides the menu. Updates the English/Chinese client labels, menu hints and current instructions. Ctrl+Home no longer toggles the shared menu. Dawnwalker's existing F6 and Menu+RB shortcuts remain available.
+
+This is a client-only change; trainer payloads and cheat behavior are unchanged, and no trainer reinstall is needed. Keep HappyCheats running with the game selected, in windowed or borderless mode.
+
+Validation: offline shortcut mapping, held-key/focus checks, shared-menu and client regressions, release tests, signed hosted-download verification and standalone preview smoke check. No game was launched or save changed. Actual gameplay and second-PC LAN connectivity remain unverified.

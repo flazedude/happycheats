@@ -1,6 +1,7 @@
 -- HappyCheats bridge protocol. No command is evaluated as Lua or shell code.
 local P = {}
-local actions = {resource_collection_10x=true, set_collection_multiplier=true, unlimited_oxygen=true, unlimited_power=true,
+local actions = {resource_collection_10x=true, set_collection_multiplier=true, set_run_speed_multiplier=true,
+    invulnerability=true, player_run_speed=true, unlimited_oxygen=true, unlimited_power=true,
     unlimited_soil=true, add_bytes=true, disable_all=true}
 function P.parse(text, session, now)
     if type(text) ~= "string" or #text > 2048 then return nil, "Invalid trainer command." end
@@ -26,12 +27,17 @@ function P.parse(text, session, now)
     end
     if fields.enabled ~= "0" and fields.enabled ~= "1" then return nil, "Invalid trainer toggle state." end
     if fields.action == "set_collection_multiplier" then
-        if fields.enabled ~= "0" or (fields.multiplier ~= "10" and fields.multiplier ~= "20") then
-            return nil, "Select a collection multiplier of 10 or 20 without enabling the toggle."
+        if fields.enabled ~= "0" or (fields.multiplier ~= "10" and fields.multiplier ~= "20" and fields.multiplier ~= "100") then
+            return nil, "Select a collection multiplier of 10, 20 or 100 without enabling the toggle."
+        end
+        fields.multiplier = tonumber(fields.multiplier)
+    elseif fields.action == "set_run_speed_multiplier" then
+        if fields.enabled ~= "0" or (fields.multiplier ~= "3" and fields.multiplier ~= "5" and fields.multiplier ~= "10") then
+            return nil, "Select a run speed multiplier of 3, 5 or 10 without enabling the toggle."
         end
         fields.multiplier = tonumber(fields.multiplier)
     elseif fields.multiplier ~= nil then
-        return nil, "Multiplier is only valid for the collection multiplier control."
+        return nil, "Multiplier is only valid for a multiplier selection control."
     end
     fields.enabled = fields.enabled == "1"
     return fields

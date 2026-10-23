@@ -10,6 +10,7 @@ namespace HappyCheats.App
     {
         private const ushort Menu = 0x0010;
         private const ushort View = 0x0020;
+        private const ushort RightBumper = 0x0200;
         private const ushort Y = 0x8000;
         private const ushort X = 0x4000;
         private static int passed;
@@ -20,6 +21,15 @@ namespace HappyCheats.App
             Run("Menu is the default modifier", DefaultModifier);
             Run("all six Onimusha shortcuts map exactly for both modifiers", AllMappings);
             Run("Onimusha is the default profile and unknown profiles are rejected", DefaultProfile);
+            Run("all profiles expose the shared menu while trainer actions are blocked", SharedMenuProfiles);
+            Run("shared profile never emits legacy cheat or page actions", SharedProfileOnlyMenu);
+            Run("trainer readiness cannot replay denied held actions", SeparateTrainerGate);
+            Run("menu denial consumes edges independently of trainer actions", SeparateMenuGate);
+            Run("shared menu rejects every simultaneous defined button edge", SharedMenuAmbiguity);
+            Run("shared menu requires modifier hold and a fresh bumper edge", SharedMenuHold);
+            Run("shared menu focus checkbox and reconnect transitions require neutral", SharedMenuTransitions);
+            Run("shared profile and modifier changes require fresh arming", SharedProfileTransitions);
+            Run("shared menu uses the first controller and disarms on slot changes", SharedMenuSlots);
             Run("Dawnwalker shortcuts map exactly for both modifiers", DawnwalkerMappings);
             Run("profile change requires full neutral and fresh arming", ProfileChange);
             Run("unchanged profile does not disarm", SameProfile);
@@ -70,9 +80,14 @@ namespace HappyCheats.App
 
             public string Poll(ushort buttons, long advance, bool allow)
             {
+                return Poll(buttons, advance, allow, allow);
+            }
+
+            public string Poll(ushort buttons, long advance, bool allowMenu, bool allowActions)
+            {
                 Now += advance;
                 Buttons[0] = buttons;
-                return Input.Poll(allow);
+                return Input.Poll(allowMenu, allowActions);
             }
 
             public void Neutral()
@@ -116,7 +131,7 @@ namespace HappyCheats.App
         private static void AllMappings()
         {
             ushort[] buttons = { 0x0001, 0x0008, 0x0002, 0x0004, 0x0100, 0x0200 };
-            string[] actions = { "unlimited_health", "auto_parry", "one_hit_stun", "stun_immunity", "disable_all", "hud" };
+            string[] actions = { "unlimited_health", "auto_parry", "one_hit_stun", "stun_immunity", "disable_all", "game_menu" };
             foreach (ushort modifier in new[] { Menu, View })
             {
                 for (int i = 0; i < buttons.Length; i++)
@@ -144,11 +159,182 @@ namespace HappyCheats.App
             }
         }
 
+        private static void SharedMenuProfiles()
+        {
+            foreach (string profile in new[] { "shared", "onimusha", "dawnwalker" })
+            foreach (ushort modifier in new[] { Menu, View })
+            {
+                Fixture f = new Fixture();
+                f.Input.Profile = profile.ToUpperInvariant();
+                Equal(profile, f.Input.Profile);
+                f.Input.Modifier = modifier == Menu ? "Menu" : "View";
+                f.Connected[0] = true;
+                Equal(null, f.Poll(0, 0, true, false));
+                Equal(null, f.Poll(modifier, 1, true, false));
+                Equal(null, f.Poll(modifier, 350, true, false));
+                Equal("game_menu", f.Poll((ushort)(modifier | RightBumper), 1, true, false));
+                Equal(null, f.Poll((ushort)(modifier | RightBumper), 1000, true, false));
+                Equal(null, f.Poll(modifier, 1, true, false));
+                Equal("game_menu", f.Poll((ushort)(modifier | RightBumper), 1, true, false));
+                Check(f.Input.DawnwalkerPage == 0, "Shared menu changed the legacy page");
+            }
+        }
+
+        private static void SharedProfileOnlyMenu()
+        {
+            foreach (ushort modifier in new[] { Menu, View })
+            {
+                Fixture f = new Fixture(); f.Input.Profile = "shared";
+                f.Input.Modifier = modifier == Menu ? "Menu" : "View";
+                f.Neutral(); f.Arm(modifier);
+                foreach (ushort button in new ushort[] { 1, 2, 4, 8, 0x40, 0x80, 0x100, 0x1000, 0x2000, X, Y,
+                    modifier == Menu ? View : Menu })
+                {
+                    Equal(null, f.Poll((ushort)(modifier | button), 1, true));
+                    Equal(null, f.Poll((ushort)(modifier | button), 1000, true));
+                    Equal(null, f.Poll(modifier, 1, true));
+                }
+                Check(f.Input.DawnwalkerPage == 0, "Shared profile dispatched legacy page action");
+                Equal("game_menu", f.Poll((ushort)(modifier | RightBumper), 1, true));
+            }
+        }
+
+        private static void SeparateTrainerGate()
+        {
+            foreach (string profile in new[] { "onimusha", "dawnwalker" })
+            {
+                Fixture f = new Fixture(); f.Input.Profile = profile;
+                f.Neutral(); f.Arm(Menu);
+                Equal(null, f.Poll(Menu | 1, 1, true, false));
+                Equal(null, f.Poll(Menu | 1, 1000, true, true));
+                Equal(null, f.Poll(Menu, 1, true, true));
+                Equal(profile == "onimusha" ? "unlimited_health" : "dawnwalker_health",
+                    f.Poll(Menu | 1, 1, true, true));
+                Equal(null, f.Poll(Menu | View, 1, true, false));
+                Equal(null, f.Poll(Menu | View, 1000, true, true));
+                Check(f.Input.DawnwalkerPage == 0, "Readiness replayed a denied page chord");
+                Equal(null, f.Poll(Menu, 1, true, false));
+                Equal("game_menu", f.Poll(Menu | RightBumper, 1, true, false));
+            }
+        }
+
+        private static void SeparateMenuGate()
+        {
+            foreach (string profile in new[] { "shared", "onimusha", "dawnwalker" })
+            {
+                Fixture f = new Fixture(); f.Input.Profile = profile;
+                f.Neutral(); f.Arm(Menu);
+                Equal(null, f.Poll(Menu | RightBumper, 1, false, true));
+                Equal(null, f.Poll(Menu | RightBumper, 1000, true, true));
+                Equal(null, f.Poll(Menu, 1, true, true));
+                Equal("game_menu", f.Poll(Menu | RightBumper, 1, true, true));
+                Equal(null, f.Poll(Menu, 1, false, true));
+                Equal(profile == "shared" ? null : profile == "onimusha" ? "unlimited_health" : "dawnwalker_health",
+                    f.Poll(Menu | 1, 1, false, true));
+            }
+        }
+
+        private static void SharedMenuAmbiguity()
+        {
+            foreach (string profile in new[] { "shared", "onimusha", "dawnwalker" })
+            foreach (ushort modifier in new[] { Menu, View })
+            foreach (ushort button in new ushort[] { 1, 2, 4, 8, 0x40, 0x80, 0x100, 0x1000, 0x2000, X, Y,
+                modifier == Menu ? View : Menu })
+            {
+                Fixture f = new Fixture(); f.Input.Profile = profile;
+                f.Input.Modifier = modifier == Menu ? "Menu" : "View";
+                f.Neutral(); f.Arm(modifier);
+                Equal(null, f.Poll((ushort)(modifier | RightBumper | button), 1, true));
+                Equal(null, f.Poll((ushort)(modifier | RightBumper), 1000, true));
+                Equal(null, f.Poll(modifier, 1, true));
+                Equal("game_menu", f.Poll((ushort)(modifier | RightBumper), 1, true));
+            }
+        }
+
+        private static void SharedMenuHold()
+        {
+            Fixture f = new Fixture(); f.Input.Profile = "shared";
+            f.Neutral();
+            Equal(null, f.Poll(Menu, 1, true, false));
+            Equal(null, f.Poll(Menu | RightBumper, 349, true, false));
+            Equal(null, f.Poll(Menu | RightBumper, 1000, true, false));
+            Equal(null, f.Poll(Menu, 1, true, false));
+            Equal("game_menu", f.Poll(Menu | RightBumper, 1, true, false));
+            Equal(null, f.Poll(RightBumper, 1, true, false));
+            Equal(null, f.Poll(Menu | RightBumper, 1, true, false));
+            Equal(null, f.Poll(Menu | RightBumper, 1000, true, false));
+            Equal(null, f.Poll(Menu, 1, true, false));
+            Equal("game_menu", f.Poll(Menu | RightBumper, 1, true, false));
+        }
+
+        private static void SharedMenuTransitions()
+        {
+            Fixture f = new Fixture(); f.Input.Profile = "shared"; f.Connected[0] = true;
+            Equal(null, f.Poll(Menu | RightBumper, 0, true, false));
+            Equal(null, f.Poll(Menu | RightBumper, 1000, true, false));
+            f.Neutral(); f.Arm(Menu);
+            // Both a foreground denial and an unchecked controller setting use
+            // the all-disabled gate and require a full release before rearming.
+            for (int transition = 0; transition < 3; transition++)
+            {
+                if (transition == 2)
+                {
+                    f.Connected[0] = false;
+                    Equal(null, f.Input.Poll(true, false));
+                    Check(!f.Input.Connected, "Disconnect was not reported");
+                    f.Connected[0] = true;
+                }
+                else Equal(null, f.Poll(Menu | RightBumper, 1, false, false));
+                Equal(null, f.Poll(Menu | RightBumper, 1000, true, false));
+                Equal(null, f.Poll(Menu, 1, true, false));
+                Equal(null, f.Poll(Menu | RightBumper, 1000, true, false));
+                f.Neutral(); f.Arm(Menu);
+                Equal("game_menu", f.Poll(Menu | RightBumper, 1, true, false));
+            }
+        }
+
+        private static void SharedProfileTransitions()
+        {
+            Fixture f = new Fixture(); f.Neutral(); f.Arm(Menu);
+            f.Input.Profile = "shared";
+            Equal(null, f.Poll(Menu | RightBumper, 1000, true, false));
+            Equal(null, f.Poll(Menu, 1, true, false));
+            Equal(null, f.Poll(Menu | RightBumper, 1000, true, false));
+            f.Neutral(); f.Arm(Menu);
+            f.Input.Profile = "SHARED"; // Repeated selection must not disarm it.
+            Equal("game_menu", f.Poll(Menu | RightBumper, 1, true, false));
+            f.Input.Modifier = "View";
+            Equal(null, f.Poll(View | RightBumper, 1000, true, false));
+            f.Neutral(); f.Arm(View);
+            Equal("game_menu", f.Poll(View | RightBumper, 1, true, false));
+        }
+
+        private static void SharedMenuSlots()
+        {
+            Fixture f = new Fixture(); f.Input.Profile = "shared";
+            f.Connected[2] = true;
+            Equal(null, f.Input.Poll(true, false));
+            Check(f.Input.Slot == 2, "First connected controller was not selected");
+            f.Buttons[2] = Menu; f.Now++; f.Input.Poll(true, false);
+            f.Now += 350; f.Input.Poll(true, false);
+            f.Buttons[2] = Menu | RightBumper;
+            Equal("game_menu", f.Input.Poll(true, false));
+            f.Connected[1] = true; f.Buttons[1] = Menu | RightBumper;
+            Equal(null, f.Input.Poll(true, false));
+            Check(f.Input.Slot == 1, "Lower connected controller did not take priority");
+            f.Now += 1000; Equal(null, f.Input.Poll(true, false));
+            f.Buttons[1] = 0; f.Input.Poll(true, false);
+            f.Buttons[1] = Menu; f.Now++; f.Input.Poll(true, false);
+            f.Now += 350; f.Input.Poll(true, false);
+            f.Buttons[1] = Menu | RightBumper;
+            Equal("game_menu", f.Input.Poll(true, false));
+        }
+
         private static void DawnwalkerMappings()
         {
             ushort[] buttons = { 0x0001, 0x0008, 0x0002, 0x0004, 0x0100, 0x0200, Y, X };
             string[] actions = { "dawnwalker_health", "dawnwalker_stamina", "dawnwalker_refill", "dawnwalker_blood",
-                "disable_all", "hud", "dawnwalker_teleport", "dawnwalker_auto_teleport" };
+                "disable_all", "game_menu", "dawnwalker_teleport", "dawnwalker_auto_teleport" };
             foreach (ushort modifier in new[] { Menu, View })
             {
                 for (int i = 0; i < buttons.Length; i++)
@@ -238,7 +424,7 @@ namespace HappyCheats.App
                         Equal(null, f.Poll(modifier, 1, true));
                         Equal(expected[page][item], f.Poll((ushort)(modifier | keys[item]), 1, true));
                     }
-                    foreach (var shortcut in new[] { (Key: (ushort)0x100, Action: "disable_all"), (Key: (ushort)0x200, Action: "hud"), (Key: Y, Action: "dawnwalker_teleport"), (Key: X, Action: "dawnwalker_auto_teleport") })
+                    foreach (var shortcut in new[] { (Key: (ushort)0x100, Action: "disable_all"), (Key: (ushort)0x200, Action: "game_menu"), (Key: Y, Action: "dawnwalker_teleport"), (Key: X, Action: "dawnwalker_auto_teleport") })
                     {
                         Equal(null, f.Poll(modifier, 1, true));
                         Equal(shortcut.Action, f.Poll((ushort)(modifier | shortcut.Key), 1, true));
@@ -368,7 +554,7 @@ namespace HappyCheats.App
         private static void OnimushaYSimultaneousButtons()
         {
             ushort[] otherButtons = { 0x0001, 0x0008, 0x0002, 0x0004, 0x0100, 0x0200 };
-            string[] actions = { "unlimited_health", "auto_parry", "one_hit_stun", "stun_immunity", "disable_all", "hud" };
+            string[] actions = { "unlimited_health", "auto_parry", "one_hit_stun", "stun_immunity", "disable_all", "game_menu" };
             foreach (ushort modifier in new[] { Menu, View })
             {
                 for (int i = 0; i < otherButtons.Length; i++)
@@ -422,7 +608,7 @@ namespace HappyCheats.App
             f.Connected[0] = true;
             Equal(null, f.Poll(Menu | 0x0200, 1000, true));
             f.Neutral(); f.Arm(Menu);
-            Equal("hud", f.Poll(Menu | 0x0200, 1, true));
+            Equal("game_menu", f.Poll(Menu | 0x0200, 1, true));
         }
 
         private static void FocusGate()

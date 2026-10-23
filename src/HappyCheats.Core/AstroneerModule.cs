@@ -8,55 +8,77 @@ namespace HappyCheats.Core;
 
 public sealed class AstroneerModule(string baseDirectory) : IGameModule, IFeatureChoiceModule
 {
+    public IReadOnlyList<string> GameExecutables { get; } = [Executable];
     public const string Executable = "Astro/Binaries/Win64/Astro-Win64-Shipping.exe";
-    public const string SupportedExecutableHash = "E1764F108E51BB172148F3A4AC71AE38AC031D9ECEB41AD213E139A9CBA61F56";
+    public const string SupportedExecutableHash = "4A57B4B1AC64DEFA09EA6D6C987D5E513D79243A2B33AB05CBA099AD1E377675";
+    public const string Patch44ExecutableHash = "D4FA5EA711A12F3FE87E38F7D385AE4328B2EFC7D8C8B9B0BF495C20CAC54B27";
+    public const string LegacyExecutableHash = "E1764F108E51BB172148F3A4AC71AE38AC031D9ECEB41AD213E139A9CBA61F56";
     public const string BridgeRoot = "Astro/Binaries/Win64/ue4ss/Mods/HappyCheatsAstroneer/bridge/";
-    public const string TrainerVersion = "0.1.3";
+    public const string TrainerVersion = "0.3.1";
+    internal sealed record CompatibilityProfile(string GameVersion, string SteamBuild, string ExecutableSha256);
+    private static readonly CompatibilityProfile[] Profiles = {
+        new("1.43.2.0", "24409322", LegacyExecutableHash),
+        new("1.44.4", "25119744", Patch44ExecutableHash),
+        new("1.45.1", "25599237", SupportedExecutableHash)
+    };
     private readonly string package = Path.Combine(baseDirectory, "payload", "astroneer");
     private readonly SemaphoreSlim commandLock = new(1, 1);
     private readonly object inspectionLock = new();
-    private (string Path, long Length, DateTime Modified, bool Compatible)? inspected;
+    private (string Path, long Length, DateTime Modified, CompatibilityProfile? Profile)? inspected;
 
     public GameDefinition Definition { get; } = new("astroneer", "ASTRONEER", "SPACE EXPLORATION", "361420", "AS",
-        "Explore at your own pace. Choose 10× or 20× terrain resource collection, maintain oxygen and backpack power, and add research bytes. Experimental module; gameplay validation is pending.",
+        "Explore at your own pace. Choose terrain resource and running multipliers, prevent damage, maintain oxygen and backpack power, and add research bytes. Experimental module; gameplay validation is pending.",
         new FeatureDefinition[] {
-            new("resource_collection_10x", "Resource collection", "Choose 10× or 20× resource yield from terrain mining, then enable collection. Existing inventory transfers are unchanged.", "F1", true, "Resources",
-                new FeatureChoice[] { new("10", "10×"), new("20", "20×") }, "selected_collection_multiplier"),
+            new("resource_collection_10x", "Resource collection", "Choose 10×, 20× or 100× resource yield from terrain mining, then enable collection. Existing inventory transfers are unchanged.", "F1", true, "Resources",
+                new FeatureChoice[] { new("10", "10×"), new("20", "20×"), new("100", "100×") }, "selected_collection_multiplier"),
             new("unlimited_oxygen", "Unlimited oxygen", "Keep the local astronaut's oxygen supply full while enabled.", "F2", true, "Survival"),
             new("unlimited_power", "Unlimited backpack power", "Keep the local astronaut's backpack battery full while enabled.", "F3", true, "Survival"),
-            new("add_bytes", "Add 10,000 bytes", "Add 10,000 research bytes through the game's research system.", "F4", false, "Research")
+            new("add_bytes", "Add 10,000 bytes", "Add 10,000 research bytes through the game's research system.", "F4", false, "Research"),
+            new("invulnerability", "Invulnerability", "Block normal damage to the local astronaut while enabled. Forced-death events may still apply.", "F5", true, "Survival"),
+            new("player_run_speed", "Run speed", "Choose 3×, 5× or 10× on-foot running speed, then enable it. Other movement modes use normal speed; the selected rate resumes on foot. Disabling restores the original speed.", "F6", true, "Movement",
+                new FeatureChoice[] { new("3", "3×"), new("5", "5×"), new("10", "10×") }, "selected_run_speed_multiplier")
         });
 
-    private bool Compatible(string directory, bool force = false)
+    internal static CompatibilityProfile? ProfileForHash(string? hash) =>
+        Profiles.FirstOrDefault(profile => string.Equals(hash, profile.ExecutableSha256, StringComparison.OrdinalIgnoreCase));
+
+    internal static string InspectionMessage(CompatibilityProfile? profile, bool installed, bool matching)
+    {
+        if (profile == null) return "This ASTRONEER build needs a compatibility check.";
+        var evidence = $"ASTRONEER {profile.GameVersion} detected (inspected Steam build {profile.SteamBuild}). ";
+        return evidence + (installed
+            ? matching ? "Experimental ASTRONEER trainer installed. Gameplay validation is pending."
+                : "ASTRONEER trainer update required. Installed files differ from the current module."
+            : "Experimental trainer; gameplay validation is pending.");
+    }
+
+    private CompatibilityProfile? InspectCompatibility(string directory, bool force = false)
     {
         var path = SafePath(directory, Executable);
         var file = new FileInfo(path);
-        if (!file.Exists) return false;
+        if (!file.Exists) return null;
         lock (inspectionLock)
         {
             if (!force && inspected is { } previous && previous.Path == path && previous.Length == file.Length && previous.Modified == file.LastWriteTimeUtc)
-                return previous.Compatible;
-            var compatible = string.Equals(Hash(path), SupportedExecutableHash, StringComparison.OrdinalIgnoreCase);
-            inspected = (path, file.Length, file.LastWriteTimeUtc, compatible);
-            return compatible;
+                return previous.Profile;
+            var profile = ProfileForHash(Hash(path));
+            inspected = (path, file.Length, file.LastWriteTimeUtc, profile);
+            return profile;
         }
     }
 
     public Task<GameInstallation> DiscoverAsync(string? directory = null) => Task.Run(() => {
         try {
             var found = FindSteam(Definition.AppId, Executable, directory);
-            var compatible = Compatible(found.Directory);
+            var profile = InspectCompatibility(found.Directory);
             var installed = AstroneerInstaller.Installed(found.Directory);
             var matching = false;
             if (installed) {
                 try { matching = AstroneerInstaller.MatchesPackage(package, found.Directory); }
                 catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException) { }
             }
-            return new GameInstallation(found.Directory, found.Build, true, installed, Processes(found.Directory, Executable).Length > 0, compatible,
-                !compatible ? "This ASTRONEER build needs a compatibility check."
-                : installed ? matching ? "Experimental ASTRONEER trainer installed. Gameplay validation is pending."
-                    : "ASTRONEER trainer update required. Installed files differ from the current module."
-                : "ASTRONEER 1.43.2.0 detected. Experimental trainer; gameplay validation is pending.");
+            return new GameInstallation(found.Directory, found.Build, true, installed, Processes(found.Directory, Executable).Length > 0, profile != null,
+                InspectionMessage(profile, installed, matching));
         } catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException) {
             return new GameInstallation(directory ?? "", "", false, false, false, false, error.Message);
         }
@@ -68,7 +90,7 @@ public sealed class AstroneerModule(string baseDirectory) : IGameModule, IFeatur
     }
 
     public Task InstallAsync(GameInstallation installation, IProgress<string>? progress = null) => Task.Run(() => {
-        if (!installation.IsInstalled || !Compatible(installation.Directory, true)) throw new IOException("Unsupported ASTRONEER executable. Game files were preserved.");
+        if (!installation.IsInstalled || InspectCompatibility(installation.Directory, true) == null) throw new IOException("Unsupported ASTRONEER executable. Game files were preserved.");
         AstroneerInstaller.Install(package, installation.Directory, () => CheckClosed(installation.Directory), progress);
     });
 
@@ -89,8 +111,11 @@ public sealed class AstroneerModule(string baseDirectory) : IGameModule, IFeatur
     private Snapshot ReadSnapshot(GameInstallation installation)
     {
         if (!installation.IsInstalled) return new(TrainerStatus.Offline(installation.Message), false, "");
-        if (!installation.Compatible) return new(TrainerStatus.Offline("This ASTRONEER build needs a compatibility check."), false, "");
         try {
+            // Recheck executable metadata/hash instead of trusting a discovery
+            // snapshot retained across a Steam update or manual folder change.
+            if (InspectCompatibility(installation.Directory) == null)
+                return new(TrainerStatus.Offline("This ASTRONEER build needs a compatibility check."), false, "");
             var processes = Processes(installation.Directory, Executable);
             if (processes.Length != 1) return new(TrainerStatus.Offline("Launch ASTRONEER to connect."), false, "");
             var path = SafePath(installation.Directory, BridgeRoot + "status.json");
@@ -124,23 +149,29 @@ public sealed class AstroneerModule(string baseDirectory) : IGameModule, IFeatur
             Bools(Object(json, "enabled")), values, Text(json, "last_command")), Bool(json, "last_success"), Text(json, "last_message"));
     }
 
-    internal static readonly string[] FeatureIds = { "resource_collection_10x", "unlimited_oxygen", "unlimited_power", "add_bytes" };
+    internal static readonly string[] FeatureIds = { "resource_collection_10x", "unlimited_oxygen", "unlimited_power", "add_bytes", "invulnerability", "player_run_speed" };
 
     internal static string FormatCommand(TrainerStatus current, TrainerStatus requested, string action, bool? enabled, string requestId, long createdUtc, int? multiplier = null)
     {
-        if (!current.Connected || !current.Ready) throw new InvalidOperationException(current.Message.Length > 0 ? current.Message : "Load a world hosted on this PC before using ASTRONEER controls.");
+        if (!current.Connected || (!current.Ready && action != "disable_all")) throw new InvalidOperationException(current.Message.Length > 0 ? current.Message : "Load a world hosted on this PC before using ASTRONEER controls.");
         if (current.SessionId != requested.SessionId) throw new InvalidOperationException("ASTRONEER session changed. Reconnect before trying again.");
-        if (!FeatureIds.Contains(action) && action is not ("disable_all" or "set_collection_multiplier")) throw new ArgumentException("Unknown ASTRONEER trainer control.", nameof(action));
+        if (!FeatureIds.Contains(action) && action is not ("disable_all" or "set_collection_multiplier" or "set_run_speed_multiplier")) throw new ArgumentException("Unknown ASTRONEER trainer control.", nameof(action));
         if (!Regex.IsMatch(current.SessionId, "^[A-Za-z0-9_-]{8,128}$", RegexOptions.CultureInvariant) || !Guid.TryParseExact(requestId, "N", out _))
             throw new ArgumentException("Invalid ASTRONEER command identity.");
-        var availabilityId = action == "set_collection_multiplier" ? "resource_collection_10x" : action;
+        var availabilityId = action switch {
+            "set_collection_multiplier" => "resource_collection_10x",
+            "set_run_speed_multiplier" => "player_run_speed",
+            _ => action
+        };
         if (action != "disable_all" && (!current.Values.TryGetValue("available_" + availabilityId, out var available) || !string.Equals(available, "true", StringComparison.OrdinalIgnoreCase)))
             throw new InvalidOperationException("This ASTRONEER control is unavailable in the current game session.");
-        if (action is not ("disable_all" or "add_bytes" or "set_collection_multiplier") && !enabled.HasValue) throw new ArgumentException("An explicit toggle state is required.", nameof(enabled));
-        if (action is "disable_all" or "add_bytes" or "set_collection_multiplier" && enabled.HasValue) throw new ArgumentException("This action does not accept a toggle state.", nameof(enabled));
+        if (action is not ("disable_all" or "add_bytes" or "set_collection_multiplier" or "set_run_speed_multiplier") && !enabled.HasValue) throw new ArgumentException("An explicit toggle state is required.", nameof(enabled));
+        if (action is "disable_all" or "add_bytes" or "set_collection_multiplier" or "set_run_speed_multiplier" && enabled.HasValue) throw new ArgumentException("This action does not accept a toggle state.", nameof(enabled));
         if (action == "set_collection_multiplier") {
-            if (multiplier is not (10 or 20)) throw new ArgumentException("Choose a 10× or 20× resource collection multiplier.", nameof(multiplier));
-        } else if (multiplier.HasValue) throw new ArgumentException("This action does not accept a resource collection multiplier.", nameof(multiplier));
+            if (multiplier is not (10 or 20 or 100)) throw new ArgumentException("Choose a 10×, 20× or 100× resource collection multiplier.", nameof(multiplier));
+        } else if (action == "set_run_speed_multiplier") {
+            if (multiplier is not (3 or 5 or 10)) throw new ArgumentException("Choose a 3×, 5× or 10× run speed multiplier.", nameof(multiplier));
+        } else if (multiplier.HasValue) throw new ArgumentException("This action does not accept a multiplier.", nameof(multiplier));
         var command = $"schema_version=1\nsession_id={current.SessionId}\nrequest_id={requestId}\naction={action}\nenabled={(enabled == true ? "1" : "0")}\ncreated_utc={createdUtc.ToString(CultureInfo.InvariantCulture)}\n";
         return multiplier.HasValue ? command + "multiplier=" + multiplier.Value.ToString(CultureInfo.InvariantCulture) + "\n" : command;
     }
@@ -149,14 +180,24 @@ public sealed class AstroneerModule(string baseDirectory) : IGameModule, IFeatur
         SendCommandAsync(installation, status, featureId, enabled);
 
     public Task SelectAsync(GameInstallation installation, TrainerStatus status, string featureId, string choice) =>
-        SendCommandAsync(installation, status, "set_collection_multiplier", null, ChoiceMultiplier(featureId, choice));
+        SendCommandAsync(installation, status, ChoiceAction(featureId), null, ChoiceMultiplier(featureId, choice));
+
+    internal static string ChoiceAction(string featureId) => featureId switch {
+        "resource_collection_10x" => "set_collection_multiplier",
+        "player_run_speed" => "set_run_speed_multiplier",
+        _ => throw new ArgumentException("This ASTRONEER control does not support a multiplier selection.", nameof(featureId))
+    };
 
     internal static int ChoiceMultiplier(string featureId, string choice)
     {
-        if (featureId != "resource_collection_10x") throw new ArgumentException("This ASTRONEER control does not support a multiplier selection.", nameof(featureId));
+        _ = ChoiceAction(featureId);
+        if (featureId == "player_run_speed") return choice switch {
+            "3" => 3, "5" => 5, "10" => 10,
+            _ => throw new ArgumentException("Choose a 3×, 5× or 10× run speed multiplier.", nameof(choice))
+        };
         return choice switch {
-            "10" => 10, "20" => 20,
-            _ => throw new ArgumentException("Choose a 10× or 20× resource collection multiplier.", nameof(choice))
+            "10" => 10, "20" => 20, "100" => 100,
+            _ => throw new ArgumentException("Choose a 10×, 20× or 100× resource collection multiplier.", nameof(choice))
         };
     }
 

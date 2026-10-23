@@ -106,7 +106,7 @@ internal sealed class EldenRingSession : IDisposable
         {
             values["Health"] = Pair(state.Health, state.MaxHealth);
             values["FP"] = Pair(state.FP, state.MaxFP);
-            values["Stamina"] = Pair(state.Stamina, state.MaxStamina);
+            values["er_stamina_value"] = Pair(state.Stamina, state.MaxStamina);
         }
         return new TrainerStatus(true, state.Ready, state.Ready
             ? "Offline Elden Ring connected. Refills are experimental; keep this page open."

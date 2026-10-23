@@ -1,0 +1,9 @@
+HappyCheats 0.3.41 — Astroneer 100× collection
+
+Adds a 100× resource collection choice alongside 10× and 20× in both the Astroneer client controls and shared in-game menu. Choose a rate, then enable collection. Changing the rate while enabled applies to the next accepted terrain-resource fragment. Rates never stack; selecting a rate does not enable collection. Disabling collection preserves the selected rate, while a new gameplay session resets it to 10× with collection off. Existing inventory transfers are unchanged.
+
+Astroneer trainer 0.2.1 validates the same three values through the client, command protocol and runtime. Signed 32-bit overflow checks reject resource amounts that cannot be safely multiplied, including the 100× boundary. The existing game compatibility profiles and other trainer controls are unchanged.
+
+Close Astroneer and choose Install / update after updating HappyCheats. Both the signed LAN update and standalone EXE include the rebuilt trainer. Ctrl+Del and the shared Xbox shortcut (hold Menu for 350 ms, then tap RB) remain available; keep HappyCheats running and use windowed or borderless mode.
+
+Validation covers strict command values, 100× arithmetic and overflow boundaries, switching rates, disable/session behavior, acknowledgement handling, and English/Chinese client and menu layouts. Full offline release checks and packaged-client verification apply. No game was launched or save changed; actual 100× gameplay and second-PC LAN access remain unverified.

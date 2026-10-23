@@ -1,0 +1,9 @@
+HappyCheats 0.3.43 — Astroneer 1.45.1 compatibility
+
+Adds an exact compatibility profile for Astroneer 1.45.1 / Steam build 25599237 in trainer 0.3.1. The previous executable-hash check rejected this game update even though all nine installed trainer files were intact. Previously inspected 1.43.2.0 / 24409322 and 1.44.4 / 25119744 builds remain recognized; other executable hashes still require inspection.
+
+The six controls are unchanged: collection with 10× / 20× / 100× choices, oxygen, backpack power, a 10,000-byte grant, invulnerability, and run speed with independent 3× / 5× / 10× choices. Selection does not enable a toggle. Ctrl+Del and the shared Xbox shortcut (hold Menu for 350 ms, then tap RB) still open the companion menu; keep HappyCheats running and use windowed or borderless mode.
+
+Close Astroneer and choose Install / update after updating HappyCheats to install trainer 0.3.1. Both the signed LAN update and complete standalone EXE include the rebuilt trainer.
+
+Read-only inspection confirmed the installed Steam build and executable hash, and 50 native structural checks passed. Both complete DesignAstro Blueprint assets match the previously inspected build byte-for-byte, preserving the normal-damage gate, forced-death limitation and lifecycle code. Offline C# and Lua checks passed; the installed trainer's nine file hashes match the rebuilt payload, and discovery recognizes the updated game. Release-check results are recorded separately in docs/validation.md. No game was launched and no save was read or changed. Startup, cheat effects and menu operation on this game build, and second-PC LAN connectivity, remain unverified.

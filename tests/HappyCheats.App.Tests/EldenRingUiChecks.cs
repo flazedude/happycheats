@@ -122,6 +122,13 @@ internal static class EldenRingUiChecks
                     Check(main.LaunchLabel == "离线启动" && main.InstallLabel == "连接修改器" && main.RemoveLabel == "断开修改器", "Chinese action labels are missing");
                 }
                 else Check(main.Features.All(feature => feature.Name == feature.Definition.Name && feature.Description == feature.Definition.Description), "English labels differ from the module");
+                Check(Localization.ValueLabel("er_stamina_value") == (language == "en" ? "Stamina" : "精力")
+                    && Localization.ValueLabel("Stamina") == (language == "en" ? "Stamina" : "活力"),
+                    "Elden Ring resource localization must preserve the existing Witcher stamina label");
+                var resources = MainWindow.FormatValues(new Dictionary<string, string> { ["er_stamina_value"] = "30 / 90" });
+                Check(resources.Contains(language == "en" ? "Stamina" : "精力", StringComparison.Ordinal)
+                    && resources.Contains("30 / 90", StringComparison.Ordinal) && !resources.Contains("er_stamina_value", StringComparison.Ordinal),
+                    "the game-specific stamina key must render as a translated resource label");
                 var buttons = Descendants<Button>(main).Where(button => button.Tag is FeatureItem).ToArray();
                 Check(buttons.Length == 4 && buttons.All(button => button.IsEnabled), "four usable feature buttons must render");
                 if (artifacts != null) {

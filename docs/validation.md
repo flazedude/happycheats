@@ -1,4 +1,48 @@
-# Validation — 27 September 2026
+# Validation — 20 October 2026
+
+## Astroneer October compatibility — HappyCheats 0.3.43
+
+Trainer **0.3.1** recognizes the inspected **1.45.1 / Steam build 25599237** executable, SHA-256 `4A57B4B1AC64DEFA09EA6D6C987D5E513D79243A2B33AB05CBA099AD1E377675` (111,169,096 bytes). Before this patch, actual discovery returned `Compatible = false` because the updated executable was absent from the exact-hash profiles; all nine installed trainer files still matched the prior payload. The two earlier inspected profiles remain supported. Unknown executables remain rejected. The rebuilt runtime identifies itself as 0.3.1 so stale trainer heartbeats require an update/restart.
+
+Read-only native inspection passes **50 structural checks**, comparing consumed function signatures and property shapes, UE4.27, lifecycle and movement enums, character/movement/power property ownership, the invincibility bit setter and the relocated native movement-selection instructions. Both current `DesignAstro` assets are byte-identical to the previously inspected build, preserving its damage/lifecycle bytecode and the normal-damage versus forced-death distinction. Evidence is in `artifacts/astroneer/compatibility-25599237/` and `artifacts/astroneer/blueprint-review-25599237/`. The [official October patch notes](https://blog.astroneer.space/patch-notes/patch-45/) supply the 1.45.1 release label; the Steam manifest and executable hash identify the local build.
+
+Offline Lua validation passes **220 collection/binding assertions**, **189 bridge/hotkey assertions**, **204 player-control assertions**, the protocol suite and all four runtime syntax checks. All **45 Astroneer client tests** pass, covering all three exact profiles and their labels, invalid hashes, stale discovery, old heartbeats and the existing six controls. The rebuilt trainer was installed while the game was closed; all nine installed hashes match its manifest, and actual discovery now reports `Compatible = true` for build 25599237 with trainer files current. Runtime behavior, the collection/speed choices and shared menu shortcuts are unchanged.
+
+No game was launched and no save was accessed or modified. Actual updated-game loader startup, cheat effects, physical-controller operation and second-PC LAN access remain unverified. Native inspection and mocked tests do not establish gameplay validation. Extracted game assets are local evidence only and are excluded from release packages.
+
+## Astroneer player controls — HappyCheats 0.3.42
+
+Trainer **0.3.0** adds invulnerability and independently selectable **3× / 5× / 10×** on-foot run speed. Read-only inspection covers the installed executable's reflected character/movement fields and the actual `DesignAstro` Blueprint. Its normal damage event exits at the `bInvincible` gate before health subtraction; `AuthorityForceKillAstro` follows a separate path and is outside this protection. The movement binding verifies the local character owner, scales the captured `MaxSpeed` only while walking on foot and preserves sprint multiplier and acceleration. No fixed inspection offsets are used by the runtime.
+
+Offline checks cover original-value restoration, pre-existing invincibility, non-compounding speed changes, float readback, missing/foreign components, session/authority loss, suspended speed modes, invalid choices, acknowledgements and restoration failures. Pending restoration remains visible and retries on the game-thread refresh. The client tests verify six controls, F5/F6, independent collection/speed selectors and old-heartbeat rejection. WPF checks cover English/Chinese layout, confirmed selections, availability, suspended speed and pending-restoration metrics. Evidence is under `artifacts/astroneer/player-features-25119744/`, `blueprint-review/` and `player-features-ui/`.
+
+The Lua suites pass **220 collection assertions**, **189 bridge/hotkey assertions**, **204 player-control assertions**, protocol checks and all four runtime syntax checks. The rebuilt trainer was installed while Astroneer was closed, and all nine installed files match the payload manifest.
+
+Actual damage immunity, running behavior and second-PC LAN access remain unverified. No game was launched or save changed. Extracted game assets are local inspection evidence and are excluded from both release packages.
+
+## Astroneer 100× collection — HappyCheats 0.3.41
+
+Trainer **0.2.1** extends the exact multiplier set to **10 / 20 / 100** across the client, mailbox protocol and collection callback. Offline Lua checks pass **220 binding/arithmetic assertions**, **115 bridge/hotkey assertions**, protocol checks and four-file syntax validation. Tests cover the 100× signed-integer boundary, unchanged collection on overflow, selecting while disabled, switching while enabled, preservation on disable and reset on session change. The C# regression cases cover the same strict values, confirmed selected/effective status and rejection of old trainer heartbeats.
+
+The WPF suite passes **41 cases**, **1,180 top-level assertions** and its additional shared-menu/lifecycle checks. These exercise the third choice's layout and callback, English/Chinese text, delayed confirmation, busy state, rejection recovery and selection without enabling collection. The rebuilt trainer was installed into the closed local game and all nine installed hashes matched its manifest. No game was launched or save changed. Actual 100× mining, final nugget output and second-PC connectivity remain unverified. Evidence is retained under `artifacts/astroneer/100x-ui/` and `artifacts/astroneer/release-0.3.41-verification/`.
+
+## Controller menu toggle — HappyCheats 0.3.40
+
+Every game now supports the same Xbox / XInput menu chord: hold **Menu (☰)** for **350 ms**, then tap **RB**. **Ctrl+Del** remains the keyboard shortcut. The shared controller profile emits no cheat commands, and separate menu/action gates allow menu toggling while the trainer is busy or not ready. Onimusha and Dawnwalker retain their direct cheat shortcuts; Onimusha's RB chord now targets the shared menu while its native F6 status panel remains available. Trainer payloads are unchanged.
+
+The simulated controller suite passed **37 tests**, covering timing, neutral input, rising edges, reconnects, ambiguity, profiles, all Dawnwalker pages and independent menu/action permission gates. The WPF suite passed **41 cases**, with **1,180 top-level assertions** and **211 additional controller-menu assertions** across all sixteen catalog games and inert future/legacy fixtures. These verify both languages, UI visibility, foreground scope, busy/offline toggling, disabled preferences and updater guards, with zero trainer commands from menu dispatch. English and Chinese controller cards were visually checked. Evidence is retained under `artifacts/controller-menu/`.
+
+Release validation includes the full offline suite, signed hosted-download verification and fresh standalone extraction/preview. No game was launched or save changed. Physical-controller use, actual in-game behavior and second-PC LAN access remain unverified.
+
+## Menu shortcut — HappyCheats 0.3.39
+
+The shared menu now uses **Ctrl+Del** (Delete). Offline checks verify the Delete virtual-key mapping, removal of the Home mapping, held-key/focus behavior, all-game menu controls and client lifecycle behavior. Trainer payloads are unchanged. Release validation includes the complete test suite, hosted signatures/download hashes and a fresh standalone preview launch. Actual gameplay and second-PC connectivity remain unverified.
+
+## Astroneer compatibility and shared menu — HappyCheats 0.3.38
+
+Astroneer trainer **0.2.0** recognizes the inspected **1.44.4 / Steam build 25119744** executable and retains the previous exact-build profile. The read-only binary inspection passes 26 checks covering the executable hash, engine marker, lifecycle enum and reflected function/property descriptors. The client suite passes 41 Astroneer checks; Lua tests pass 180 binding/arithmetic assertions, 88 bridge/hotkey assertions and the protocol suite. A new restoration regression covers retrying an unsuccessful restore before re-enabling, preserving the original backpack charge and handling unloaded objects.
+
+The trainer was installed into the closed local game and its nine owned payload hashes were verified. The shared **Ctrl+Home** menu reuses confirmed commands and feature metadata, including the 10× / 20× selector. UI checks cover all sixteen modules plus an unrecognized future-module fixture, input/focus handling, stale actions, availability and numeric drafts, in both languages and themes. Use windowed/borderless mode with HappyCheats running; exclusive fullscreen is unsupported. Current-game startup/effects and second-PC LAN access remain unverified. See [Astroneer evidence](astroneer.md) and [shared menu scope](in-game-menu.md).
 
 ## Project Hospital — HappyCheats 0.3.26
 

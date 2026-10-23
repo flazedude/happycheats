@@ -25,8 +25,8 @@ public static class Localization
         ["controls"] = ("Trainer controls", "修改器功能"), ["disableAll"] = ("Disable all", "全部关闭"),
         ["xbox"] = ("Xbox shortcuts", "Xbox 手柄快捷键"),
         ["controllerDirections"] = ("Hold Menu briefly, then tap D-pad: ↑ Health · → Parry · ↓ One-hit stun · ← Immunity", "按住 Menu 片刻，再按方向键：↑ 生命 · → 格挡 · ↓ 一击破防 · ← 免疫眩晕"),
-        ["controllerBumpers"] = ("LB  Disable all     RB  Show / hide in-game status", "LB  全部关闭     RB  显示 / 隐藏游戏内状态"),
-        ["controllerHint"] = ("Keep HappyCheats open. Menu may also open the game's pause menu.", "使用快捷键时请保持 HappyCheats 运行。Menu 键也可能打开游戏暂停菜单。"),
+        ["controllerBumpers"] = ("Hold Menu: LB  Disable all · RB  Show / hide menu", "按住 Menu：LB 全部关闭 · RB 显示 / 隐藏菜单"),
+        ["controllerHint"] = ("Xbox / XInput: hold Menu for 0.35 seconds before pressing RB. Keep HappyCheats open. Menu may also pause the game.", "Xbox / XInput：按住 Menu 0.35 秒后再按 RB。请保持 HappyCheats 运行。Menu 键也可能暂停游戏。"),
         ["installation"] = ("GAME INSTALLATION", "游戏安装位置"), ["browse"] = ("Browse folder", "选择文件夹"),
         ["scan"] = ("Find in Steam", "扫描 Steam"), ["remove"] = ("Remove trainer", "移除修改器"),
         ["working"] = ("Working…", "正在处理…"), ["connected"] = ("Trainer connected", "修改器已连接"),
@@ -43,7 +43,7 @@ public static class Localization
         ["off"] = ("Off", "已关闭"), ["ready"] = ("Ready to apply", "可以使用"),
         ["turnOff"] = ("Turn off", "关闭"), ["turnOn"] = ("Turn on", "开启"), ["apply"] = ("Apply  ↗", "应用  ↗"),
         ["controllerDisabled"] = ("Shortcuts disabled", "快捷键已关闭"), ["controllerMissing"] = ("Connect an Xbox controller", "请连接 Xbox 手柄"),
-        ["multiplier"] = ("Multiplier", "采集倍率"),
+        ["multiplier"] = ("Multiplier", "倍率"),
         ["amount"] = ("Amount", "增加数量"), ["value"] = ("Value", "数值"),
         ["currentValue"] = ("Current in game", "游戏当前数值"),
         ["invalidNumber"] = ("Enter a number without thousands separators.", "请输入数字，不要使用千位分隔符。"),
@@ -96,7 +96,7 @@ public static class Localization
         "witcher-3" => Witcher3Localization.ChineseDescription,
         "onimusha" => "掌控手中之刃，以自己的节奏迎接每一场战斗。",
         "laundry" => "打造你的洗衣帝国。提升资金与经验，自由调整洗衣、烘干效率。",
-        "astroneer" => "探索异星，收集资源。选择 10 倍或 20 倍地形采集，轻松管理氧气、背包电量与字节。实验性模块，尚待游戏内验证。",
+        "astroneer" => "探索异星，收集资源。独立调整地形采集与奔跑倍率，开启无敌，管理氧气、背包电量与字节。Ctrl+Del 打开统一游戏内菜单（窗口 / 无边框模式）。实验性模块，尚待游戏内验证。",
         "dawnwalker" => "生存、战斗、飞行、物品与经验功能，支持三页手柄快捷键和窗口 / 无边框游戏悬浮面板。新功能为实验性功能，尚待游戏内验证。",
         "crimson-desert" => "实验性修改器，支持手动与自动地图标记传送。标记没有高度时沿用当前角色高度；地形落点尚未验证。无限使用物品暂不可用。",
         "black-myth-wukong" => "为 Steam 版提供生命、法力、气力、伤害、葫芦、棍势和成长功能。实验性模块，尚待游戏内验证。",
@@ -182,9 +182,11 @@ public static class Localization
         ["dry"] = ("快速烘干", "独立调整烘干速度，支持 1× 至 20×。"),
         ["dry_slower"] = ("烘干速度 −1×", "降低烘干倍率，最低为 1×。"),
         ["dry_faster"] = ("烘干速度 +1×", "提高烘干倍率，最高为 20×。"),
-        ["resource_collection_10x"] = ("资源采集 · 10× / 20×", "选择地形资源碎片的采集倍率，再开启功能。\n可在关闭时调整倍率；不影响已成型资源的拾取。"),
+        ["resource_collection_10x"] = ("资源采集 · 10× / 20× / 100×", "选择 10 倍、20 倍或 100 倍地形资源碎片采集，再开启功能。\n可在关闭时调整倍率；不影响已成型资源的拾取。"),
         ["unlimited_oxygen"] = ("无限氧气", "保持本地角色的氧气充足。实验性功能。"),
         ["unlimited_power"] = ("无限背包电量", "保持本地角色的背包电量充足。实验性功能。"),
+        ["invulnerability"] = ("无敌", "开启游戏原生无敌状态，阻止本地宇航员受到普通伤害；强制死亡事件仍可能生效。实验性功能，尚待游戏内验证。"),
+        ["player_run_speed"] = ("奔跑速度 · 3× / 5× / 10×", "选择 3 倍、5 倍或 10 倍徒步奔跑速度，再开启功能。\n驾驶、悬浮滑板、滑行、下落与飞行时使用正常速度，恢复步行后自动使用所选倍率。关闭后恢复原来的速度。"),
         ["unlimited_soil"] = ("无限土壤", "土壤罐绑定尚未验证，当前不可用。"),
         ["add_bytes"] = ("增加 10,000 字节", "为当前存档增加 10,000 研究字节。实验性功能。"),
         ["stardew_unlimited_health"] = ("无限生命", "保持角色生命值全满，并防止受到伤害。"),
@@ -225,7 +227,7 @@ public static class Localization
     public static string ValueLabel(string key)
     {
         if (key == "FP") return Choose("FP", "专注值");
-        if (key == "Stamina") return Choose("Stamina", "精力");
+        if (key == "er_stamina_value") return Choose("Stamina", "精力");
         if (Witcher3Localization.ValueLabel(key) is { } witcherLabel) return witcherLabel;
         if (HotelArchitectLocalization.ValueLabel(key) is { } hotelLabel) return hotelLabel;
         if (Civ6Localization.ValueLabel(key) is { } civLabel) return civLabel;
@@ -254,6 +256,9 @@ public static class Localization
             ["oxygen"] = ("Oxygen", "氧气"), ["power"] = ("Backpack power", "背包电量"),
             ["soil"] = ("Soil", "土壤"), ["bytes"] = ("Research bytes", "研究字节"),
             ["collection_multiplier"] = ("Resource collection", "资源采集倍率"),
+            ["run_speed_multiplier"] = ("Run speed", "奔跑速度倍率"),
+            ["invulnerability_active"] = ("Invulnerability active", "无敌实际生效"),
+            ["restoration_pending"] = ("Restoration pending", "原值待恢复"),
             ["power_capacity"] = ("Backpack power capacity", "背包电量上限"),
             ["collection_events"] = ("Collection events", "采集次数"),
             ["collection_base_fragments"] = ("Base fragments", "原始资源碎片"),
@@ -647,9 +652,14 @@ public static class Localization
         ["A numeric control does not accept a toggle state."] = "数值功能不接受开关状态参数。",
         ["This control does not accept a value."] = "此功能不接受数值参数。",
         ["Command exceeds the size limit."] = "指令超过大小限制。",
-        ["Choose a 10× or 20× resource collection multiplier."] = "请选择 10 倍或 20 倍资源采集倍率。",
+        ["Choose a 10×, 20× or 100× resource collection multiplier."] = "请选择 10 倍、20 倍或 100 倍资源采集倍率。",
+        ["Choose a 3×, 5× or 10× run speed multiplier."] = "请选择 3 倍、5 倍或 10 倍奔跑速度倍率。",
+        ["Select a collection multiplier of 10, 20 or 100 without enabling the toggle."] = "请选择 10 倍、20 倍或 100 倍采集倍率，此操作不会开启采集功能。",
+        ["Select a run speed multiplier of 3, 5 or 10 without enabling the toggle."] = "请选择 3 倍、5 倍或 10 倍奔跑速度倍率，此操作不会开启速度功能。",
+        ["Multiplier is only valid for a multiplier selection control."] = "只有倍率选择功能支持倍率参数。",
         ["This ASTRONEER control does not support a multiplier selection."] = "此异星探险家修改器功能不支持倍率选择。",
         ["This action does not accept a resource collection multiplier."] = "此操作不支持资源采集倍率参数。",
+        ["This action does not accept a multiplier."] = "此操作不支持倍率参数。",
         ["Unknown"] = "未知",
         ["Launching through Steam. Load your game to connect the trainer."] = "正在通过 Steam 启动。进入游戏并载入存档后，修改器将自动连接。",
         ["Trainer removed from the game folder."] = "已从游戏文件夹中移除修改器。",
@@ -669,6 +679,7 @@ public static class Localization
         ["This ASTRONEER build needs a compatibility check."] = "此《异星探险家》版本需要兼容性验证。",
         ["Experimental ASTRONEER trainer installed. Gameplay validation is pending."] = "异星探险家实验性修改器已安装，尚待游戏内验证。",
         ["ASTRONEER 1.43.2.0 detected. Experimental trainer; gameplay validation is pending."] = "已检测到异星探险家 1.43.2.0。修改器为实验性版本，尚待游戏内验证。",
+        ["Experimental trainer; gameplay validation is pending."] = "修改器为实验性版本，尚待游戏内验证。",
         ["Close ASTRONEER before changing trainer files."] = "修改文件前，请先关闭《异星探险家》。",
         ["Unsupported ASTRONEER executable. Game files were preserved."] = "暂不支持此《异星探险家》游戏版本，游戏文件未作更改。",
         ["Install ASTRONEER through Steam first."] = "请先通过 Steam 安装《异星探险家》。",
@@ -697,12 +708,17 @@ public static class Localization
         ["Load a solo save before using trainer controls."] = "请先载入单人存档，再使用修改器功能。",
         ["All features disabled"] = "所有功能均已关闭。",
         ["Disabled; an unloaded object could not be restored"] = "功能已关闭；已卸载对象的原值未能恢复。",
+        ["Restoration pending; some original values could not be restored."] = "部分原值尚未恢复，正在自动重试。",
         ["Disabled"] = "已关闭",
         ["Disabled; restore failed"] = "功能已关闭，但原值恢复失败。",
         ["Enabled"] = "已开启",
         ["Already enabled"] = "已处于开启状态。",
         ["Backpack changed; enable again"] = "背包已改变，请重新开启此功能。",
         ["Backpack power is unavailable"] = "背包电量功能当前不可用。",
+        ["Movement component changed; enable again"] = "角色移动状态已更换，请重新开启奔跑速度功能。",
+        ["Run speed is unavailable"] = "奔跑速度功能当前不可用。",
+        ["Invulnerability is unavailable"] = "无敌功能当前不可用。",
+        ["Invulnerability enabled"] = "无敌已开启。",
         ["Single-player session required"] = "请进入单人游戏。",
         ["This world is hosted elsewhere. Run the trainer on the host."] = "当前世界由其他电脑主持，请在主机上运行修改器。",
         ["Waiting for your astronaut to spawn."] = "正在等待宇航员进入世界或重生。",
@@ -719,6 +735,17 @@ public static class Localization
         ["Added 10,000 bytes"] = "已增加 10,000 字节。",
         ["Feature could not be applied"] = "无法应用此功能。",
         ["10x terrain collection enabled"] = "地形资源采集 10 倍已开启。",
+        ["20x terrain collection enabled"] = "地形资源采集 20 倍已开启。",
+        ["100x terrain collection enabled"] = "地形资源采集 100 倍已开启。",
+        ["Collection multiplier set to 10x"] = "采集倍率已设为 10 倍。",
+        ["Collection multiplier set to 20x"] = "采集倍率已设为 20 倍。",
+        ["Collection multiplier set to 100x"] = "采集倍率已设为 100 倍。",
+        ["3x on-foot run speed enabled"] = "徒步奔跑速度 3 倍已开启。",
+        ["5x on-foot run speed enabled"] = "徒步奔跑速度 5 倍已开启。",
+        ["10x on-foot run speed enabled"] = "徒步奔跑速度 10 倍已开启。",
+        ["Run speed multiplier set to 3x"] = "奔跑速度倍率已设为 3 倍。",
+        ["Run speed multiplier set to 5x"] = "奔跑速度倍率已设为 5 倍。",
+        ["Run speed multiplier set to 10x"] = "奔跑速度倍率已设为 10 倍。",
         ["Waiting for the Laundry trainer. Install the latest module and load a save."] = "正在等待洗衣店修改器。请安装最新模块并载入存档。",
         ["Waiting for the trainer. First launch can take a moment."] = "正在等待修改器连接。首次启动可能需要稍候。",
         ["Waiting for the trainer. Restart the game after installation."] = "正在等待修改器。安装后请重新启动游戏。",
@@ -853,6 +880,8 @@ public static class Localization
             return source;
         }
         if (Messages.TryGetValue(source, out var translated)) return translated;
+        var astroneerBuild = System.Text.RegularExpressions.Regex.Match(source, @"^ASTRONEER ([0-9.]+) detected \(inspected Steam build ([0-9]+)\)\. (.*)$");
+        if (astroneerBuild.Success) return $"已检测到异星探险家 {astroneerBuild.Groups[1].Value}（已检查的 Steam 版本 {astroneerBuild.Groups[2].Value}）。" + Message(astroneerBuild.Groups[3].Value);
         if (GtaVLocalization.Translate(source) is { } gtaMessage) return gtaMessage;
         if (HotelArchitectLocalization.Message(source) is { } hotelMessage) return hotelMessage;
         if (Civ6Localization.Translate(source) is { } civMessage) return civMessage;

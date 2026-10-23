@@ -23,9 +23,9 @@ To install or repair boot startup, run `scripts/Install-LanUpdateStartup.ps1` on
 Project policy in `AGENTS.md`: completed client/cheat releases must produce both the signed LAN update and a fresh standalone EXE, with English and Chinese changelogs. Publishing also saves `dist/HappyCheats-<version>.exe` alongside the latest `dist/HappyCheats.exe` and versioned ZIPs.
 
 ```powershell
-.\scripts\Publish-LanUpdate.ps1 -Version 0.3.37 `
-  -NotesEnglish .\docs\releases\0.3.37.en.txt `
-  -NotesChinese .\docs\releases\0.3.37.zh.txt
+.\scripts\Publish-LanUpdate.ps1 -Version 0.3.43 `
+  -NotesEnglish .\docs\releases\0.3.43.en.txt `
+  -NotesChinese .\docs\releases\0.3.43.zh.txt
 ```
 
 `-SkipPayloads` reuses already built trainer payloads. Omit it when rebuilding changed cheats; game-specific build prerequisites still apply. Tests run by default. The command builds a client with the saved LAN feed/public key, creates the single-EXE starter, signs the release, publishes its immutable ZIP, atomically updates `latest.json`, then replaces the starter EXE. Simultaneous publishing and equal/older versions are rejected. Optional `-NewGame 'Game name'` accepts multiple display names; the actual game implementation and payload must also be included in the project.
@@ -36,7 +36,7 @@ On another PC open:
 http://192.168.2.76:17845/happycheats/HappyCheats.exe
 ```
 
-Run this file once. For later releases, write new changelog files and publish with a higher version (for example `0.3.38`). Clients check at startup or when **Updates** is opened. After updating the client, use **Install / update** for affected games to apply new trainers.
+Run this file once. For later releases, write new changelog files and publish with a higher version (for example `0.3.44`). Clients check at startup or when **Updates** is opened. After updating the client, use **Install / update** for affected games to apply new trainers.
 
 Older HTTPS/loopback-only clients cannot pull a LAN HTTP release themselves: distribute the new starter once. Previously cloud-configured clients also need the LAN starter/configuration, since updates preserve their trusted feed. User settings remain in `%LOCALAPPDATA%/HappyCheats/settings.json`.
 

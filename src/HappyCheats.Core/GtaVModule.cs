@@ -10,6 +10,7 @@ namespace HappyCheats.Core;
 /// <summary>Enhanced Story Mode bridge. GTA Online sessions are never eligible.</summary>
 public sealed class GtaVModule(string baseDirectory) : IGameModule
 {
+    public IReadOnlyList<string> GameExecutables { get; } = [Executable];
     public const string Executable = "GTA5_Enhanced.exe";
     public const string LatestSupportedGameVersion = "1.0.1158.16";
     public const string LegacySupportedVersion = "1.0.1158.13";

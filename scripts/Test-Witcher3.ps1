@@ -8,6 +8,8 @@ if (!$Python) {
 }
 $hcWitcherArguments = @((Join-Path $hcWitcherRoot 'modules/witcher-3/tests/validate.py'))
 if ($GameDirectory) { $hcWitcherArguments += @('--game-directory', $GameDirectory) }
+& $Python -m unittest discover -s (Join-Path $hcWitcherRoot 'modules/witcher-3/tests') -p 'test_validate.py'
+if ($LASTEXITCODE -ne 0) { throw 'Witcher 3 validation harness regression tests failed.' }
 & $Python @hcWitcherArguments
 if ($LASTEXITCODE -ne 0) { throw 'Witcher 3 static payload validation failed.' }
 Write-Host 'Witcher 3 static payload/API checks passed. WitcherScript compilation and gameplay remain unverified; no game or saves were opened.'

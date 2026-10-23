@@ -2,9 +2,13 @@
 
 Experimental trainer **0.3.3** for HappyCheats **0.3.19**. Supports the inspected Windows Steam build **25232147**, executable version `dw1-pc-258504-shipping-patch2-all-CL-258504` (Unreal Engine 5.5.4). Other executable hashes are rejected pending a compatibility check.
 
+HappyCheats **0.3.38** replaced the game-specific companion panel with the [shared in-game menu](in-game-menu.md). Trainer 0.3.3 and its gameplay controls are unchanged. From HappyCheats **0.3.39**, Ctrl+Del, F6 and Menu+RB open the same menu; the controller's current page mappings remain visible above the control list.
+
+HappyCheats **0.3.40** makes **Menu+RB** the shared-menu chord for every current and future game: enable **Xbox shortcuts**, hold **Menu (☰) for 350 ms**, then tap **RB** on an Xbox/XInput controller. Dawnwalker's Ctrl+Del, F6 and direct cheat chords are unchanged. This chord shows or hides the menu; its controls still use mouse and keyboard.
+
 Version 0.3.3 fixes **Player rotation unavailable** during manual and automatic teleport. The captured rotation schema names its pitch field `pitch`, whereas the trainer expected `Pitch`. The pinned loader uses these names exactly for both returned values and input arguments. The trainer now validates all three angles and preserves the field spelling when passing rotation to native travel. It does not guess a default rotation or relax destination checks. Regression fixtures reproduce the captured schema; successful live travel remains unverified.
 
-Version 0.3.2 adds **Auto teleport**. Enable it with NumPad4, Menu+X or its toggle, then place a new custom map marker. It makes one travel attempt when player control permits; close the map if it is waiting for control. It uses the manual teleport checks. Enabling it does not use an existing marker. Turning it off, removing the marker, disabling all cheats or changing player session cancels queued travel. Both teleport controls appear on every overlay page. Live gameplay and physical-controller validation remain pending.
+Version 0.3.2 adds **Auto teleport**. Enable it with NumPad4, Menu+X or its toggle, then place a new custom map marker. It makes one travel attempt when player control permits; close the map if it is waiting for control. It uses the manual teleport checks. Enabling it does not use an existing marker. Turning it off, removing the marker, disabling all cheats or changing player session cancels queued travel. Both teleport controls are available in the shared menu; Menu+Y and Menu+X work on every controller page. Live gameplay and physical-controller validation remain pending.
 
 A queued automatic request expires after about 30 seconds of trainer polling; place a fresh marker if it expires. New markers placed during an active or uncertain travel request do not queue another automatic jump. A refused destination is attempted only once; choose a new marker to try again.
 
@@ -16,7 +20,7 @@ Version 0.1.2 corrects a player-readiness check, handles exFAT timestamp roundin
 
 ## Controls
 
-| Control | Keyboard | Controller (hold Menu for 350 ms first) |
+| Control | Keyboard | Xbox/XInput controller (hold Menu ☰ for 350 ms first) |
 | --- | --- | --- |
 | Infinite health | F1 | Page 1, D-pad up |
 | Infinite stamina | F2 | Page 1, D-pad right |
@@ -32,9 +36,9 @@ Version 0.1.2 corrects a player-readiness check, handles exFAT timestamp roundin
 | Infinite money | NumPad1 | Page 3, D-pad right |
 | Unlimited item use | NumPad2 | Page 3, D-pad down |
 | Add XP instantly | NumPad3 | Page 3, D-pad left |
-| Next page | Overlay arrows | View |
+| Next controller shortcut page | — | View |
 | Disable all | F10 | LB, any page |
-| Show / hide companion overlay | F6 | RB, any page |
+| Show / hide shared menu | Ctrl+Del or F6 | RB, any page |
 
 Pages are Survival, Combat & movement, and Inventory & XP. Switching pages never sends a game command. Flight keeps collision and normal horizontal movement; use Space/Left Ctrl or RT/LT to ascend/descend. Vertical movement uses a collision sweep because this game's custom locomotion may discard ordinary vertical input. The 16 ms game-thread timer is explicitly cancelled on disable; the pinned loader ignores callback return values, which previously left loops running after repeated toggles. This fixes an identified source of repeated work, but frame-time improvement has not been measured.
 
@@ -59,7 +63,9 @@ The blood control is available only when the local player's blood component and 
 3. Launch the game and load a save. Controls activate after the trainer reports a fresh, matching session.
 4. Leave HappyCheats open with Dawnwalker selected for controller shortcuts and the overlay. Use windowed or borderless mode for the overlay; exclusive fullscreen can hide it.
 
-The overlay is a small Windows companion panel, not an injected Unreal menu. It accepts mouse clicks without activating its window or moving keyboard focus out of the game. The controller chords toggle features directly; they do not navigate menu rows. F6/Menu+RB shows or hides it. Input is not suppressed from the game, so Menu may also open its pause menu. Onimusha's existing shortcut profile is preserved. The panel hides when another application is foreground.
+The shared menu is a Windows companion panel for windowed/borderless play. Clicking it gives it keyboard focus for editing; close it to return to the game. Enable Xbox shortcuts to use controller chords; this setting is available for every game. Dawnwalker's existing feature chords operate directly and do not navigate menu rows. Menu+View selects the controller shortcut page shown in the menu hint; the menu arrows filter control groups independently. Ctrl+Del, F6 or Menu+RB show or hide it. For Menu+RB, hold Menu (☰) for 350 ms before tapping RB. Input is not suppressed from the game, so Menu may also open its pause menu. Onimusha's direct cheat chords are preserved, while its Menu+RB now opens the shared menu and F6 retains its native status panel. The panel hides when another application is foreground.
+
+中文：启用“Xbox 手柄快捷键”后，在 Xbox/XInput 手柄上**按住 Menu（☰）350 毫秒，再点按 RB**，即可显示或隐藏统一菜单。这一操作从 **0.3.40** 起适用于所有现有及未来游戏；Ctrl+Del、黎明行者之血的 F6 和原有直接功能组合键保持不变。菜单功能仍使用鼠标和键盘操作，手柄不导航菜单行。Menu+View 仍切换黎明行者之血的手柄快捷键页。鬼武者的 Menu+RB 也改为切换统一菜单，F6 仍切换其原生状态面板。
 
 The listed cheat keyboard shortcuts are also registered in the in-game Lua trainer and work without HappyCheats. F6, controller input and the companion overlay require HappyCheats. Installation/removal is blocked while Dawnwalker is running. The loader is shared only when its existing files match; removal preserves other mods and modified files.
 

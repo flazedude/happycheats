@@ -1,4 +1,4 @@
--- HappyCheats Astroneer 0.1.3. All Unreal access occurs on the game thread.
+-- HappyCheats Astroneer 0.3.1. All Unreal access occurs on the game thread.
 local source = debug.getinfo(1, "S").source:gsub("^@", ""):gsub("\\", "/")
 local scripts = assert(source:match("^(.*)/[^/]+$"), "Cannot locate trainer scripts")
 local bridge = scripts .. "/../bridge/"
@@ -10,7 +10,7 @@ local boot = tostring(os.time()) .. "-" .. tostring({}):gsub("[^%w]", "")
 local session, identity = boot .. "-0", nil
 local last_command, last_success, last_message = "", false, ""
 local seen = {}
-local status = {schema_version=1, version="0.1.3", session_id=session, ready=false,
+local status = {schema_version=1, version="0.3.1", session_id=session, ready=false,
     message="Connected · load a world hosted on this PC to use Astroneer controls.", enabled={}, values={}, available={}}
 
 local function publish()
@@ -45,9 +45,10 @@ local function tick()
                 last_success, last_message = false, status.message
             else
                 last_success, last_message = trainer:apply(command.action, command.enabled, command.multiplier)
-                if last_success then
-                    status.ready, status.message, status.values, status.available = trainer:refresh()
-                end
+                -- A rejected action may still turn a flag off or retain a
+                -- pending restoration. Publish its observed state with the
+                -- original acknowledgement result, without replaying it.
+                status.ready, status.message, status.values, status.available = trainer:refresh()
             end
         elseif reason then
             print("[HappyCheats] Ignored command: " .. reason .. "\n")
@@ -74,7 +75,8 @@ end)
 -- UE4SS delivers these only when the game has focus. The launcher handles its
 -- own focused shortcuts, so one press cannot toggle twice across both windows.
 for _, shortcut in ipairs({ {Key.F1, "resource_collection_10x"}, {Key.F2, "unlimited_oxygen"},
-    {Key.F3, "unlimited_power"}, {Key.F4, "add_bytes"}, {Key.F10, "disable_all"} }) do
+    {Key.F3, "unlimited_power"}, {Key.F4, "add_bytes"}, {Key.F5, "invulnerability"},
+    {Key.F6, "player_run_speed"}, {Key.F10, "disable_all"} }) do
     local action = shortcut[2]
     RegisterKeyBind(shortcut[1], function()
         ExecuteInGameThread(function()
@@ -83,9 +85,7 @@ for _, shortcut in ipairs({ {Key.F1, "resource_collection_10x"}, {Key.F2, "unlim
                 if not status.ready and action ~= "disable_all" then return end
                 local flags = trainer:enabled()
                 local success, message = trainer:apply(action, flags[action] == false)
-                if success then
-                    status.ready, status.message, status.values, status.available = trainer:refresh()
-                end
+                status.ready, status.message, status.values, status.available = trainer:refresh()
                 status.message = message
                 publish()
                 if not success then print("[HappyCheats] " .. tostring(message) .. "\n") end
@@ -94,4 +94,4 @@ for _, shortcut in ipairs({ {Key.F1, "resource_collection_10x"}, {Key.F2, "unlim
         end)
     end)
 end
-print("[HappyCheats] Astroneer 0.1.3 loaded; all cheats start off.\n")
+print("[HappyCheats] Astroneer 0.3.1 loaded; all cheats start off.\n")

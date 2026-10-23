@@ -12,6 +12,8 @@ public sealed record TrainerStatus(bool Connected, bool Ready, string Message, s
 public interface IGameModule
 {
     GameDefinition Definition { get; }
+    /// <summary>Executable paths relative to the installation, used to attach the shared game menu.</summary>
+    IReadOnlyList<string> GameExecutables => Array.Empty<string>();
     Task<GameInstallation> DiscoverAsync(string? directory = null);
     Task InstallAsync(GameInstallation installation, IProgress<string>? progress = null);
     Task RemoveAsync(GameInstallation installation, IProgress<string>? progress = null);

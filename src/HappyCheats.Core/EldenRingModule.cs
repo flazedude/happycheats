@@ -8,6 +8,7 @@ namespace HappyCheats.Core;
 
 public sealed class EldenRingModule(string baseDirectory) : IGameModule, IDisposable
 {
+    public IReadOnlyList<string> GameExecutables { get; } = [Executable];
     public const string TrainerVersion = "0.1.0";
     public const string Executable = "Game/eldenring.exe";
     private readonly string package = Path.Combine(baseDirectory, "payload", "elden-ring");

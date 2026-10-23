@@ -15,8 +15,8 @@ end
 local files, jobs, keys, messages = {}, {}, {}, {}
 local latest, interval_callback
 local now, game_thread = 1000, false
-local state = { ready = true, key = "world-1/player-1/game", bytes = 0, selected_multiplier = 10,
-    flags = { resource_collection_10x = false, unlimited_oxygen = false, unlimited_power = false },
+local state = { ready = true, key = "world-1/player-1/game", bytes = 0, selected_multiplier = 10, selected_run_speed = 3,
+    flags = { resource_collection_10x = false, unlimited_oxygen = false, unlimited_power = false, invulnerability = false, player_run_speed = false },
     refresh_count = 0, disable_count = 0, apply_calls = {} }
 local trainer = {}
 local function on_game_thread()
@@ -29,12 +29,16 @@ function trainer:refresh()
     if state.bound_key ~= state.key then
         state.bound_key = state.key
         state.selected_multiplier = 10
+        state.selected_run_speed = 3
+        for name in pairs(state.flags) do state.flags[name] = false end
     end
     return state.ready, state.ready and "Ready" or "Load a save",
         { bytes = state.bytes, collection_multiplier = state.flags.resource_collection_10x and state.selected_multiplier or 1,
-            selected_collection_multiplier = state.selected_multiplier },
+            selected_collection_multiplier = state.selected_multiplier, selected_run_speed_multiplier = state.selected_run_speed,
+            run_speed_multiplier = state.flags.player_run_speed and state.selected_run_speed or state.pending_run_speed or 1,
+            restoration_pending = state.restoration_pending == true },
         { resource_collection_10x = true, set_collection_multiplier = true, unlimited_oxygen = true, unlimited_power = true,
-            add_bytes = true, disable_all = true }
+            add_bytes = true, disable_all = true, invulnerability = true, player_run_speed = true, set_run_speed_multiplier = true }
 end
 function trainer:session_key() on_game_thread(); return state.key end
 function trainer:enabled() on_game_thread(); return deep_copy(state.flags) end
@@ -42,6 +46,7 @@ function trainer:disable_all()
     on_game_thread()
     state.disable_count = state.disable_count + 1
     for name in pairs(state.flags) do state.flags[name] = false end
+    state.restoration_pending, state.pending_run_speed = false, nil
     return true, "All features disabled"
 end
 function trainer:apply(action, enabled, multiplier)
@@ -50,11 +55,21 @@ function trainer:apply(action, enabled, multiplier)
     if action == "disable_all" then return self:disable_all() end
     if not state.ready then return false, "Load a save" end
     if action == "set_collection_multiplier" then
-        assert(enabled == false and (multiplier == 10 or multiplier == 20), "Invalid selection forwarded")
+        assert(enabled == false and (multiplier == 10 or multiplier == 20 or multiplier == 100), "Invalid selection forwarded")
         state.selected_multiplier = multiplier
         return true, "Multiplier selected"
     end
+    if action == "set_run_speed_multiplier" then
+        assert(enabled == false and (multiplier == 3 or multiplier == 5 or multiplier == 10), "Invalid run speed selection forwarded")
+        state.selected_run_speed = multiplier
+        return true, "Run speed selected"
+    end
     if action == "add_bytes" then state.bytes = state.bytes + 10000; return true, "Added 10,000 bytes" end
+    if action == "player_run_speed" and enabled == false and state.fail_run_speed_off then
+        state.flags.player_run_speed = false
+        state.restoration_pending, state.pending_run_speed = true, state.selected_run_speed
+        return false, "Disabled; restore failed"
+    end
     if state.flags[action] == nil then return false, "Unknown action" end
     state.flags[action] = enabled == true
     return true, enabled and "Enabled" or "Disabled"
@@ -98,7 +113,7 @@ function fake_os.rename(from, to)
     return true
 end
 local env = setmetatable({ io = fake_io, os = fake_os,
-    Key = { F1 = 1, F2 = 2, F3 = 3, F4 = 4, F10 = 10 },
+    Key = { F1 = 1, F2 = 2, F3 = 3, F4 = 4, F5 = 5, F6 = 6, F10 = 10 },
     print = function(message) messages[#messages + 1] = tostring(message) end }, { __index = _G })
 function env.dofile(path)
     if basename(path) == "protocol.lua" then return protocol end
@@ -140,7 +155,7 @@ equal(files["status.json"], nil)
 interval_callback(); interval_callback()
 equal(#jobs, 1, "Polling does not build up callbacks while one is pending")
 flush()
-equal(latest.version, "0.1.3")
+equal(latest.version, "0.3.1")
 equal(latest.ready, true)
 equal(state.disable_count, 1, "Initial session always starts with toggles off")
 equal(files["status.tmp"], nil, "Status publication finishes rename")
@@ -149,6 +164,8 @@ equal(type(keys[1]), "function")
 equal(type(keys[2]), "function")
 equal(type(keys[3]), "function")
 equal(type(keys[4]), "function")
+equal(type(keys[5]), "function")
+equal(type(keys[6]), "function")
 equal(type(keys[10]), "function")
 
 -- Stale queued actions are consumed without running a binding.
@@ -281,28 +298,206 @@ equal(latest.values.selected_collection_multiplier, 10)
 queue("set_collection_multiplier", 22, false, nil, nil, 20)
 tick()
 equal(latest.values.selected_collection_multiplier, 20)
+
+-- A 100x selection has an acknowledgement and never implicitly enables the
+-- collection toggle. Replays and expired requests cannot change that choice.
+press(1)
+queue("set_collection_multiplier", 30, false, nil, nil, 100)
+tick()
+equal(latest.last_command, string.format("%032x", 30))
+equal(latest.last_success, true)
+equal(latest.last_message, "Multiplier selected")
+equal(state.apply_calls[#state.apply_calls].multiplier, 100)
+equal(state.apply_calls[#state.apply_calls].enabled, false)
+equal(latest.values.selected_collection_multiplier, 100)
+equal(latest.values.collection_multiplier, 1)
+equal(latest.enabled.resource_collection_10x, false)
+local before_hundred_replay = #state.apply_calls
+queue("set_collection_multiplier", 30, false, nil, nil, 10)
+tick()
+equal(#state.apply_calls, before_hundred_replay)
+equal(latest.last_command, string.format("%032x", 30))
+equal(latest.last_success, true)
+equal(latest.values.selected_collection_multiplier, 100)
+press(1)
+equal(latest.values.collection_multiplier, 100)
+equal(latest.enabled.resource_collection_10x, true)
+queue("set_collection_multiplier", 31, false, nil, nil, 20)
+tick()
+equal(latest.values.collection_multiplier, 20)
+queue("set_collection_multiplier", 32, false, nil, nil, 100)
+tick()
+equal(latest.last_command, string.format("%032x", 32))
+equal(latest.last_success, true)
+equal(latest.values.collection_multiplier, 100)
+equal(latest.enabled.resource_collection_10x, true)
+press(1)
+equal(latest.values.collection_multiplier, 1)
+equal(latest.values.selected_collection_multiplier, 100)
+press(1); press(10)
+equal(latest.values.selected_collection_multiplier, 100)
+equal(latest.values.collection_multiplier, 1)
+equal(latest.enabled.resource_collection_10x, false)
+local before_expired_hundred = #state.apply_calls
+queue("set_collection_multiplier", 33, false, nil, now - 9, 100)
+tick()
+equal(#state.apply_calls, before_expired_hundred)
+equal(latest.last_command, string.format("%032x", 32), "Expired selection does not receive a success acknowledgement")
 local previous_selection_session = latest.session_id
-queue("set_collection_multiplier", 23, false, previous_selection_session, nil, 20)
+queue("set_collection_multiplier", 23, false, previous_selection_session, nil, 100)
 state.key = "world-4/player-4/game"
 tick()
 equal(latest.values.selected_collection_multiplier, 10)
 equal(latest.enabled.resource_collection_10x, false)
 equal(latest.session_id ~= previous_selection_session, true)
 local before_bad_selection = #state.apply_calls
-queue("set_collection_multiplier", 24, true, nil, nil, 20)
+queue("set_collection_multiplier", 24, true, nil, nil, 100)
 tick()
 equal(#state.apply_calls, before_bad_selection)
 queue("set_collection_multiplier", 25, false, nil, nil, 15)
 tick()
 equal(#state.apply_calls, before_bad_selection)
-queue("resource_collection_10x", 26, true, nil, nil, 20)
+queue("resource_collection_10x", 26, true, nil, nil, 100)
 tick()
 equal(#state.apply_calls, before_bad_selection)
 state.ready, state.key = false, "world-4/player-4/menu"
 tick()
-queue("set_collection_multiplier", 27, false, nil, nil, 20)
+queue("set_collection_multiplier", 27, false, nil, nil, 100)
 tick()
 equal(#state.apply_calls, before_bad_selection)
+equal(latest.last_command, string.format("%032x", 27))
 equal(latest.last_success, false)
 equal(latest.values.selected_collection_multiplier, 10)
+
+-- Run speed uses a separate selector, and F5/F6 affect only their own toggles.
+state.ready, state.key = true, "world-5/player-5/game"
+tick()
+equal(latest.values.selected_run_speed_multiplier, 3)
+equal(latest.values.run_speed_multiplier, 1)
+equal(latest.enabled.invulnerability, false)
+equal(latest.enabled.player_run_speed, false)
+queue("set_collection_multiplier", 40, false, nil, nil, 100)
+tick()
+queue("set_run_speed_multiplier", 41, false, nil, nil, 5)
+tick()
+equal(latest.last_command, string.format("%032x", 41))
+equal(latest.last_success, true)
+equal(latest.last_message, "Run speed selected")
+equal(state.apply_calls[#state.apply_calls].multiplier, 5)
+equal(state.apply_calls[#state.apply_calls].enabled, false)
+equal(latest.values.selected_collection_multiplier, 100)
+equal(latest.values.selected_run_speed_multiplier, 5)
+equal(latest.values.run_speed_multiplier, 1)
+equal(latest.enabled.player_run_speed, false)
+press(5)
+equal(latest.enabled.invulnerability, true)
+equal(latest.enabled.player_run_speed, false)
+press(6)
+equal(latest.enabled.player_run_speed, true)
+equal(latest.values.run_speed_multiplier, 5)
+equal(latest.enabled.invulnerability, true)
+queue("set_run_speed_multiplier", 42, false, nil, nil, 10)
+tick()
+equal(latest.last_success, true)
+equal(latest.values.run_speed_multiplier, 10)
+equal(latest.values.selected_run_speed_multiplier, 10)
+equal(latest.enabled.player_run_speed, true)
+local before_speed_replay = #state.apply_calls
+queue("set_run_speed_multiplier", 42, false, nil, nil, 3)
+tick()
+equal(#state.apply_calls, before_speed_replay)
+equal(latest.values.selected_run_speed_multiplier, 10)
+queue("set_run_speed_multiplier", 43, false, nil, now - 9, 3)
+tick()
+equal(#state.apply_calls, before_speed_replay)
+equal(latest.last_command, string.format("%032x", 42))
+press(6)
+equal(latest.values.run_speed_multiplier, 1)
+equal(latest.values.selected_run_speed_multiplier, 10)
+equal(latest.enabled.invulnerability, true)
+press(6); press(10)
+equal(latest.enabled.player_run_speed, false)
+equal(latest.enabled.invulnerability, false)
+equal(latest.values.run_speed_multiplier, 1)
+equal(latest.values.selected_run_speed_multiplier, 10)
+equal(latest.values.selected_collection_multiplier, 100)
+queue("invulnerability", 44, true)
+tick()
+equal(latest.last_success, true)
+equal(latest.enabled.invulnerability, true)
+queue("player_run_speed", 45, true)
+tick()
+equal(latest.last_success, true)
+equal(latest.values.run_speed_multiplier, 10)
+queue("set_run_speed_multiplier", 46, false, nil, nil, 3)
+tick()
+equal(latest.values.run_speed_multiplier, 3)
+local before_invalid_speed = #state.apply_calls
+for _, action in ipairs({ "invulnerability", "player_run_speed" }) do
+    queue(action, 47, true, nil, nil, 3)
+    tick()
+    equal(#state.apply_calls, before_invalid_speed)
+end
+queue("set_run_speed_multiplier", 48, false, nil, nil, 20)
+tick()
+equal(#state.apply_calls, before_invalid_speed)
+queue("set_run_speed_multiplier", 49, true, nil, nil, 5)
+tick()
+equal(#state.apply_calls, before_invalid_speed)
+local prior_speed_session = latest.session_id
+queue("set_run_speed_multiplier", 50, false, prior_speed_session, nil, 10)
+state.key = "world-6/player-6/game"
+tick()
+equal(latest.session_id ~= prior_speed_session, true)
+equal(latest.values.selected_run_speed_multiplier, 3)
+equal(latest.values.run_speed_multiplier, 1)
+equal(latest.values.selected_collection_multiplier, 10)
+equal(latest.enabled.player_run_speed, false)
+equal(latest.enabled.invulnerability, false)
+equal(#state.apply_calls, before_invalid_speed)
+state.ready, state.key = false, "world-6/player-6/menu"
+tick()
+press(5); press(6)
+equal(#state.apply_calls, before_invalid_speed, "Menu F5/F6 cannot activate cheats")
+queue("set_run_speed_multiplier", 51, false, nil, nil, 5)
+tick()
+equal(#state.apply_calls, before_invalid_speed)
+equal(latest.last_command, string.format("%032x", 51))
+equal(latest.last_success, false)
+equal(latest.values.selected_run_speed_multiplier, 3)
+
+-- A rejection may change the requested flag while the old effect awaits
+-- restoration. The same failure acknowledgement must publish those new
+-- diagnostics, and must not turn into success or replay the command.
+state.ready, state.key = true, "world-7/player-7/game"
+tick()
+queue("set_run_speed_multiplier", 60, false, nil, nil, 5)
+tick(); press(6)
+equal(latest.enabled.player_run_speed, true)
+equal(latest.values.restoration_pending, false)
+state.fail_run_speed_off = true
+queue("player_run_speed", 61, false)
+tick()
+equal(latest.last_command, string.format("%032x", 61))
+equal(latest.last_success, false)
+equal(latest.last_message, "Disabled; restore failed")
+equal(latest.enabled.player_run_speed, false)
+equal(latest.values.restoration_pending, true)
+equal(latest.values.run_speed_multiplier, 5)
+local before_failed_replay = #state.apply_calls
+queue("player_run_speed", 61, false)
+tick()
+equal(#state.apply_calls, before_failed_replay)
+equal(latest.last_success, false)
+state.fail_run_speed_off = false
+press(10); press(6)
+equal(latest.values.restoration_pending, false)
+state.fail_run_speed_off = true
+press(6)
+equal(latest.enabled.player_run_speed, false)
+equal(latest.values.restoration_pending, true)
+equal(latest.values.run_speed_multiplier, 5)
+equal(latest.message, "Disabled; restore failed")
+equal(latest.last_command, string.format("%032x", 61), "Hotkey rejection does not invent a new IPC acknowledgement")
+equal(latest.last_success, false)
 print("Astroneer main bridge/hotkeys: " .. checks .. " assertions passed")

@@ -5,6 +5,7 @@ namespace HappyCheats.Core;
 
 public sealed class ProjectHospitalModule(string baseDirectory) : IGameModule
 {
+    public IReadOnlyList<string> GameExecutables { get; } = [Executable];
     public const string Executable = "ProjectHospital.exe";
     public const string GameAssembly = "ProjectHospital_Data/Managed/Assembly-CSharp.dll";
     public const string SupportedAssemblyHash = "1120D899FB74D16F31115C5C27325EDBD1154B68E9419E6B7EA03CC3D43B6F24";

@@ -8,7 +8,7 @@ param(
     [string]$ChineseParentsGameDirectory,
     [string]$StardewGameDirectory,
     [string]$ProjectHospitalGameDirectory,
-    [string]$Version = '0.3.37',
+    [string]$Version = '0.3.43',
     [string]$UpdateFeedUrl,
     [string]$UpdatePublicKeyPath
 )

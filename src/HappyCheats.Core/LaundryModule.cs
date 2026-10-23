@@ -7,6 +7,7 @@ namespace HappyCheats.Core;
 
 public sealed class LaundryModule(string baseDirectory) : IGameModule
 {
+    public IReadOnlyList<string> GameExecutables { get; } = [GameInspector.GameExecutableName];
     private static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     private readonly string _package = Path.Combine(baseDirectory, "payload", "laundry");
     private readonly SemaphoreSlim _sendLock = new(1, 1);

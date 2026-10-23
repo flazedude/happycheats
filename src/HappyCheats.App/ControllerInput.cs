@@ -15,6 +15,7 @@ namespace HappyCheats.App
     {
         private const ushort MenuButton = 0x0010;
         private const ushort ViewButton = 0x0020;
+        private const ushort RightBumper = 0x0200;
         // Y is unbound in Onimusha, but still consumes simultaneous action edges.
         private const ushort ActionButtons = 0x830F;
         // Ignore reserved bits, whose states are undefined in XINPUT_GAMEPAD.
@@ -69,7 +70,8 @@ namespace HappyCheats.App
                 string normalized;
                 if (String.Equals(value, "onimusha", StringComparison.OrdinalIgnoreCase)) normalized = "onimusha";
                 else if (String.Equals(value, "dawnwalker", StringComparison.OrdinalIgnoreCase)) normalized = "dawnwalker";
-                else throw new ArgumentException("Controller profile must be onimusha or dawnwalker.", "value");
+                else if (String.Equals(value, "shared", StringComparison.OrdinalIgnoreCase)) normalized = "shared";
+                else throw new ArgumentException("Controller profile must be shared, onimusha or dawnwalker.", "value");
                 if (profile == normalized) return;
                 profile = normalized;
                 DawnwalkerPage = 0;
@@ -93,6 +95,14 @@ namespace HappyCheats.App
         // edges (for example a diagonal D-pad press) are consumed without firing.
         public string Poll(bool allowActions)
         {
+            return Poll(allowActions, allowActions);
+        }
+
+        // The companion menu remains usable when the trainer is busy or not yet
+        // ready. Its foreground/enable gate is separate from cheat availability.
+        // Denied edges are still consumed, so readiness cannot replay held input.
+        public string Poll(bool allowMenu, bool allowActions)
+        {
             ushort buttons = 0;
             int selected = -1;
             for (int slot = 0; slot < 4; slot++)
@@ -113,7 +123,7 @@ namespace HappyCheats.App
             Connected = true;
             Slot = selected;
             if (changedController) ResetInput();
-            if (!allowActions)
+            if (!allowMenu && !allowActions)
             {
                 ResetInput();
                 return null;
@@ -142,6 +152,14 @@ namespace HappyCheats.App
                 return null;
             }
             if (now - modifierSince < ArmDelayMilliseconds) return null;
+
+            // Every profile shares the same companion menu chord. Include all
+            // defined buttons in ambiguity checks for this chord, even buttons
+            // that have no cheat mapping in the selected legacy profile.
+            int menuEdges = buttons & ~previous & DefinedButtons & ~modifierButton;
+            if ((menuEdges & RightBumper) != 0)
+                return menuEdges == RightBumper && allowMenu ? "game_menu" : null;
+            if (!allowActions || profile == "shared") return null;
 
             ushort pageButton = modifierButton == MenuButton ? ViewButton : MenuButton;
             int actions = profile == "dawnwalker" ? ActionButtons | 0x4000 | pageButton : ActionButtons;
@@ -181,7 +199,6 @@ namespace HappyCheats.App
                     case 0x0002: return "dawnwalker_refill";  // D-pad Down.
                     case 0x0004: return "dawnwalker_blood";   // D-pad Left.
                     case 0x0100: return "disable_all";        // Left bumper.
-                    case 0x0200: return "hud";                // Right bumper.
                     case 0x8000: return "dawnwalker_teleport"; // Y; launcher availability-gated.
                     case 0x4000: return "dawnwalker_auto_teleport"; // X, on every page.
                     default: return null;
@@ -194,7 +211,6 @@ namespace HappyCheats.App
                 case 0x0002: return "one_hit_stun";     // D-pad Down.
                 case 0x0004: return "stun_immunity";    // D-pad Left.
                 case 0x0100: return "disable_all";      // Left bumper.
-                case 0x0200: return "hud";              // Right bumper.
                 default: return null;
             }
         }

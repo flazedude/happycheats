@@ -1,0 +1,9 @@
+HappyCheats 0.3.40 — Controller menu toggle
+
+Hold the Xbox / XInput Menu (☰) button for 0.35 seconds, then tap RB to show or hide the shared in-game menu. The same shortcut works across all current games and future modules. Ctrl+Del remains the keyboard shortcut. Enable Xbox shortcuts on the selected game page and keep HappyCheats running in windowed or borderless play.
+
+Menu access stays available while the trainer is loading, disconnected or busy, provided the selected game's window is found and the game or HappyCheats has focus. Opening the menu never sends a cheat command. Existing Onimusha and Dawnwalker controller cheat shortcuts remain; Onimusha's Menu+RB now opens the shared menu, while F6 still controls its native status panel. Other games receive only the menu shortcut. Menu controls still use mouse/keyboard; this release does not add controller navigation. Menu may also open the game's pause screen.
+
+English and Chinese hints and the Xbox shortcuts setting are available on every game page. This is a client-only change; trainer payloads are unchanged and no trainer reinstall is needed.
+
+Validation: simulated controller timing/edges and profile checks, all-game and future-module UI/dispatch checks, full offline release tests, signed LAN downloads and a fresh standalone preview smoke check. No game was launched or save changed. Physical-controller use, actual gameplay and second-PC LAN access remain unverified.

@@ -1,0 +1,9 @@
+HappyCheats 0.3.42 — Astroneer invulnerability and run speed
+
+Adds two Astroneer controls in both the client and shared in-game menu: Invulnerability (F5), and Run speed (F6) with selectable 3×, 5× and 10× rates. Collection keeps its independent 10×, 20× and 100× choices. Selecting a rate does not enable its toggle. Both new controls start off; run speed defaults to a 3× selection and resets when the gameplay session changes. F10 disables all continuous effects.
+
+Run speed multiplies the captured original on-foot speed without compounding when changing rates. It restores normal speed while airborne, driving or using a hoverboard, then resumes the selected rate on foot. Disabling restores the original speed. Invulnerability uses the game's flag that blocks normal damage; captured state is restored on disable. Explicit forced-death events may still apply. Missing bindings and failed writes prevent a control from reporting success. Failed restorations remain visible and retry automatically; the status reports observed effects while cleanup is pending.
+
+Close Astroneer and choose Install / update after updating HappyCheats to install trainer 0.3.0. Both the signed LAN update and complete standalone EXE include the rebuilt trainer. Ctrl+Del and the shared Xbox Menu+RB shortcut are unchanged. Keep HappyCheats running and use windowed or borderless mode for the companion menu.
+
+Validation includes read-only inspection of the installed executable, offline binding/command/lifecycle tests, independent selectors and English/Chinese UI checks, full release tests, signed download verification and a fresh standalone startup check. No game was launched or save changed. Actual invulnerability, running behavior and second-PC LAN access remain unverified.

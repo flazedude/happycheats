@@ -93,7 +93,9 @@ internal static class Program
                     Check(((ScrollViewer)main.FindName("DetailScroll")).PanningMode == PanningMode.VerticalOnly, $"{name}: detail touch panning changed.");
                 }
             }
-            ValidateDawnwalkerOverlay(main, root, artifacts);
+            Results.Add(GameOverlayChecks.Run(main, root, artifacts));
+            Results.Add(GameMenuLifecycleChecks.Run(root));
+            Results.Add(ControllerMenuChecks.Run(root));
             ValidateCrimsonAutoTeleport(main);
             ValidateWukongControls(main, artifacts);
             ValidateRdr2Controls(main, artifacts);
@@ -582,158 +584,6 @@ internal static class Program
         public Task InstallAsync(GameInstallation installation, IProgress<string>? progress = null) => throw new InvalidOperationException("Fixture installation is forbidden.");
         public Task RemoveAsync(GameInstallation installation, IProgress<string>? progress = null) => throw new InvalidOperationException("Fixture removal is forbidden.");
         public Task LaunchAsync(GameInstallation installation) => throw new InvalidOperationException("Fixture launch is forbidden.");
-    }
-
-    private static void ValidateDawnwalkerOverlay(MainWindow main, string root, string? artifacts)
-    {
-        var sent = new List<string>();
-        var overlayType = typeof(MainWindow).Assembly.GetType("HappyCheats.App.DawnwalkerOverlay", true)!;
-        var overlay = (Window)Activator.CreateInstance(overlayType, Private, null,
-            new object[] { new Func<FeatureDefinition, Task>(feature => { sent.Add(feature.Id); return Task.CompletedTask; }), new Action(() => { }) }, null)!;
-        overlay.Left = -32000; overlay.Top = -32000;
-        var refresh = overlayType.GetMethod("Refresh", Private)!;
-        var follow = overlayType.GetMethod("Follow", Private)!;
-        var rows = (StackPanel)overlayType.GetField("rows", Private)!.GetValue(overlay)!;
-        var features = new DawnwalkerModule(root).Definition.Features.Select(feature => new FeatureItem(feature)).ToArray();
-        var ready = new TrainerStatus(true, true, "Overlay test", "overlay-test",
-            new Dictionary<string, bool> { ["dawnwalker_health"] = true }, new Dictionary<string, string>());
-        void Update(TrainerStatus current, bool busy = false)
-        {
-            foreach (var feature in features) feature.Update(current, !busy);
-            refresh.Invoke(overlay, new object[] { features, current, busy, current.Message });
-        }
-        Button[] Buttons() => rows.Children.OfType<Button>().ToArray();
-        try
-        {
-            main.SetLanguage("en", persist: false);
-            main.SetTheme("dark", persist: false);
-            Update(ready);
-            var original = Buttons();
-            Check(original.Length == features.Length + 1, "Dawnwalker overlay omitted controls.");
-            for (var poll = 0; poll < 200; poll++) Update(ready);
-            Check(original.SequenceEqual(Buttons()), "Unchanged hidden heartbeats replaced Dawnwalker buttons.");
-            Check(!overlay.IsVisible, "Refreshing a hidden Dawnwalker overlay showed it.");
-            overlay.Show(); Layout(overlay);
-            Update(ready with { Ready = false });
-            Check(original.SequenceEqual(Buttons()) && original[0].IsEnabled && original[^1].IsEnabled && original.Skip(1).SkipLast(1).All(button => !button.IsEnabled),
-                "Waiting gameplay must permit only owned-toggle cleanup and Disable All.");
-            Check(Descendants<TextBlock>(original[1]).Any(text => text.Text == "Waiting for gameplay"),
-                "Waiting for gameplay did not update the retained control's state label.");
-            Update(TrainerStatus.Offline()); Layout(overlay);
-            Check(original.SequenceEqual(Buttons()) && Descendants<TextBlock>(original[0]).Any(text => text.Text == "Waiting for game"),
-                "Disconnected state did not update the same Dawnwalker controls.");
-            Update(ready, busy: true);
-            Check(original.All(button => !button.IsEnabled), "Busy overlay retained an enabled control.");
-            Update(ready); Layout(overlay);
-            Check(original.All(button => button.IsEnabled), "Ready overlay did not restore its controls.");
-            var pageProperty = overlayType.GetProperty("ShortcutPage", Private)!;
-            var scroll = (ScrollViewer)overlayType.GetField("scroll", Private)!.GetValue(overlay)!;
-            for (var page = 0; page < 3; page++) {
-                pageProperty.SetValue(overlay, page); Update(ready); Layout(overlay);
-                Check(original.SequenceEqual(Buttons()), "Page change rebuilt overlay action controls.");
-                Check(original.Take(features.Length).Any(button => button.Visibility == Visibility.Visible), "Overlay page has no actions.");
-                for (var i = 0; i < features.Length; i++) {
-                    var id = features[i].Definition.Id;
-                    var expected = id switch {
-                        "dawnwalker_invulnerable" or "dawnwalker_damage" or "dawnwalker_invisible" or "dawnwalker_fly" => 1,
-                        "dawnwalker_carry" or "dawnwalker_money" or "dawnwalker_items" or "dawnwalker_xp" => 2,
-                        "dawnwalker_teleport" or "dawnwalker_auto_teleport" => -1, _ => 0
-                    };
-                    Check((original[i].Visibility == Visibility.Visible) == (expected < 0 || expected == page), "Overlay page displays a mismatched controller action.");
-                }
-                Check(scroll.VerticalScrollBarVisibility == ScrollBarVisibility.Auto && scroll.MaxHeight <= 390,
-                    "Overlay pages need bounded scrolling on small displays.");
-                if (artifacts != null) Capture(overlay, Path.Combine(artifacts, $"dawnwalker-page-{page + 1}-en.png"));
-            }
-            Check(sent.Count == 0, "Changing overlay pages dispatched a game action.");
-            pageProperty.SetValue(overlay, 0); Update(ready); Layout(overlay);
-            var autoIndex = Array.FindIndex(features, feature => feature.Definition.Id == "dawnwalker_auto_teleport");
-            var autoButton = original[autoIndex];
-            var valuesText = (TextBlock)overlayType.GetField("values", Private)!.GetValue(overlay)!;
-            var hintText = (TextBlock)overlayType.GetField("hint", Private)!.GetValue(overlay)!;
-            Check(Descendants<TextBlock>(autoButton).Any(text => text.Text == "NumPad4  ·  Auto teleport")
-                && autoButton.ToolTip is string autoDescription && autoDescription.Contains("does not use an existing marker"),
-                "Auto teleport omitted its keyboard shortcut or fresh-marker instructions.");
-            Check(hintText.Text.Contains("Menu+X: auto teleport"), "Overlay omitted the Auto teleport controller shortcut.");
-            var autoActive = ready with { Enabled = new Dictionary<string, bool> { ["dawnwalker_auto_teleport"] = true },
-                Values = new Dictionary<string, string> { ["dawnwalker_auto_teleport_status"] = "Auto teleport enabled; drop a new custom map marker" } };
-            Update(autoActive); Layout(overlay);
-            Check(original.SequenceEqual(Buttons()) && valuesText.Visibility == Visibility.Visible
-                && valuesText.Text == "Auto teleport: Auto teleport enabled; drop a new custom map marker", "Auto teleport waiting status is hidden or rebuilt the controls.");
-            Update(autoActive with { Ready = false, Values = new Dictionary<string, string> { ["available_dawnwalker_auto_teleport"] = "False" } });
-            Check(autoButton.IsEnabled && original[^1].IsEnabled, "Auto teleport could not be disabled after losing gameplay readiness.");
-            Update(autoActive, busy: true);
-            Check(!autoButton.IsEnabled, "Auto teleport remained clickable while a command was pending.");
-            Update(autoActive with { Values = new Dictionary<string, string> { ["dawnwalker_auto_teleport_status"] = "Auto teleport complete; drop a new custom map marker" } });
-            Check(valuesText.Text == "Auto teleport: Auto teleport complete; drop a new custom map marker", "Automatic travel outcome did not replace the waiting status.");
-            Update(ready); Layout(overlay);
-            Check(Color(original[0].Background) == Color((Brush)main.FindResource("SuccessSurfaceBrush")),
-                "Retained active control lost its theme brush binding.");
-            original[0].RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
-            original[^1].RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
-            autoButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
-            Check(sent.SequenceEqual(new[] { "dawnwalker_health", "disable_all", "dawnwalker_auto_teleport" }), "Retained buttons dispatched stale or duplicate actions.");
-            main.SetLanguage("zh", persist: false);
-            main.SetTheme("light", persist: false);
-            Update(ready); Layout(overlay);
-            Check(original.SequenceEqual(Buttons()) && Descendants<TextBlock>(original[0]).Any(text => text.Text.Contains(features[0].Name)),
-                "Language change failed to translate the retained overlay controls.");
-            Check(Color(original[0].Background) == Color((Brush)main.FindResource("SuccessSurfaceBrush")),
-                "Theme change failed to recolor the retained overlay controls.");
-            Check(Descendants<TextBlock>(autoButton).Any(text => text.Text == "NumPad4  ·  自动传送")
-                && hintText.Text.Contains("Menu+X：自动传送") && autoButton.ToolTip is string translatedAuto && translatedAuto.Contains("不会使用已有标记"),
-                "Auto teleport controls or controller hint were not translated.");
-            Update(autoActive);
-            Check(valuesText.Text == "自动传送：自动传送已开启；请放置新的自定义地图标记", "Auto teleport waiting status was not translated.");
-            Update(autoActive with { Values = new Dictionary<string, string> { ["dawnwalker_auto_teleport_status"] = "Auto teleport skipped: Not enough clear space above the marker" } });
-            Check(valuesText.Text == "自动传送：自动传送已跳过：标记上方没有足够的无障碍空间", "Auto teleport rejection reason was not translated.");
-            Update(ready);
-            if (artifacts != null) {
-                for (var page = 0; page < 3; page++) {
-                    pageProperty.SetValue(overlay, page); Update(ready); Layout(overlay);
-                    Capture(overlay, Path.Combine(artifacts, $"dawnwalker-page-{page + 1}-zh.png"));
-                }
-                pageProperty.SetValue(overlay, 0); Update(ready); Layout(overlay);
-            }
-
-            var gameWindow = new WindowInteropHelper(main).Handle;
-            main.Height = 720; Layout(main);
-            Update(autoActive with { Message = "Ready; health, stamina and blood use periodic top-ups", Values = new Dictionary<string, string> {
-                ["health_percent"] = "100", ["stamina_percent"] = "100", ["blood"] = "468", ["blood_capacity"] = "468",
-                ["dawnwalker_money"] = "999999", ["dawnwalker_xp"] = "250", ["dawnwalker_level"] = "5", ["dawnwalker_xp_reward"] = "1750",
-                ["dawnwalker_auto_teleport_status"] = "Auto teleport queued; close the map and return to player control"
-            } });
-            follow.Invoke(overlay, new object[] { gameWindow, true }); Layout(overlay);
-            Check(overlay.Top + overlay.ActualHeight <= main.Top + main.ActualHeight,
-                "Dawnwalker overlay footer and Auto teleport status extend below a 720px game window.");
-            if (artifacts != null) Capture(overlay, Path.Combine(artifacts, "dawnwalker-auto-teleport-720-zh.png"));
-            var positionChanges = 0;
-            HwndSource.FromHwnd(new WindowInteropHelper(overlay).Handle)!.AddHook(
-                (IntPtr hwnd, int message, IntPtr w, IntPtr l, ref bool handled) => { if (message == 0x0047) positionChanges++; return IntPtr.Zero; });
-            for (var poll = 0; poll < 100; poll++) follow.Invoke(overlay, new object[] { gameWindow, true });
-            Layout(overlay);
-            var stationaryPositionChanges = positionChanges;
-            Check(stationaryPositionChanges == 0, "Following a stationary game repeatedly repositioned the native overlay window.");
-            var previousLeft = overlay.Left;
-            main.Left += 24; Layout(main);
-            follow.Invoke(overlay, new object[] { gameWindow, true }); Layout(overlay);
-            Check(Math.Abs(overlay.Left - previousLeft - 24) < 1, "Overlay failed to follow a moved game window.");
-            follow.Invoke(overlay, new object[] { gameWindow, false });
-            for (var poll = 0; poll < 100; poll++) { Update(ready); follow.Invoke(overlay, new object[] { gameWindow, false }); }
-            Check(!overlay.IsVisible && original.SequenceEqual(Buttons()), "Hidden overlay polling showed or replaced controls.");
-
-            features = features.Select(feature => new FeatureItem(feature.Definition)).ToArray();
-            Update(ready);
-            var replacement = Buttons();
-            Check(!ReferenceEquals(original[0], replacement[0]) && replacement.Length == original.Length,
-                "Replacing the feature model did not rebuild its action rows.");
-            replacement[1].RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
-            Check(sent.SequenceEqual(new[] { "dawnwalker_health", "disable_all", "dawnwalker_auto_teleport", "dawnwalker_stamina" }),
-                "Replacement action rows captured an old or duplicate command.");
-            Results.Add(new { Screen = "dawnwalker-overlay-heartbeats", StableControls = true,
-                StationaryFollowPositionChanges = stationaryPositionChanges, SimulatedCommands = sent.ToArray(), NoGameCommands = true });
-        }
-        finally { overlay.Close(); }
     }
 
     private static void OpenUpdatesAndInspect(MainWindow main, ListBox library, string theme, string name,

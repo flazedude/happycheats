@@ -4,6 +4,7 @@ namespace HappyCheats.Core;
 
 public sealed class ChineseParentsModule(string baseDirectory) : IGameModule
 {
+    public IReadOnlyList<string> GameExecutables { get; } = ["game.exe"];
     public const string SupportedAssemblyHash = "0262F1B24B148D99E8CBA54A79B6B7299622C46BE4BBC000A500D7519BF3BF3A";
     private readonly string package = Path.Combine(baseDirectory, "payload", "chinese-parents");
     private const string IpcRoot = "BepInEx/HappyCheats/chinese-parents/";

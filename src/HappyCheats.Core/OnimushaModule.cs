@@ -6,6 +6,7 @@ namespace HappyCheats.Core;
 
 public sealed class OnimushaModule(string baseDirectory) : IGameModule
 {
+    public IReadOnlyList<string> GameExecutables { get; } = ["OnimushaWotS.exe"];
     private readonly string package = Path.Combine(baseDirectory, "payload", "onimusha");
     private readonly SemaphoreSlim commandLock = new(1, 1);
     public GameDefinition Definition { get; } = new("onimusha", "Onimusha", "WAY OF THE SWORD", "2638890", "鬼", "Master the blade. Shape every encounter with your own rules.", new FeatureDefinition[] {

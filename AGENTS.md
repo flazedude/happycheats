@@ -1,5 +1,11 @@
 # HappyCheats project instructions
 
+## Shared in-game menu
+
+All current and future games use the client `GameOverlay` companion menu (Ctrl+Del). New `IGameModule` implementations must provide exact installation-relative `GameExecutables` and complete `FeatureDefinition` metadata; numeric and choice controls use the existing value/choice module interfaces. Do not create a separate companion renderer for a game. Keep command/session/availability checks in the existing shared client and module paths. Include new games in the catalog menu regression checks and follow `docs/in-game-menu.md`. The companion supports windowed/borderless play; do not claim exclusive-fullscreen or live gameplay validation from offline UI checks.
+
+For every current and future game, reserve the Xbox/XInput chord **hold Menu (☰) for 350 ms, then tap RB** for showing/hiding the shared menu. Use the shared controller path and respect the common Xbox shortcuts setting; do not require a game-specific controller profile for this chord or route it to a native HUD. Keep Ctrl+Del unchanged. Existing Onimusha/Dawnwalker direct cheat chords may remain, and Onimusha's native status panel keeps F6. Menu+RB only toggles the shared menu; mouse/keyboard operate its controls, with no implied controller row navigation. Include future modules in the shared controller regression checks and distinguish synthetic input checks from physical-controller validation.
+
 ## Standing release preference (user instruction, 26 September 2026)
 
 For work on HappyCheats in any conversation, treat a completed client update or newly developed/changed cheat as requiring BOTH a LAN update release and a freshly built standalone EXE. The user has authorized this normal release workflow; do not ask again whether to build the EXE or publish the completed release to the existing LAN server. Follow later user instructions when they request development-only work, deferred publishing or a different scope. Documentation-only and instruction-only changes do not themselves require a release.

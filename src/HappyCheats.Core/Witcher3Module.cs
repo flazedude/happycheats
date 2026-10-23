@@ -9,6 +9,7 @@ namespace HappyCheats.Core;
 
 public sealed class Witcher3Module(string baseDirectory) : IGameModule
 {
+    public IReadOnlyList<string> GameExecutables { get; } = [Witcher3Installer.Executable];
     public const string TrainerVersion = "0.1.1";
     public const string SupportedSteamBuild = "25575366";
     public const string StatusPath = "bin/config/base/modsHappyCheatsWitcher3.ini";

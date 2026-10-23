@@ -27,5 +27,10 @@ Copy-Item -LiteralPath (Join-Path $hcExtract 'ue4ss\LICENSE') -Destination (Join
 $hcProvenance = [ordered]@{ dependency='UE4SS'; version='3.0.1-1133-gb4cefa18'; source_commit='b4cefa18'; source='https://github.com/UE4SS-RE/RE-UE4SS/tree/b4cefa18'; archive_url=$hcUrl; archive_sha256=$hcArchiveHash; license='MIT'; retrieved_utc='2026-09-13'; api_reference='https://docs.ue4ss.com/'; game_bindings_reference='https://github.com/AstroTechies/ModdingKit' }
 $hcProvenance | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $hcPackage 'licenses\provenance.json') -Encoding utf8NoBOM
 $hcFiles = @(Get-ChildItem -LiteralPath (Join-Path $hcPackage 'Astro') -File -Recurse | Sort-Object FullName | ForEach-Object { [ordered]@{ path=[IO.Path]::GetRelativePath($hcPackage,$_.FullName).Replace('\','/'); sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash } })
-[ordered]@{ version='0.1.3'; app_id='361420'; game_version='1.43.2.0'; steam_build='24409322'; executable_sha256='E1764F108E51BB172148F3A4AC71AE38AC031D9ECEB41AD213E139A9CBA61F56'; files=$hcFiles } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $hcPackage 'package.json') -Encoding utf8NoBOM
+$hcProfiles = @(
+    [ordered]@{ game_version='1.43.2.0'; steam_build='24409322'; executable_sha256='E1764F108E51BB172148F3A4AC71AE38AC031D9ECEB41AD213E139A9CBA61F56' },
+    [ordered]@{ game_version='1.44.4'; steam_build='25119744'; executable_sha256='D4FA5EA711A12F3FE87E38F7D385AE4328B2EFC7D8C8B9B0BF495C20CAC54B27' },
+    [ordered]@{ game_version='1.45.1'; steam_build='25599237'; executable_sha256='4A57B4B1AC64DEFA09EA6D6C987D5E513D79243A2B33AB05CBA099AD1E377675' }
+)
+[ordered]@{ version='0.3.1'; app_id='361420'; game_version='1.45.1'; steam_build='25599237'; executable_sha256='4A57B4B1AC64DEFA09EA6D6C987D5E513D79243A2B33AB05CBA099AD1E377675'; supported_profiles=$hcProfiles; files=$hcFiles } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $hcPackage 'package.json') -Encoding utf8NoBOM
 Write-Host 'Built Astroneer payload with pinned UE4SS and verified file hashes.'

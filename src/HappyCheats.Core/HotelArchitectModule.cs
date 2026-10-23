@@ -8,6 +8,7 @@ namespace HappyCheats.Core;
 
 public sealed class HotelArchitectModule : IGameModule, IFeatureValueModule, IDisposable
 {
+    public IReadOnlyList<string> GameExecutables { get; } = [Executable];
     public const string Executable = "HotelArchitect/Binaries/Win64/HotelArchitect-Win64-Shipping.exe";
     public const string SupportedExecutableHash = "E0B6E24E2D0D3CA466B9DD08ED83BC989594B6B17C31CDC3B63F543355621AE8";
     public const string SupportedSteamBuild = "25340122";

@@ -8,6 +8,7 @@ namespace HappyCheats.Core;
 
 public sealed class DawnwalkerModule(string baseDirectory) : IGameModule
 {
+    public IReadOnlyList<string> GameExecutables { get; } = [Executable];
     public const string Executable = "Dawnwalker/Binaries/Win64/Dawnwalker.exe";
     public const string SupportedExecutableHash = "CB9B7D7BD88A6754C0A9C08318AA64D5013DDFD92D5BADCAE84E1B4EA980DCFC";
     public const string BridgeRoot = "Dawnwalker/Binaries/Win64/ue4ss/Mods/HappyCheatsDawnwalker/bridge/";

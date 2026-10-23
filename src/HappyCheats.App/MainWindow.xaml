@@ -198,6 +198,12 @@
           <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0" Padding="0,12,0,0">
             <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><StackPanel Orientation="Horizontal"><TextBlock Text="{Binding Labels[controls]}" FontSize="21" FontWeight="SemiBold"/><Border Background="{DynamicResource RaisedBrush}" CornerRadius="4" Padding="6,2" Margin="11,4,0,3"><TextBlock Text="{Binding FeatureCount}" Foreground="{DynamicResource MutedBrush}" FontSize="10"/></Border></StackPanel><TextBlock Text="{Binding ControlsHint}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,7,0,0" TextWrapping="Wrap"/></StackPanel><Button Grid.Column="1" Content="{Binding Labels[disableAll]}" Style="{StaticResource QuietButton}" IsEnabled="{Binding CanDisableAll}" Click="DisableAllClicked" Padding="13,8" VerticalAlignment="Top" Margin="15,2,0,0"/></Grid>
           </Border>
+          <Border Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="9" Padding="14,10" Margin="0,14,0,0">
+            <StackPanel>
+              <Button x:Name="GameMenuButton" Content="{Binding OverlayLabel}" Click="OverlayClicked" Style="{StaticResource QuietButton}" HorizontalAlignment="Left" Padding="10,8" FontSize="12"/>
+              <TextBlock Text="{Binding OverlayHint}" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="2,7,2,0"/>
+            </StackPanel>
+          </Border>
           <ItemsControl ItemsSource="{Binding Features}" ItemTemplate="{StaticResource FeatureRowTemplate}" Margin="0,10,0,0">
             <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
           </ItemsControl>
@@ -206,7 +212,6 @@
               <TextBlock Text="{Binding ControllerDirections}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,12,0,0" TextWrapping="Wrap"/>
               <TextBlock Text="{Binding ControllerBumpers}" Foreground="{DynamicResource MutedBrush}" FontSize="10" Margin="0,7,0,0" TextWrapping="Wrap"/>
               <TextBlock Text="{Binding Labels[controllerHint]}" Foreground="{DynamicResource SubtleBrush}" FontSize="10" Margin="0,9,0,0" TextWrapping="Wrap"/>
-              <Button Content="{Binding OverlayLabel}" Click="OverlayClicked" Visibility="{Binding DawnwalkerVisibility}" Style="{StaticResource QuietButton}" HorizontalAlignment="Left" Margin="0,12,0,0" Padding="10,6" FontSize="11"/>
             </StackPanel>
           </Border>
           <TextBlock Text="{Binding ValuesLine}" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="4,13,0,0" Visibility="{Binding ValuesVisibility}"/>

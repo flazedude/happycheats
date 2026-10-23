@@ -7,6 +7,7 @@ namespace HappyCheats.Core;
 
 public sealed class CivilizationVIIModule(string baseDirectory) : IGameModule, IFeatureValueModule
 {
+    public IReadOnlyList<string> GameExecutables => Executables;
     public const string TrainerVersion = "0.1.0";
     private readonly string package = Path.Combine(baseDirectory, "payload", "civilization-vii");
     private readonly SemaphoreSlim gate = new(1, 1);

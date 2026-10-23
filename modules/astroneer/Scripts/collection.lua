@@ -3,7 +3,7 @@
 local M = { DEFAULT_MULTIPLIER = 10, INT32_MAX = 2147483647 }
 
 function M.is_multiplier(value)
-    return type(value) == "number" and (value == 10 or value == 20)
+    return type(value) == "number" and (value == 10 or value == 20 or value == 100)
 end
 
 function M.is_positive_int32(value)

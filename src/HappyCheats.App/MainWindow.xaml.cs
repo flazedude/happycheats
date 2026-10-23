@@ -10,6 +10,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
 using HappyCheats.Core;
@@ -24,10 +25,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private readonly DispatcherTimer _controllerTimer = new() { Interval = TimeSpan.FromMilliseconds(35) };
     private readonly ControllerInput _controller = new();
     private readonly HashSet<int> _controllerProcessIds = new();
-    private DawnwalkerOverlay? _dawnwalkerOverlay;
+    private GameOverlay? _gameOverlay;
     private Civ6KeyboardHook? _civ6KeyboardHook;
-    private bool _overlayRequested, _overlayKeyDown;
-    private IntPtr _dawnwalkerWindow;
+    private bool _overlayRequested;
+    private readonly GameMenuShortcut _menuShortcut = new();
+    private IntPtr _gameWindow;
     private bool _controllerEnabled = true;
     private string _controllerLabel = "Connect an Xbox controller";
     private readonly bool _captureMode;
@@ -43,6 +45,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool _busy, _polling, _initialized;
     private bool _witcherControlPending;
     private int _pollNumber;
+    private long _controlEpoch;
     private string _message = "Finding your games in Steam…";
     private Func<string>? _localizedMessage;
     private bool _messageIsError;
@@ -80,7 +83,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool GtaStorySession => _selected?.Id == "gta-v-enhanced" && _selected.Status.Connected
         && _selected.Status.Values.TryGetValue("gta_online", out var online) && online == bool.FalseString;
     public bool CanDisableAll => !_busy && (_selected?.Id != "gta-v-enhanced" || GtaStorySession)
-        && (_selected?.Status.Ready == true || GtaStorySession || _selected?.Id is "dawnwalker" or "black-myth-wukong" or "red-dead-redemption-2" or "hotel-architect" or "civilization-vi" or "civilization-vii" or "witcher-3" or "elden-ring" && _selected.Status.Connected) && Features.Any(f => f.Definition.IsToggle);
+        && (_selected?.Status.Ready == true || GtaStorySession || _selected?.Id is "dawnwalker" or "black-myth-wukong" or "red-dead-redemption-2" or "hotel-architect" or "civilization-vi" or "civilization-vii" or "witcher-3" or "elden-ring" or "astroneer" && _selected.Status.Connected) && Features.Any(f => f.Definition.IsToggle);
     private bool CrimsonInitializationFailed => _selected?.Id == "crimson-desert" && _selected.Status.Connected && !_selected.Status.Ready
         && _selected.Status.Values.TryGetValue("diagnostic_crimson_initialization_failed", out var failed) && failed == bool.TrueString;
     private bool WitcherPaused => _selected?.Id == "witcher-3" && _selected.Status.Connected
@@ -108,15 +111,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public string BuildLabel => _selected?.Installation is { IsInstalled: true } installation ? $"{Localization.Choose("Steam build", "Steam 版本")} {Localization.Message(installation.Build)}  ·  {Localization.Message(installation.Message)}" : Localization.Text("steamDiscovery");
     public string ValuesLine => _selected == null ? "" : FormatValues(_selected.Status.Values);
     public Visibility ValuesVisibility => string.IsNullOrEmpty(ValuesLine) ? Visibility.Collapsed : Visibility.Visible;
-    public Visibility ControllerVisibility => _selected?.Id is "onimusha" or "dawnwalker" ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility ControllerVisibility => _selected != null ? Visibility.Visible : Visibility.Collapsed;
     public Visibility DawnwalkerVisibility => _selected?.Id == "dawnwalker" ? Visibility.Visible : Visibility.Collapsed;
     public string ControllerDirections => _selected?.Id == "dawnwalker"
-        ? DawnwalkerOverlay.ControllerDirections(_controller.DawnwalkerPage)
-        : Localization.Text("controllerDirections");
+        ? DawnwalkerControllerHints.Directions(_controller.DawnwalkerPage)
+        : _selected?.Id == "onimusha" ? Localization.Text("controllerDirections")
+        : Localization.Choose("Hold Menu (☰) for 0.35 seconds, then tap RB to show / hide the menu.", "按住 Menu（☰）0.35 秒，再按 RB 显示 / 隐藏菜单。");
     public string ControllerBumpers => _selected?.Id == "dawnwalker"
-        ? Localization.Choose("Hold Menu: X  Auto teleport · Y  Teleport · View  Next page · LB  Disable all · RB  Overlay (F6)", "按住 Menu：X 自动传送 · Y 传送 · View 下一页 · LB 全部关闭 · RB 悬浮面板（F6）")
-        : Localization.Text("controllerBumpers");
-    public string OverlayLabel => Localization.Choose("Show / hide game overlay · F6", "显示 / 隐藏游戏悬浮面板 · F6");
+        ? Localization.Choose("Hold Menu: X  Auto teleport · Y  Teleport · View  Next page · LB  Disable all · RB  Menu", "按住 Menu：X 自动传送 · Y 传送 · View 下一页 · LB 全部关闭 · RB 菜单")
+        : _selected?.Id == "onimusha" ? Localization.Text("controllerBumpers") : "";
+    public string OverlayLabel => Localization.Choose("In-game menu · Ctrl+Del", "游戏内菜单 · Ctrl+Del");
+    public string OverlayHint => Localization.Choose("Select this game and keep HappyCheats open. Use windowed or borderless mode. Click the menu to edit; close it to return to the game.", "选择本游戏并保持 HappyCheats 运行。使用窗口或无边框模式。点击菜单进行编辑，关闭菜单返回游戏。");
     public string ControllerLabel => !_controllerEnabled ? Localization.Text("controllerDisabled") : _controller.Connected
         ? Localization.Choose($"Controller {_controller.Slot + 1} connected", $"手柄 {_controller.Slot + 1} 已连接") : Localization.Text("controllerMissing");
     public bool ControllerEnabled
@@ -158,7 +163,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _pollTimer.Tick += async (_, _) => await PollAsync();
         _controllerTimer.Tick += async (_, _) => await PollControllerAsync();
         Closing += (_, e) => { if (_updateWindow?.IsWorking == true && !_updateHandoff) { e.Cancel = true; _updateWindow.Activate(); } };
-        Closed += (_, _) => { ThemeManager.Changed -= ThemeChanged; _pollTimer.Stop(); _controllerTimer.Stop(); _civ6KeyboardHook?.Dispose(); _dawnwalkerOverlay?.Close(); _updateLifetime.Cancel(); _updateWindow?.CancelPending(); foreach (var game in Games) if (game.Module is EldenRingModule module) module.Stop(); };
+        Closed += (_, _) => { ThemeManager.Changed -= ThemeChanged; _pollTimer.Stop(); _controllerTimer.Stop(); _civ6KeyboardHook?.Dispose(); _gameOverlay?.Close(); _updateLifetime.Cancel(); _updateWindow?.CancelPending(); foreach (var game in Games) if (game.Module is EldenRingModule module) module.Stop(); };
     }
 
     public async Task InitializeAsync(bool preview = false)
@@ -226,10 +231,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private async void UpdatesClicked(object sender, RoutedEventArgs e)
     {
         if (_busy) return;
+        _controlEpoch++;
         _busy = true;
         _pollTimer.Stop();
         _controllerTimer.Stop();
-        _dawnwalkerOverlay?.Hide();
+        _gameOverlay?.Hide();
         _controller.Poll(false);
         _startupUpdateCheck?.Cancel();
         RefreshBindings();
@@ -345,6 +351,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void GameSelected(object sender, SelectionChangedEventArgs e)
     {
         if (Library.SelectedItem is not GameItem game) return;
+        _controlEpoch++;
         if (_selected != game && _selected?.Module is EldenRingModule previous)
         {
             previous.Stop();
@@ -352,9 +359,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
         _selected = game;
         _overlayRequested = false;
-        _dawnwalkerWindow = IntPtr.Zero;
-        _dawnwalkerOverlay?.Hide();
-        if (game.Id is "onimusha" or "dawnwalker") _controller.Profile = game.Id;
+        _gameWindow = IntPtr.Zero;
+        _gameOverlay?.Hide();
+        _controller.Profile = game.Id is "onimusha" or "dawnwalker" ? game.Id : "shared";
         _controllerProcessIds.Clear();
         _controller.Poll(false);
         DetailScroll.ScrollToTop();
@@ -403,33 +410,35 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (_busy || _polling || _selected?.Installation is not { IsInstalled: true } installation) return;
         _polling = true;
         var game = _selected;
+        var epoch = _controlEpoch;
         try
         {
             if (++_pollNumber % 10 == 0)
             {
                 var discovered = await game.Module.DiscoverAsync(installation.Directory);
-                if (!_busy) { game.Installation = discovered; game.Changed(); }
+                if (_busy || epoch != _controlEpoch) return;
+                game.Installation = discovered; game.Changed();
             }
             var previous = game.Status;
             var current = await game.Module.ReadStatusAsync(installation);
-            if (_busy) return;
-            if (game == _selected && game.Id is "onimusha" or "dawnwalker")
+            if (_busy || epoch != _controlEpoch) return;
+            if (game == _selected)
             {
-                var controls = await ReadControlWindowAsync(installation.Directory, game.Id);
-                if (_busy) return;
+                var controls = await GameWindowLocator.ReadAsync(game.Module, installation);
+                if (_busy || epoch != _controlEpoch) return;
                 if (game == _selected)
                 {
                     _controllerProcessIds.Clear();
                     _controllerProcessIds.UnionWith(controls.ProcessIds);
-                    _dawnwalkerWindow = controls.Window;
+                    _gameWindow = controls.Window;
                 }
             }
             game.Status = current;
             if (game == _selected)
             {
                 if (previous.Connected != game.Status.Connected || previous.Ready != game.Status.Ready
-                    || game.Id == "crimson-desert" && previous.SessionId != game.Status.SessionId
-                    || game.Id is "civilization-vi" or "civilization-vii" or "witcher-3" or "elden-ring" && previous.Message != game.Status.Message) SetMessage(game.Status.Message);
+                    || game.Id is "crimson-desert" or "astroneer" && previous.SessionId != game.Status.SessionId
+                    || game.Id is "civilization-vi" or "civilization-vii" or "witcher-3" or "elden-ring" or "astroneer" && previous.Message != game.Status.Message) SetMessage(game.Status.Message);
                 else if (game.Id == "crimson-desert" && game.Status.Connected
                     && game.Status.Values.TryGetValue("crimson_teleport_status", out var teleportStatus)
                     && (!previous.Values.TryGetValue("crimson_teleport_status", out var previousTeleport) || teleportStatus != previousTeleport))
@@ -439,40 +448,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
         catch (Exception error)
         {
-            _controllerProcessIds.Clear();
-            _dawnwalkerWindow = IntPtr.Zero;
+            if (epoch != _controlEpoch) return;
+            if (game == _selected) { _controllerProcessIds.Clear(); _gameWindow = IntPtr.Zero; }
             game.Status = TrainerStatus.Offline(error.Message);
             if (game == _selected) { SetMessage(error.Message, true); RefreshBindings(); }
         }
         finally { _polling = false; }
     }
 
-    private static Task<(int[] ProcessIds, IntPtr Window)> ReadControlWindowAsync(string directory, string gameId) => Task.Run(() =>
-    {
-        // Process/module inspection can block. Keep it off the WPF dispatcher,
-        // and do not turn a valid trainer heartbeat offline if a window exits.
-        try
-        {
-            var processes = ModuleIO.Processes(directory, gameId == "dawnwalker" ? DawnwalkerModule.Executable : "OnimushaWotS.exe");
-            var window = IntPtr.Zero;
-            if (gameId == "dawnwalker" && processes.Length == 1)
-            {
-                try
-                {
-                    using var running = System.Diagnostics.Process.GetProcessById(processes[0].Id);
-                    window = running.MainWindowHandle;
-                }
-                catch (Exception error) when (error is InvalidOperationException or ArgumentException or Win32Exception) { }
-            }
-            return (processes.Select(process => process.Id).ToArray(), window);
-        }
-        catch (IOException) { return (Array.Empty<int>(), IntPtr.Zero); }
-    });
-
     private async Task RunOperationAsync(Func<GameItem, Task> action, string working)
     {
         if (_busy || _selected == null) return;
         var game = _selected;
+        _controlEpoch++;
         _busy = true;
         SetMessage(working);
         RefreshBindings();
@@ -505,28 +493,54 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
     [DllImport("user32.dll")]
     private static extern short GetAsyncKeyState(int virtualKey);
+    [DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(IntPtr window);
 
-    private void OverlayClicked(object sender, RoutedEventArgs e) => ToggleDawnwalkerOverlay();
+    private void OverlayClicked(object sender, RoutedEventArgs e) => ToggleGameOverlay();
 
-    private void ToggleDawnwalkerOverlay()
+    private void ToggleGameOverlay()
     {
-        if (_selected?.Id != "dawnwalker" || _captureMode) return;
+        if (_selected == null || _captureMode || _updateHandoff || _updateWindow != null) return;
+        if (_overlayRequested) { DismissGameOverlay(); return; }
+        if (_gameWindow == IntPtr.Zero)
+        {
+            SetLocalizedMessage(() => Localization.Choose("No unique game window found. Launch the selected game in windowed or borderless mode, then press Ctrl+Del.", "未找到唯一的游戏窗口。请以窗口或无边框模式启动所选游戏，然后按 Ctrl+Del。"));
+            return;
+        }
         _overlayRequested = !_overlayRequested;
         if (_overlayRequested)
         {
-            _dawnwalkerOverlay ??= new DawnwalkerOverlay(SendFeatureAsync, () => { _overlayRequested = false; _dawnwalkerOverlay?.Hide(); }, SelectDawnwalkerPage);
+            if (_gameOverlay == null)
+            {
+                _gameOverlay = new GameOverlay(SendOverlayFeatureAsync, SendChoiceAsync, DismissGameOverlay);
+                _gameOverlay.PreviewKeyDown += WindowKeyDown;
+                _gameOverlay.Closed += (_, _) => { _gameOverlay = null; _overlayRequested = false; };
+            }
             RefreshOverlay();
         }
-        else _dawnwalkerOverlay?.Hide();
+    }
+
+    private void DismissGameOverlay()
+    {
+        var returnFocus = _gameOverlay?.IsActive == true;
+        _overlayRequested = false;
+        _gameOverlay?.Hide();
+        // Return focus only after the user interacted with this menu, never on a background poll.
+        if (returnFocus && _gameWindow != IntPtr.Zero) SetForegroundWindow(_gameWindow);
+    }
+
+    private Task SendOverlayFeatureAsync(FeatureDefinition feature)
+    {
+        if (_gameOverlay?.CurrentGameId != _selected?.Id) return Task.CompletedTask;
+        if (feature.Id == "disable_all") return CanDisableAll ? SendFeatureAsync(feature) : Task.CompletedTask;
+        return Features.Any(item => ReferenceEquals(item.Definition, feature) && item.CanUse)
+            ? SendFeatureAsync(feature) : Task.CompletedTask;
     }
 
     private void RefreshOverlay()
     {
-        if (_selected?.Id == "dawnwalker" && _dawnwalkerOverlay != null)
-        {
-            _dawnwalkerOverlay.ShortcutPage = _controller.DawnwalkerPage;
-            _dawnwalkerOverlay.Refresh(Features, _selected.Status, _busy, Message);
-        }
+        if (_selected != null) _gameOverlay?.Refresh(_selected, Features, _busy, CanDisableAll, Message,
+            _selected.Id == "dawnwalker" ? ControllerDirections + "\n" + ControllerBumpers : "");
     }
 
     private void SelectDawnwalkerPage(int page)
@@ -536,33 +550,56 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         RefreshOverlay();
     }
 
+    internal bool IsControllerMenuScope(IntPtr foregroundWindow)
+    {
+        if (_captureMode || _selected == null || _gameWindow == IntPtr.Zero || foregroundWindow == IntPtr.Zero
+            || _updateHandoff || _updateWindow != null) return false;
+        var overlayHandle = _gameOverlay == null ? IntPtr.Zero : new WindowInteropHelper(_gameOverlay).Handle;
+        return foregroundWindow == _gameWindow || foregroundWindow == overlayHandle
+            || foregroundWindow == new WindowInteropHelper(this).Handle;
+    }
+
     private async Task PollControllerAsync()
     {
         if (_captureMode) return;
-        GetWindowThreadProcessId(GetForegroundWindow(), out var foreground);
+        var foregroundWindow = GetForegroundWindow();
+        GetWindowThreadProcessId(foregroundWindow, out var foreground);
         bool focused = foreground == Environment.ProcessId || _controllerProcessIds.Contains((int)foreground);
         var isDawnwalker = _selected?.Id == "dawnwalker";
-        var keyDown = (GetAsyncKeyState(0x75) & 0x8000) != 0;
-        if (isDawnwalker && focused && keyDown && !_overlayKeyDown && !_busy) ToggleDawnwalkerOverlay();
-        _overlayKeyDown = keyDown; // Consume held keys across focus/selection changes.
-        _dawnwalkerOverlay?.Follow(_dawnwalkerWindow, _overlayRequested && isDawnwalker && focused && !_updateHandoff);
-        var action = _controller.Poll(_controllerEnabled && _selected?.Id is "onimusha" or "dawnwalker"
-            && (_selected.Status.Ready || isDawnwalker) && !_busy && focused);
+        var menuScope = IsControllerMenuScope(foregroundWindow);
+        if (_menuShortcut.Poll((GetAsyncKeyState(0x11) & 0x8000) != 0, (GetAsyncKeyState(GameMenuShortcut.VirtualKey) & 0x8000) != 0,
+            (GetAsyncKeyState(0x75) & 0x8000) != 0, menuScope, isDawnwalker)) ToggleGameOverlay();
+        _gameOverlay?.Follow(_gameWindow, _overlayRequested && menuScope);
+        var action = _controller.Poll(_controllerEnabled && menuScope,
+            _controllerEnabled && _selected?.Id is "onimusha" or "dawnwalker"
+            && (_selected.Status.Ready || isDawnwalker) && !_busy && !_updateHandoff && _updateWindow == null && focused);
         var label = !_controllerEnabled ? "Shortcuts disabled" : _controller.Connected ? $"Controller {_controller.Slot + 1} connected" : "Connect an Xbox controller";
         if (_controllerLabel != label) { _controllerLabel = label; Notify(nameof(ControllerLabel)); }
-        if (action == null) return;
+        if (action != null) await DispatchControllerActionAsync(action);
+    }
+
+    internal async Task DispatchControllerActionAsync(string action)
+    {
+        if (!_controllerEnabled || _captureMode || _selected == null || _updateHandoff || _updateWindow != null) return;
+        // Closing the menu must stay available while a command is waiting on the game.
+        if (action == "game_menu")
+        {
+            if (_gameWindow != IntPtr.Zero) ToggleGameOverlay();
+            return;
+        }
+        if (_busy || _selected.Id is not ("onimusha" or "dawnwalker")) return;
+        var isDawnwalker = _selected.Id == "dawnwalker";
+        if (!_selected.Status.Ready && !isDawnwalker) return;
         if (isDawnwalker && action == "dawnwalker_page")
         {
             Notify(nameof(ControllerDirections));
-            if (!_overlayRequested) ToggleDawnwalkerOverlay();
+            if (!_overlayRequested) ToggleGameOverlay();
             else RefreshOverlay();
             return;
         }
-        if (isDawnwalker && action == "hud") { ToggleDawnwalkerOverlay(); return; }
         var feature = _selected?.Module.Definition.Features.FirstOrDefault(f => f.Id == action);
         if (feature != null && Features.Any(f => f.Definition.Id == action && f.CanUse)) await SendFeatureAsync(feature);
         else if (action == "disable_all") await SendFeatureAsync(new FeatureDefinition("disable_all", "Disable all", "", ""));
-        else if (action == "hud") await SendFeatureAsync(new FeatureDefinition("hud", "In-game status", "", ""));
     }
 
     private async void RescanClicked(object sender, RoutedEventArgs e) => await RunOperationAsync(async game =>
@@ -611,7 +648,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async void FeatureChoiceClicked(object sender, RoutedEventArgs e)
     {
-        if (sender is not Button { Tag: FeatureChoiceItem choice } || _busy || !choice.CanUse
+        if (sender is Button { Tag: FeatureChoiceItem choice }) await SendChoiceAsync(choice);
+    }
+
+    private async Task SendChoiceAsync(FeatureChoiceItem choice)
+    {
+        if (_busy || !choice.CanUse || !Features.Contains(choice.Owner)
             || choice.IsSelected || _selected?.Module is not IFeatureChoiceModule) return;
         await RunOperationAsync(async game =>
         {
@@ -638,7 +680,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async Task SendFeatureAsync(FeatureDefinition feature)
     {
-        var cleanup = _selected?.Id is "dawnwalker" or "black-myth-wukong" or "red-dead-redemption-2" or "hotel-architect" or "civilization-vi" or "civilization-vii" or "witcher-3" or "elden-ring" && _selected.Status.Connected
+        var cleanup = _selected?.Id is "dawnwalker" or "black-myth-wukong" or "red-dead-redemption-2" or "hotel-architect" or "civilization-vi" or "civilization-vii" or "witcher-3" or "elden-ring" or "astroneer" && _selected.Status.Connected
             && (feature.Id == "disable_all" || feature.IsToggle && _selected.Status.Enabled.TryGetValue(feature.Id, out var activeCleanup) && activeCleanup);
         cleanup |= GtaStorySession && (feature.Id == "disable_all" || feature.IsToggle && _selected!.Status.Enabled.TryGetValue(feature.Id, out var gtaActive) && gtaActive);
         cleanup |= _selected?.Id == "crimson-desert" && _selected.Status.Connected
@@ -731,7 +773,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             EldenRingModule module when _selected.Id == "elden-ring" => module.ConnectedProcessId,
             _ => 0
         };
-        return new(processId, _selected.Status.SessionId, _busy || _updateWindow != null, _selected.Id == "elden-ring");
+        var editingMenu = _gameOverlay?.IsActive == true && Keyboard.FocusedElement is TextBox or ComboBox;
+        return new(processId, _selected.Status.SessionId, _busy || _updateWindow != null || editingMenu, _selected.Id == "elden-ring");
     }
 
     private async Task DispatchCivilizationShortcutAsync(Civ6HotkeyRequest request)
@@ -757,6 +800,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private async void WindowKeyDown(object sender, KeyEventArgs e)
     {
         if (e.IsRepeat) return;
+        if (sender is GameOverlay && Keyboard.FocusedElement is TextBox or ComboBox) return;
         if (_selected?.Id is "civilization-vi" or "civilization-vii" or "elden-ring")
         {
             var modifiers = Keyboard.Modifiers;
@@ -774,7 +818,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var shortcut = (Keyboard.Modifiers.HasFlag(ModifierKeys.Control) ? "Ctrl+" : "")
             + (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) ? "Shift+" : "")
             + (Keyboard.Modifiers.HasFlag(ModifierKeys.Alt) ? "Alt+" : "") + (e.Key == Key.System ? e.SystemKey : e.Key);
-        if (_selected?.Id == "gta-v-enhanced" && shortcut == "F10" && CanDisableAll)
+        if (_selected?.Id is "gta-v-enhanced" or "astroneer" && shortcut == "F10" && CanDisableAll)
         {
             e.Handled = true;
             await SendFeatureAsync(new FeatureDefinition("disable_all", "Disable all", "", "F10"));
@@ -836,7 +880,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 && !pair.Key.StartsWith("available_", StringComparison.OrdinalIgnoreCase)
                 && !pair.Key.StartsWith("reason_", StringComparison.OrdinalIgnoreCase)
                 && !pair.Key.StartsWith("diagnostic_", StringComparison.OrdinalIgnoreCase)
-                && !new[] { "dryMultiplier", "washAvailable", "dryAvailable", "shopAvailable", "collection_hook_registered", "collection_last_resource", "collection_scope", "soil_status", "selected_collection_multiplier", "witcher3_waiting_for_game" }.Contains(pair.Key))
+                && !new[] { "dryMultiplier", "washAvailable", "dryAvailable", "shopAvailable", "collection_hook_registered", "collection_last_resource", "collection_scope", "soil_status", "selected_collection_multiplier", "selected_run_speed_multiplier", "witcher3_waiting_for_game" }.Contains(pair.Key))
             .Select(pair =>
             {
                 var label = Localization.ValueLabel(pair.Key);

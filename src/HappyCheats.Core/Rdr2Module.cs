@@ -10,6 +10,7 @@ namespace HappyCheats.Core;
 
 public sealed class Rdr2Module(string baseDirectory) : IGameModule
 {
+    public IReadOnlyList<string> GameExecutables { get; } = [Executable];
     public const string Executable = "RDR2.exe";
     public const string SupportedExecutableVersion = "1.0.1491.50";
     public const string TrainerVersion = "0.1.0";

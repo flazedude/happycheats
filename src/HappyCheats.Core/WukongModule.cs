@@ -8,6 +8,7 @@ namespace HappyCheats.Core;
 
 public sealed class WukongModule(string baseDirectory) : IGameModule, IFeatureValueModule
 {
+    public IReadOnlyList<string> GameExecutables { get; } = [Executable];
     public const string Executable = "b1/Binaries/Win64/b1-Win64-Shipping.exe";
     public const string SupportedExecutableHash = "CBA6127DF85FE6AEDF5A71B398F268C8A963C7B19582C3CAC087462518358E9A";
     public const string SupportedSteamBuild = "21393610";

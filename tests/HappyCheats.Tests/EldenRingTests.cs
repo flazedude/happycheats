@@ -66,7 +66,7 @@ internal static class EldenRingTests
             Assert(status.Connected && status.Ready && status.SessionId.Length > 0);
             AssertOff(status);
             Assert(runtime.Writes.Count == 0);
-            Assert(status.Values["Health"] == "50 / 100" && status.Values["FP"] == "20 / 80" && status.Values["Stamina"] == "30 / 90");
+            Assert(status.Values["Health"] == "50 / 100" && status.Values["FP"] == "20 / 80" && status.Values["er_stamina_value"] == "30 / 90");
         });
         Run("Elden Ring one-shot restores selected resources without arming periodic writes", () =>
         {

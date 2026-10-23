@@ -180,6 +180,29 @@ def validate_game(game, calls):
     print(f'Installed v5.0 executable pin and {len(calls)} API signatures verified read-only.')
 
 
+def validate_installed_evidence(game, calls, explicit=False):
+    # The installed game is optional supporting evidence for an offline package
+    # check. An unrelated Steam update must not prevent validating this payload.
+    # Explicit inspection still requires the pinned executable and API contract.
+    if explicit:
+        require(game is not None, 'An explicit game directory is required')
+        validate_game(game, calls)
+        return True
+    if game is None:
+        print('Installed-game API comparison SKIP: Steam app 292030 not installed.')
+        return False
+    executable = game / 'bin/x64_dx12/witcher3.exe'
+    if not executable.is_file():
+        print('Installed-game API comparison SKIP: auto-discovered DX12 executable is missing; no compatibility is established.')
+        return False
+    if sha(executable) != EXE_HASH:
+        print('Installed-game API comparison SKIP: auto-discovered executable is not verified Steam build 25575366; no compatibility is established.')
+        return False
+    # Do not suppress API mismatches or other failures for a supported build.
+    validate_game(game, calls)
+    return True
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--game-directory')
@@ -192,11 +215,7 @@ def main():
     files = manifest['files']
     require(len(files) == 1 and files[0]['path'] == 'happycheats.ws', 'Unexpected payload content')
     require(sha(source_path) == sha(package / files[0]['path']) == files[0]['sha256'].upper(), 'Stale or damaged Witcher 3 payload')
-    game = find_game(args.game_directory)
-    if game:
-        validate_game(game, calls)
-    else:
-        print('Installed-game API comparison skipped: Steam app 292030 not installed.')
+    validate_installed_evidence(find_game(args.game_directory), calls, explicit=bool(args.game_directory))
     print('Payload integrity, lexical delimiters, call arities, control list and protocol source contracts verified.')
     print('STATIC VALIDATION ONLY: not WitcherScript compilation, execution, or gameplay testing.')
 
