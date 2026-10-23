@@ -1,4 +1,4 @@
-﻿/*
+/*
  *  MinHook - The Minimalistic API Hooking Library for x64/x86
  *  Copyright (C) 2009-2017 Tsuda Kageyu.
  *  All rights reserved.
@@ -32,8 +32,9 @@
 // Size of each memory block. (= page size of VirtualAlloc)
 #define MEMORY_BLOCK_SIZE 0x1000
 
-// Max range for seeking a memory block. (= 1024MB)
-#define MAX_MEMORY_RANGE 0x40000000
+// HappyCheats local patch: preserve the original near allocation preference,
+// then try a conservative signed-rel32 range only after the near pass fails.
+// The two limits are declared in buffer.h for matching diagnostics/tests.
 
 // Memory protection flags to check the executable address.
 #define PAGE_EXECUTE_FLAGS \
@@ -94,6 +95,8 @@ static LPVOID FindPrevFreeRegion(LPVOID pAddress, LPVOID pMinAddr, DWORD dwAlloc
     tryAddr -= tryAddr % dwAllocationGranularity;
 
     // Start from the previous allocation granularity multiply.
+    if (tryAddr < dwAllocationGranularity)
+        return NULL;
     tryAddr -= dwAllocationGranularity;
 
     while (tryAddr >= (ULONG_PTR)pMinAddr)
@@ -125,6 +128,8 @@ static LPVOID FindNextFreeRegion(LPVOID pAddress, LPVOID pMaxAddr, DWORD dwAlloc
     tryAddr -= tryAddr % dwAllocationGranularity;
 
     // Start from the next allocation granularity multiply.
+    if (tryAddr > ~(ULONG_PTR)0 - dwAllocationGranularity)
+        return NULL;
     tryAddr += dwAllocationGranularity;
 
     while (tryAddr <= (ULONG_PTR)pMaxAddr)
@@ -136,11 +141,20 @@ static LPVOID FindNextFreeRegion(LPVOID pAddress, LPVOID pMaxAddr, DWORD dwAlloc
         if (mbi.State == MEM_FREE)
             return (LPVOID)tryAddr;
 
-        tryAddr = (ULONG_PTR)mbi.BaseAddress + mbi.RegionSize;
-
-        // Round up to the next allocation granularity.
-        tryAddr += dwAllocationGranularity - 1;
-        tryAddr -= tryAddr % dwAllocationGranularity;
+        {
+            ULONG_PTR next;
+            if ((ULONG_PTR)mbi.BaseAddress > ~(ULONG_PTR)0 - mbi.RegionSize)
+                break;
+            next = (ULONG_PTR)mbi.BaseAddress + mbi.RegionSize;
+            // Round up without wrapping, and require forward progress.
+            if (next > ~(ULONG_PTR)0 - (dwAllocationGranularity - 1))
+                break;
+            next += dwAllocationGranularity - 1;
+            next -= next % dwAllocationGranularity;
+            if (next <= tryAddr)
+                break;
+            tryAddr = next;
+        }
     }
 
     return NULL;
@@ -150,74 +164,79 @@ static LPVOID FindNextFreeRegion(LPVOID pAddress, LPVOID pMaxAddr, DWORD dwAlloc
 //-------------------------------------------------------------------------
 static PMEMORY_BLOCK GetMemoryBlock(LPVOID pOrigin)
 {
-    PMEMORY_BLOCK pBlock;
+    PMEMORY_BLOCK pBlock = NULL;
 #if defined(_M_X64) || defined(__x86_64__)
-    ULONG_PTR minAddr;
-    ULONG_PTR maxAddr;
-
     SYSTEM_INFO si;
+    UINT pass;
     GetSystemInfo(&si);
-    minAddr = (ULONG_PTR)si.lpMinimumApplicationAddress;
-    maxAddr = (ULONG_PTR)si.lpMaximumApplicationAddress;
+    if ((ULONG_PTR)pOrigin < (ULONG_PTR)si.lpMinimumApplicationAddress ||
+        (ULONG_PTR)pOrigin > (ULONG_PTR)si.lpMaximumApplicationAddress)
+        return NULL;
+    for (pass = 0; pass < 2; ++pass)
+    {
+        const ULONG_PTR origin = (ULONG_PTR)pOrigin;
+        const ULONG_PTR range = pass == 0 ? MH_MIN_BUFFER_RANGE : MH_MAX_BUFFER_RANGE;
+        ULONG_PTR minAddr = (ULONG_PTR)si.lpMinimumApplicationAddress;
+        ULONG_PTR maxAddr = (ULONG_PTR)si.lpMaximumApplicationAddress;
+        if (origin > range && minAddr < origin - range)
+            minAddr = origin - range;
+        // Subtract before adding to avoid wraparound near the address ceiling.
+        if (origin <= maxAddr && range < maxAddr - origin)
+            maxAddr = origin + range;
+        if (maxAddr < MEMORY_BLOCK_SIZE - 1)
+            continue;
+        maxAddr -= MEMORY_BLOCK_SIZE - 1;
+        if (minAddr > maxAddr)
+            continue;
 
-    // pOrigin ± 512MB
-    if ((ULONG_PTR)pOrigin > MAX_MEMORY_RANGE && minAddr < (ULONG_PTR)pOrigin - MAX_MEMORY_RANGE)
-        minAddr = (ULONG_PTR)pOrigin - MAX_MEMORY_RANGE;
+        // Reuse a block only within this pass's bounds. A farther existing
+        // block must not bypass a still-available allocation in the near band.
+        for (pBlock = g_pMemoryBlocks; pBlock != NULL; pBlock = pBlock->pNext)
+        {
+            if ((ULONG_PTR)pBlock < minAddr || (ULONG_PTR)pBlock > maxAddr)
+                continue;
+            if (pBlock->pFree != NULL)
+                return pBlock;
+        }
 
-    if (maxAddr > (ULONG_PTR)pOrigin + MAX_MEMORY_RANGE)
-        maxAddr = (ULONG_PTR)pOrigin + MAX_MEMORY_RANGE;
-
-    // Make room for MEMORY_BLOCK_SIZE bytes.
-    maxAddr -= MEMORY_BLOCK_SIZE - 1;
-#endif
-
-    // Look the registered blocks for a reachable one.
+        // Search toward lower addresses first, preserving MinHook's order.
+        {
+            LPVOID pAlloc = pOrigin;
+            while ((ULONG_PTR)pAlloc >= minAddr)
+            {
+                pAlloc = FindPrevFreeRegion(pAlloc, (LPVOID)minAddr, si.dwAllocationGranularity);
+                if (pAlloc == NULL)
+                    break;
+                pBlock = (PMEMORY_BLOCK)VirtualAlloc(pAlloc, MEMORY_BLOCK_SIZE,
+                    MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+                if (pBlock != NULL)
+                    break;
+            }
+        }
+        if (pBlock == NULL)
+        {
+            LPVOID pAlloc = pOrigin;
+            while ((ULONG_PTR)pAlloc <= maxAddr)
+            {
+                pAlloc = FindNextFreeRegion(pAlloc, (LPVOID)maxAddr, si.dwAllocationGranularity);
+                if (pAlloc == NULL)
+                    break;
+                pBlock = (PMEMORY_BLOCK)VirtualAlloc(pAlloc, MEMORY_BLOCK_SIZE,
+                    MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+                if (pBlock != NULL)
+                    break;
+            }
+        }
+        if (pBlock != NULL)
+            break;
+    }
+#else
+    // Preserve the original x86 behavior: reuse a free slot before allocating.
     for (pBlock = g_pMemoryBlocks; pBlock != NULL; pBlock = pBlock->pNext)
     {
-#if defined(_M_X64) || defined(__x86_64__)
-        // Ignore the blocks too far.
-        if ((ULONG_PTR)pBlock < minAddr || (ULONG_PTR)pBlock >= maxAddr)
-            continue;
-#endif
-        // The block has at least one unused slot.
         if (pBlock->pFree != NULL)
             return pBlock;
     }
-
-#if defined(_M_X64) || defined(__x86_64__)
-    // Alloc a new block above if not found.
-    {
-        LPVOID pAlloc = pOrigin;
-        while ((ULONG_PTR)pAlloc >= minAddr)
-        {
-            pAlloc = FindPrevFreeRegion(pAlloc, (LPVOID)minAddr, si.dwAllocationGranularity);
-            if (pAlloc == NULL)
-                break;
-
-            pBlock = (PMEMORY_BLOCK)VirtualAlloc(
-                pAlloc, MEMORY_BLOCK_SIZE, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
-            if (pBlock != NULL)
-                break;
-        }
-    }
-
-    // Alloc a new block below if not found.
-    if (pBlock == NULL)
-    {
-        LPVOID pAlloc = pOrigin;
-        while ((ULONG_PTR)pAlloc <= maxAddr)
-        {
-            pAlloc = FindNextFreeRegion(pAlloc, (LPVOID)maxAddr, si.dwAllocationGranularity);
-            if (pAlloc == NULL)
-                break;
-
-            pBlock = (PMEMORY_BLOCK)VirtualAlloc(
-                pAlloc, MEMORY_BLOCK_SIZE, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
-            if (pBlock != NULL)
-                break;
-        }
-    }
-#else
     // In x86 mode, a memory block can be placed anywhere.
     pBlock = (PMEMORY_BLOCK)VirtualAlloc(
         NULL, MEMORY_BLOCK_SIZE, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);

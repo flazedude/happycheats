@@ -1,10 +1,14 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Security.Cryptography;
 
 namespace HappyCheats.Core.Updates;
 
 public sealed record UpdateConfiguration
 {
     public string FeedUrl { get; init; } = "";
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? FallbackFeedUrl { get; init; }
     public string PublicKeyPem { get; init; } = "";
     public string Channel { get; init; } = "stable";
 
@@ -12,8 +16,37 @@ public sealed record UpdateConfiguration
     {
         var path = Path.Combine(appDirectory, "update-settings.json");
         if (!File.Exists(path)) return null;
+        var settings = Read(path);
+        // The updater preserves the installation's trusted settings. A signed
+        // application bundle may supplement a missing mirror, but cannot change
+        // its primary feed, channel, key or explicitly configured fallback.
+        var defaultsPath = Path.Combine(appDirectory, "update-defaults.json");
+        if (settings.FallbackFeedUrl == null && File.Exists(defaultsPath))
+        {
+            try
+            {
+                var defaults = Read(defaultsPath);
+                using var trusted = ReleaseSigning.ReadKey(settings.PublicKeyPem);
+                using var bundled = ReleaseSigning.ReadKey(defaults.PublicKeyPem);
+                if (defaults.FallbackFeedUrl != null && settings.Channel == defaults.Channel
+                    && UpdateValidation.Url(settings.FeedUrl, "Update feed").Equals(UpdateValidation.Url(defaults.FeedUrl, "Update feed"))
+                    && CryptographicOperations.FixedTimeEquals(trusted.ExportSubjectPublicKeyInfo(), bundled.ExportSubjectPublicKeyInfo()))
+                    settings = settings with { FallbackFeedUrl = defaults.FallbackFeedUrl };
+            }
+            catch (Exception error) when (error is IOException or InvalidDataException or UnauthorizedAccessException or JsonException or CryptographicException)
+            {
+                // Optional bundled defaults must not disable a working trusted feed.
+            }
+        }
+        return settings;
+    }
+
+    private static UpdateConfiguration Read(string path)
+    {
         if (new FileInfo(path).Length > 32 * 1024) throw new InvalidDataException("Update settings are too large.");
-        var settings = JsonSerializer.Deserialize<UpdateConfiguration>(File.ReadAllBytes(path), ReleaseSigning.JsonOptions)
+        var bytes = File.ReadAllBytes(path);
+        ReleaseSigning.RejectDuplicateProperties(bytes);
+        var settings = JsonSerializer.Deserialize<UpdateConfiguration>(bytes, ReleaseSigning.JsonOptions)
             ?? throw new InvalidDataException("Update settings are empty.");
         settings.Validate();
         return settings;
@@ -22,6 +55,7 @@ public sealed record UpdateConfiguration
     internal void Validate()
     {
         UpdateValidation.Url(FeedUrl, "Update feed");
+        if (FallbackFeedUrl != null) UpdateValidation.Url(FallbackFeedUrl, "Fallback update feed");
         UpdateValidation.Channel(Channel);
         using var key = ReleaseSigning.ReadKey(PublicKeyPem);
     }

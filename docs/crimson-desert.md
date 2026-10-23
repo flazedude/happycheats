@@ -1,6 +1,20 @@
 # Crimson Desert (Steam)
 
-Native trainer **0.2.3**, bundled in HappyCheats **0.3.36**, targets Steam app **3321460**, build **25477059**, executable **1.0.0.2976**. Compatibility is pinned to SHA-256 `57DA440D72F4DB974F25FEF047CF84C4DADD999A88CB2A3C5AF4C9BD67FDE1E7`; other executables are rejected. The latest teleport changes have static binary and isolated fixture validation. Successful travel on the user's other PC remains unverified; no game was launched or save edited during this update.
+Native trainer **0.2.5**, bundled in HappyCheats **0.3.45**, targets Steam app **3321460**, build **25477059**, executable **1.0.0.2976**. Compatibility is pinned to SHA-256 `57DA440D72F4DB974F25FEF047CF84C4DADD999A88CB2A3C5AF4C9BD67FDE1E7`; other executables are rejected. Hook allocation and health state were inspected read-only in the running game. Corrections have isolated fixture validation; actual gameplay effects with the new DLL remain unverified. No game was launched or save edited during this update.
+
+## Health refresh correction in 0.3.45
+
+The worker previously republished the player identity every 250 ms, briefly clearing its owner pointer even when every identity field was unchanged. A concurrent stat hook could apply the original update, encounter that temporary missing owner and skip the refill. Trainer 0.2.5 avoids republishing unchanged complete server and client identities. Actual changes still invalidate controls before publishing, and fresh native pointer checks remain mandatory. Invalid or expired sessions do not gain health protection.
+
+The health fixture reproduces the old interleaving through the actual stat hook and verifies the correction, complete identity changes, reused owner addresses and expired connections. Static inspection shows the health helper rereads the committed health before its zero-health logic, so a post-original refill alone is not evidence of a separate death-order bug. Nine read-only samples showed enabled health, a valid lease and matching full server/client health, but did not capture an attack. The reported enemy-attack death and its apparent relationship to hiding a menu remain unproven. See [0.3.45 release notes](releases/0.3.45.en.txt).
+
+## Hook allocation correction in 0.3.44
+
+The observed damage and marker hook failures came from MinHook's 1 GiB search limit. At initialization, diagnostics found no free candidates in that range. Later read-only inspection found 60 unused slots in an existing trainer block just outside the old range, still within reach of both hooks. Address-space availability had also changed since initialization, so the later free-space scan is not treated as the initial state.
+
+Trainer 0.2.4 keeps the original 1 GiB search first, then expands to a conservative 2 GiB minus 64 KiB range, including reuse of existing blocks. It rejects RIP-relative relocation and relay displacements outside signed 32-bit reach. Diagnostics scan the same expanded range with their existing time and region limits. Offline tests cover the five exact prologues, fallback allocation and reuse, full exhaustion and relocation safety. No live allocation probe or game memory change was used for diagnosis.
+
+Close Crimson Desert, update HappyCheats and choose **Install / update**, then launch the game yourself and **Connect trainer**. An already loaded DLL cannot receive this fix until the game exits. Waiting for gameplay is expected at the main menu; loaded-player checks still apply. See [0.3.44 release notes](releases/0.3.44.en.txt).
 
 ## Teleport correction in 0.3.36
 
@@ -12,7 +26,7 @@ HappyCheats now shows the evolving native teleport result instead of treating co
 
 Trainer 0.2.2 identifies each failed hook, its creation or enabling stage, and its exact MinHook status. The game's `bin64/HappyCheatsCrimsonDesert/status.json` retains those results plus read-only memory protection and dynamic-code policy snapshots. Allocation failures also record a bounded nearby-address-space scan, explicitly marked complete or truncated. Raw Windows last-error values are contextual evidence, not proof of the failure cause. Diagnostic collection never retries hooks or changes process mitigations.
 
-This release does **not** establish or fix the underlying reported hook failure. The exact prologues and diagnostic paths pass isolated fixtures, including simulated failures; successful hooking and gameplay in the actual game remain unverified. After installing this update with the game closed, launch gameplay and click **Connect trainer**. Leave the game running if an error appears so its details can be inspected. See [0.3.24 release notes](releases/0.3.24.en.txt).
+The 0.3.24 diagnostic release did **not** establish or fix the underlying reported hook failure. The allocation limit is addressed in 0.3.44 above. The exact prologues and diagnostic paths pass isolated fixtures, including simulated failures; successful hooking and gameplay in the actual game remain unverified. After installing this update with the game closed, launch gameplay and click **Connect trainer**. Leave the game running if an error appears so its details can be inspected. See [0.3.24 release notes](releases/0.3.24.en.txt).
 
 ## Connection fix in 0.3.20
 

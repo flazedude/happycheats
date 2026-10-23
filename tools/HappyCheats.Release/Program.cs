@@ -22,7 +22,7 @@ internal static class ReleaseCommand
                 HappyCheats release publisher (no remote uploads)
 
                 keygen --private-key PATH --public-key PATH
-                configure --feed-url URL --public-key PATH --output PATH
+                configure --feed-url URL --public-key PATH --output PATH [--fallback-feed-url URL]
                 publish --package ZIP --version X.Y.Z --base-url URL
                         --private-key PATH --output DIR --notes-en FILE
                         [--notes-zh FILE] [--new-game NAME ...] [--channel stable]
@@ -97,8 +97,11 @@ internal static class ReleaseCommand
 
     private static void Configure(Dictionary<string, List<string>> options)
     {
-        Allow(options, "feed-url", "public-key", "output");
+        Allow(options, "feed-url", "fallback-feed-url", "public-key", "output");
         var feed = UpdateAddress.Validate(Required(options, "feed-url"), "Feed URL");
+        var fallback = Optional(options, "fallback-feed-url") is { } fallbackUrl
+            ? UpdateAddress.Validate(fallbackUrl, "Fallback feed URL") : null;
+        if (fallback == feed) throw new ArgumentException("The fallback feed must differ from the primary feed.");
         var publicKeyPath = Path.GetFullPath(Required(options, "public-key"));
         var outputPath = Path.GetFullPath(Required(options, "output"));
         if (outputPath.Equals(publicKeyPath, StringComparison.OrdinalIgnoreCase))
@@ -120,7 +123,11 @@ internal static class ReleaseCommand
             if (rsa.KeySize < 2048 || rsa.KeySize > 8192)
                 throw new ArgumentException("The public RSA key must be between 2048 and 8192 bits.");
         }
-        var configuration = new UpdateConfiguration { FeedUrl = feed.AbsoluteUri, PublicKeyPem = publicKey, Channel = "stable" };
+        var configuration = new UpdateConfiguration
+        {
+            FeedUrl = feed.AbsoluteUri, FallbackFeedUrl = fallback?.AbsoluteUri,
+            PublicKeyPem = publicKey, Channel = "stable"
+        };
         WriteAtomically(outputPath,
             JsonSerializer.SerializeToUtf8Bytes(configuration, ReleaseSigning.JsonOptions));
         Console.WriteLine("Update configuration created with the public verification key.");

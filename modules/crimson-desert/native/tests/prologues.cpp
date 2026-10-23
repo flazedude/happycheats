@@ -2,6 +2,7 @@
 #define NOMINMAX
 #include <windows.h>
 #include <MinHook.h>
+#include "../vendor/minhook/src/buffer.h"
 #include <cstdio>
 #include <cstring>
 #include <array>
@@ -21,22 +22,21 @@ constexpr Fixture fixtures[]{
     {"outer_movement",0x36A9770,33,{0x48,0x8B,0xC4,0x48,0x89,0x58,0x10,0x48,0x89,0x70,0x18,
         0x55,0x57,0x41,0x54,0x41,0x56,0x41,0x57,0x48,0x8D,0xA8,0x08,0xFF,0xFF,0xFF,0x48,0x81,0xEC,0xD0,0x01,0x00,0x00}}
 };
-bool Run(bool exhaustNearRange) {
-    // Vendor buffer.c searches +/-0x40000000 (1 GiB). RESERVE consumes virtual
-    // address space, not physical/committed RAM; only five pages are committed.
-    // Exhausted mode reserves that full range around every target to reproduce
-    // MH_ERROR_MEMORY_ALLOC without altering the production allocator.
-    constexpr std::size_t nearRange=0x40000000,imageSize=0x173AB000,padding=0x10000;
-    const auto size=imageSize+(exhaustNearRange ? 2*nearRange+padding : 0);
+bool Run(const char* mode,std::size_t range,bool expectExhaustion) {
+    // RESERVE consumes virtual address space, not physical RAM. Test the exact
+    // game prologues normally, with the old 1 GiB search occupied (fallback
+    // must succeed), and with the entire conservative rel32 reach occupied.
+    constexpr std::size_t imageSize=0x173AB000,padding=0x10000;
+    const auto size=imageSize+(range ? 2*range+padding : 0);
     auto reservation=static_cast<unsigned char*>(VirtualAlloc(nullptr,size,MEM_RESERVE,PAGE_NOACCESS));
     if(!reservation) {
-        std::printf("{\"mode\":\"%s\",\"reserve_error\":%lu}\n",exhaustNearRange?"exhausted":"normal",GetLastError());
+        std::printf("{\"mode\":\"%s\",\"reserve_error\":%lu}\n",mode,GetLastError());
         return false;
     }
-    auto image=reservation+(exhaustNearRange?nearRange:0);
+    auto image=reservation+range;
     const auto initialized=MH_Initialize();
     std::printf("{\"mode\":\"%s\",\"initialize\":\"%s\",\"reserved_bytes\":%zu,\"image_base\":\"%p\"}\n",
-        exhaustNearRange?"exhausted":"normal",MH_StatusToString(initialized),size,static_cast<void*>(image));
+        mode,MH_StatusToString(initialized),size,static_cast<void*>(image));
     if(initialized!=MH_OK) { VirtualFree(reservation,0,MEM_RELEASE); return false; }
     bool success=true;
     for(const auto& f:fixtures) {
@@ -67,10 +67,10 @@ bool Run(bool exhaustNearRange) {
             removed=MH_RemoveHook(target);
         }
         std::printf("{\"mode\":\"%s\",\"hook\":\"%s\",\"target\":\"%p\",\"create\":\"%s\",\"create_code\":%d,\"last_error\":%lu,\"trampoline\":\"%p\",\"unchanged_on_create\":%s,\"enable\":\"%s\",\"redirected\":%s,\"disable\":\"%s\",\"restored\":%s,\"remove\":\"%s\"}\n",
-            exhaustNearRange?"exhausted":"normal",f.name,static_cast<void*>(target),MH_StatusToString(created),static_cast<int>(created),createLastError,
+            mode,f.name,static_cast<void*>(target),MH_StatusToString(created),static_cast<int>(created),createLastError,
             original,unchanged?"true":"false",MH_StatusToString(enabled),redirected?"true":"false",MH_StatusToString(disabled),
             restored?"true":"false",MH_StatusToString(removed));
-        success=success && unchanged && (exhaustNearRange ? created==MH_ERROR_MEMORY_ALLOC && !original :
+        success=success && unchanged && (expectExhaustion ? created==MH_ERROR_MEMORY_ALLOC && !original :
             created==MH_OK && original && enabled==MH_OK && redirected && disabled==MH_OK && restored && removed==MH_OK);
     }
     const auto uninitialized=MH_Uninitialize();
@@ -78,8 +78,9 @@ bool Run(bool exhaustNearRange) {
     return success && uninitialized==MH_OK && freed;
 }
 int main() {
-    const bool normal=Run(false);
-    const bool exhausted=Run(true);
-    std::printf("{\"normal_pass\":%s,\"exhaustion_reproduced\":%s}\n",normal?"true":"false",exhausted?"true":"false");
-    return normal && exhausted ? 0 : 1;
+    const bool normal=Run("normal",0,false);
+    const bool fallback=Run("near_exhausted",MH_MIN_BUFFER_RANGE,false);
+    const bool exhausted=Run("fully_exhausted",MH_MAX_BUFFER_RANGE,true);
+    std::printf("{\"normal_pass\":%s,\"fallback_pass\":%s,\"full_exhaustion_pass\":%s}\n",normal?"true":"false",fallback?"true":"false",exhausted?"true":"false");
+    return normal && fallback && exhausted ? 0 : 1;
 }

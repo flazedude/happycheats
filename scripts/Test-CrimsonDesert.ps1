@@ -26,6 +26,16 @@ $hcHookTest = Join-Path $hcBuild 'hook-tests.exe'
 if ($LASTEXITCODE -ne 0) { throw 'Crimson Desert hook tests did not compile.' }
 & $hcHookTest
 if ($LASTEXITCODE -ne 0) { throw 'Crimson Desert native hook fixture failed.' }
+$hcAllocationTest = Join-Path $hcBuild 'allocation-tests.exe'
+& g++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -static -static-libgcc -static-libstdc++ -I (Join-Path $hcNative 'vendor/minhook/include') -I (Join-Path $hcNative 'vendor/minhook/src') (Join-Path $hcNative 'tests/allocation.cpp') @hcObjects -o $hcAllocationTest
+if ($LASTEXITCODE -ne 0) { throw 'Crimson Desert allocation and relocation tests did not compile.' }
+$hcAllocationLog = Join-Path $hcBuild 'allocation-test-results.txt'
+& $hcAllocationTest *> $hcAllocationLog
+if ($LASTEXITCODE -ne 0) {
+    Get-Content -LiteralPath $hcAllocationLog | Write-Host
+    throw 'Crimson Desert allocation and relocation fixture failed.'
+}
+Get-Content -LiteralPath $hcAllocationLog | Write-Host
 $hcPrologueTest = Join-Path $hcBuild 'prologue-tests.exe'
 & g++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -static -static-libgcc -static-libstdc++ -I (Join-Path $hcNative 'vendor/minhook/include') (Join-Path $hcNative 'tests/prologues.cpp') @hcObjects -o $hcPrologueTest
 if ($LASTEXITCODE -ne 0) { throw 'Crimson Desert exact-prologue fixture did not compile.' }
@@ -35,7 +45,7 @@ if ($LASTEXITCODE -ne 0) {
     Get-Content -LiteralPath $hcPrologueLog | Write-Host
     throw 'Crimson Desert exact-prologue or nearby-space fixture failed.'
 }
-Write-Host 'PASS all five exact game prologues and isolated nearby-space exhaustion; no game accessed'
+Write-Host 'PASS all five exact game prologues: normal, old-range exhaustion recovery and full-range exhaustion; no game accessed'
 $hcDiagnosticsTest = Join-Path $hcBuild 'diagnostics-tests.exe'
 & g++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -DUNICODE -D_UNICODE -D_WIN64 -static -static-libgcc -static-libstdc++ -I (Join-Path $hcNative 'vendor') -I (Join-Path $hcNative 'vendor/minhook/include') (Join-Path $hcNative 'tests/diagnostics.cpp') @hcObjects -o $hcDiagnosticsTest -lbcrypt -lpsapi -lversion
 if ($LASTEXITCODE -ne 0) { throw 'Crimson Desert diagnostic fixture did not compile.' }
@@ -46,6 +56,16 @@ if ($LASTEXITCODE -ne 0) {
     throw 'Crimson Desert native diagnostic regression fixture failed.'
 }
 Write-Host 'PASS native hook outcomes, injected enable failure, read-only evidence and bounded scan diagnostics'
+$hcHealthTest = Join-Path $hcBuild 'health-tests.exe'
+& g++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -DUNICODE -D_UNICODE -D_WIN64 -static -static-libgcc -static-libstdc++ -I (Join-Path $hcNative 'vendor') -I (Join-Path $hcNative 'vendor/minhook/include') (Join-Path $hcNative 'tests/health.cpp') @hcObjects -o $hcHealthTest -lbcrypt -lpsapi -lversion
+if ($LASTEXITCODE -ne 0) { throw 'Crimson Desert health refresh fixture did not compile.' }
+$hcHealthLog = Join-Path $hcBuild 'health-test-results.txt'
+& $hcHealthTest *> $hcHealthLog
+if ($LASTEXITCODE -ne 0) {
+    Get-Content -LiteralPath $hcHealthLog | Write-Host
+    throw 'Crimson Desert health refresh regression fixture failed.'
+}
+Get-Content -LiteralPath $hcHealthLog | Write-Host
 $hcTeleportTest = Join-Path $hcBuild 'teleport-tests.exe'
 & g++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -DUNICODE -D_UNICODE -D_WIN64 -static -static-libgcc -static-libstdc++ -I (Join-Path $hcNative 'vendor') -I (Join-Path $hcNative 'vendor/minhook/include') (Join-Path $hcNative 'tests/teleport.cpp') @hcObjects -o $hcTeleportTest -lbcrypt -lpsapi -lversion
 if ($LASTEXITCODE -ne 0) { throw 'Crimson Desert outer teleport fixture did not compile.' }

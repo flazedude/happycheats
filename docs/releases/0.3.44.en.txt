@@ -1,0 +1,11 @@
+HappyCheats 0.3.44 — Crimson Desert hook allocation fix
+
+Includes Crimson Desert trainer 0.2.4 in the signed LAN update and complete standalone EXE.
+
+Fixes the allocator limit behind the observed damage and marker hook MH_ERROR_MEMORY_ALLOC failures. The trainer first searches its original nearby range, then reuses or allocates a block within a larger, conservative x64 jump range. Relocated RIP-relative operands and the hook relay are checked for signed 32-bit reach before a hook can be installed. Allocation diagnostics now cover the full fallback range.
+
+Read-only inspection of the running game confirmed that an existing trainer block had 60 free slots, reachable by both failed hooks but outside the old 1 GiB search. The initialization snapshot had no free candidates in that old range; a later scan showed the address space had changed. No game memory was changed during diagnosis.
+
+Validation covers the five exact game prologues, recovery when the old range is occupied, existing-block reuse, complete range exhaustion, relocation limits, native diagnostics, teleport fixtures, Core regression checks and packaged client previews. Actual hook installation with the new DLL and gameplay effects remain unverified. Controls still wait for a loaded player at the main menu.
+
+Close Crimson Desert, update HappyCheats, choose Install / update, then launch the game yourself and Connect trainer. The old DLL remains loaded until the game exits. Manual and automatic teleport behavior is otherwise unchanged; landing and streaming remain unverified. Unlimited item usage remains unavailable.

@@ -28,6 +28,12 @@
 
 #pragma once
 
+// HappyCheats x64 allocator policy: retain MinHook's original near-first
+// search, then use a conservative signed-rel32 range with 64KiB headroom.
+// Shared with diagnostic scans and isolated allocation regression tests.
+#define MH_MIN_BUFFER_RANGE 0x40000000ULL
+#define MH_MAX_BUFFER_RANGE 0x7FFF0000ULL
+
 // Size of each memory slot.
 #if defined(_M_X64) || defined(__x86_64__)
     #define MEMORY_SLOT_SIZE 64

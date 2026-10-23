@@ -1,4 +1,4 @@
-﻿/*
+/*
  *  MinHook - The Minimalistic API Hooking Library for x64/x86
  *  Copyright (C) 2009-2017 Tsuda Kageyu.
  *  All rights reserved.
@@ -72,6 +72,30 @@ static BOOL IsCodePadding(LPBYTE pInst, UINT size)
     }
     return TRUE;
 }
+
+// HappyCheats local patch: never truncate an out-of-range RIP displacement
+// or target-to-relay jump. The allocator's wider band is insufficient by itself:
+// referenced data can lie on the opposite side of the original instruction.
+#if defined(_M_X64) || defined(__x86_64__)
+static BOOL Relative32(ULONG_PTR nextInstruction, ULONG_PTR destination, PUINT32 result)
+{
+    if (destination >= nextInstruction)
+    {
+        ULONG_PTR distance = destination - nextInstruction;
+        if (distance > 0x7FFFFFFF)
+            return FALSE;
+        *result = (UINT32)distance;
+    }
+    else
+    {
+        ULONG_PTR distance = nextInstruction - destination;
+        if (distance > 0x80000000)
+            return FALSE;
+        *result = 0 - (UINT32)distance;
+    }
+    return TRUE;
+}
+#endif
 
 //-------------------------------------------------------------------------
 BOOL CreateTrampolineFunction(PTRAMPOLINE ct)
@@ -162,8 +186,28 @@ BOOL CreateTrampolineFunction(PTRAMPOLINE ct)
 
             // Relative address is stored at (instruction length - immediate value length - 4).
             pRelAddr = (PUINT32)(instBuf + hs.len - ((hs.flags & 0x3C) >> 2) - 4);
-            *pRelAddr
-                = (UINT32)((pOldInst + hs.len + (INT32)hs.disp.disp32) - (pNewInst + hs.len));
+            {
+                ULONG_PTR absolute;
+                const INT32 displacement = (INT32)hs.disp.disp32;
+                if (pOldInst > ~(ULONG_PTR)0 - hs.len || pNewInst > ~(ULONG_PTR)0 - hs.len)
+                    return FALSE;
+                absolute = pOldInst + hs.len;
+                if (displacement >= 0)
+                {
+                    if (absolute > ~(ULONG_PTR)0 - (UINT32)displacement)
+                        return FALSE;
+                    absolute += (UINT32)displacement;
+                }
+                else
+                {
+                    const ULONG_PTR distance = (ULONG_PTR)(-(INT64)displacement);
+                    if (absolute < distance)
+                        return FALSE;
+                    absolute -= distance;
+                }
+                if (!Relative32(pNewInst + hs.len, absolute, pRelAddr))
+                    return FALSE;
+            }
 
             // Complete the function if JMP (FF /4).
             if (hs.opcode == 0xFF && hs.modrm_reg == 4)
@@ -313,6 +357,18 @@ BOOL CreateTrampolineFunction(PTRAMPOLINE ct)
     jmp.address = (ULONG_PTR)ct->pDetour;
 
     ct->pRelay = (LPBYTE)ct->pTrampoline + newPos;
+    {
+        UINT32 displacement;
+        ULONG_PTR patchNext = (ULONG_PTR)ct->pTarget;
+        if (!ct->patchAbove)
+        {
+            if (patchNext > ~(ULONG_PTR)0 - sizeof(JMP_REL))
+                return FALSE;
+            patchNext += sizeof(JMP_REL);
+        }
+        if (!Relative32(patchNext, (ULONG_PTR)ct->pRelay, &displacement))
+            return FALSE;
+    }
     memcpy(ct->pRelay, &jmp, sizeof(jmp));
 #endif
 

@@ -6,6 +6,7 @@
 #include <windows.h>
 #include <bcrypt.h>
 #include <MinHook.h>
+#include "vendor/minhook/src/buffer.h"
 #include <nlohmann/json.hpp>
 #include <algorithm>
 #include <array>
@@ -102,7 +103,7 @@ NearbyEvidence CaptureNearbySpace(uintptr_t target,std::size_t maximumRegions=40
     SYSTEM_INFO system{}; GetSystemInfo(&system);
     const auto minimum=reinterpret_cast<uintptr_t>(system.lpMinimumApplicationAddress);
     const auto maximum=reinterpret_cast<uintptr_t>(system.lpMaximumApplicationAddress);
-    constexpr uintptr_t range=0x40000000; // Match vendor buffer.c; no allocation or retry is performed.
+    constexpr uintptr_t range=MH_MAX_BUFFER_RANGE; // Match the allocator's full fallback reach; read-only evidence.
     result.lower=(std::max)(minimum,target>range ? target-range : minimum);
     result.upper=(std::min)(maximum,target>(std::numeric_limits<uintptr_t>::max)()-range ? maximum : target+range);
     const auto granularity=static_cast<uintptr_t>(system.dwAllocationGranularity);
@@ -388,6 +389,48 @@ bool CurrentClientPlayer(Client& client) {
         {owner,g_clientActor.load(),g_clientMarker.load(),g_clientVitalRoot.load(),g_clientStats.load()}};
     return ResolveClientPlayer(client) && g_clientOwner.load(std::memory_order_acquire)==owner &&
         crimson_logic::SameClientIdentity(expected,client);
+}
+struct IdentityPublication {
+    bool player{},client{};
+};
+IdentityPublication RefreshIdentityCache(bool lease,bool playerReady,const Player& player,
+                                        bool clientReady,const Client& client) {
+    // Only the worker publishes these caches. A stable identity must not pass
+    // through owner==0: a concurrent commit would otherwise miss its refill.
+    const Player cached{g_owner.load(),g_actor.load(),g_marker.load(),g_root.load(),g_stats.load()};
+    const Client cachedClient{{g_clientRoot.load(),g_clientService.load(),g_clientOwner.load()},
+        {g_clientOwner.load(),g_clientActor.load(),g_clientMarker.load(),g_clientVitalRoot.load(),g_clientStats.load()}};
+    const bool publishPlayer=playerReady ? !crimson_logic::SameIdentity(cached,player) :
+        cached.owner || cached.actor || cached.marker || cached.root || cached.stats;
+    const bool publishClient=clientReady ? !crimson_logic::SameClientIdentity(cachedClient,client) :
+        cachedClient.anchor.root || cachedClient.anchor.service || cachedClient.anchor.owner ||
+        cachedClient.player.actor || cachedClient.player.marker || cachedClient.player.root || cachedClient.player.stats;
+    const bool playerChanged=publishPlayer || g_playerReady.load()!=playerReady;
+    const bool clientChanged=publishClient || g_clientReady.load()!=clientReady;
+    if(!lease || !playerReady || playerChanged || clientChanged) DisableAll();
+    if(publishPlayer) {
+        // Genuine transitions still invalidate the cache before any field changes.
+        g_owner.store(0,std::memory_order_release);
+        g_actor.store(playerReady ? player.actor : 0);
+        g_marker.store(playerReady ? player.marker : 0);
+        g_root.store(playerReady ? player.root : 0);
+        g_stats.store(playerReady ? player.stats : 0);
+        g_owner.store(playerReady ? player.owner : 0,std::memory_order_release);
+    }
+    if(publishClient) {
+        g_clientOwner.store(0,std::memory_order_release);
+        g_clientRoot.store(clientReady ? client.anchor.root : 0);
+        g_clientService.store(clientReady ? client.anchor.service : 0);
+        g_clientActor.store(clientReady ? client.player.actor : 0);
+        g_clientMarker.store(clientReady ? client.player.marker : 0);
+        g_clientVitalRoot.store(clientReady ? client.player.root : 0);
+        g_clientStats.store(clientReady ? client.player.stats : 0);
+        g_clientOwner.store(clientReady ? client.player.owner : 0,std::memory_order_release);
+    }
+    // Readiness may recover after an exception without republishing stable pointers.
+    g_clientReady.store(clientReady,std::memory_order_release);
+    g_playerReady.store(playerReady,std::memory_order_release);
+    return {publishPlayer,publishClient};
 }
 bool MovementComponent(const Player& player, uintptr_t& component) {
     // Three PE2976 CLIENT caller paths prove owner+68 -> actor+40 -> object+140 -> component.
@@ -940,7 +983,7 @@ void Command() {
         g_lastCommand = id;
         g_lastSuccess = false;
         if (command.value("schema_version", 0) != 1) { g_lastMessage = "Unsupported command schema."; return; }
-        if (command.value("version",std::string())!="0.2.3") { g_lastMessage="Unsupported protocol version."; return; }
+        if (command.value("version",std::string())!="0.2.5") { g_lastMessage="Unsupported protocol version."; return; }
         const auto now=UnixMilliseconds();
         if (!command.contains("expires_unix_ms") || !command["expires_unix_ms"].is_number_unsigned()) {
             g_lastMessage="Command expiration is required."; return;
@@ -1037,7 +1080,7 @@ void Status() {
     std::string message = g_initMessage;
     if (message.empty()) message = g_playerReady.load() ? "Connected. Gameplay behavior has not yet been validated on this build."
         : "Load into the world with a supported controlled player. All controls are currently off.";
-    Json status = {{"schema_version",1},{"version","0.2.3"},{"process_id",GetCurrentProcessId()},
+    Json status = {{"schema_version",1},{"version","0.2.5"},{"process_id",GetCurrentProcessId()},
         {"pid",GetCurrentProcessId()},{"process_start_unix_ms",g_processStartUnixMs},
         {"heartbeat_unix_ms",UnixMilliseconds()},
         {"session_id",g_session},{"ready",g_commitReady.load() || g_damageReady.load() || g_locoReady.load() || g_outerReady.load()},
@@ -1087,9 +1130,6 @@ DWORD WINAPI Worker(void*) {
         g_initMessage="Native initialization failed; all controls remain disabled.";
     }
     ULONGLONG nextRefresh{};
-    Player previousPlayer{};
-    Client previousClient{};
-    bool previousClientReady{};
     for (;;) {
         try {
             const bool refresh=GetTickCount64()>=nextRefresh;
@@ -1101,28 +1141,7 @@ DWORD WINAPI Worker(void*) {
                 const bool playerReady=(g_commitReady.load() || g_damageReady.load() || g_locoReady.load() || g_outerReady.load()) && ResolvePlayer(player);
                 Client client{};
                 const bool clientReady=ResolveClientPlayer(client);
-                const bool clientChanged=previousClientReady!=clientReady ||
-                    (clientReady && !crimson_logic::SameClientIdentity(previousClient,client));
-                if (!lease || !playerReady || !crimson_logic::SameIdentity(previousPlayer,player) || clientChanged) DisableAll();
-                previousPlayer=playerReady ? player : Player{};
-                previousClient=clientReady ? client : Client{};
-                previousClientReady=clientReady;
-                g_owner.store(0,std::memory_order_release);
-                g_actor.store(playerReady ? player.actor : 0);
-                g_marker.store(playerReady ? player.marker : 0);
-                g_root.store(playerReady ? player.root : 0);
-                g_stats.store(playerReady ? player.stats : 0);
-                g_owner.store(playerReady ? player.owner : 0,std::memory_order_release);
-                g_clientOwner.store(0,std::memory_order_release);
-                g_clientRoot.store(clientReady ? client.anchor.root : 0);
-                g_clientService.store(clientReady ? client.anchor.service : 0);
-                g_clientActor.store(clientReady ? client.player.actor : 0);
-                g_clientMarker.store(clientReady ? client.player.marker : 0);
-                g_clientVitalRoot.store(clientReady ? client.player.root : 0);
-                g_clientStats.store(clientReady ? client.player.stats : 0);
-                g_clientOwner.store(clientReady ? client.player.owner : 0,std::memory_order_release);
-                g_clientReady.store(clientReady,std::memory_order_release);
-                g_playerReady.store(playerReady,std::memory_order_release);
+                RefreshIdentityCache(lease,playerReady,player,clientReady,client);
                 RefreshWarpState();
             }
             Command();

@@ -91,7 +91,9 @@ public partial class UpdateWindow : Window, INotifyPropertyChanged
     };
     public string StateDescription => _preview ? Localization.Choose("Preview only · Sample release content", "仅供预览 · 以下为示例更新内容") : _state switch
     {
-        UpdateState.Checking => Localization.Choose("Getting the latest release information from your update server.", "正在从更新服务器获取最新版本信息。"),
+        UpdateState.Checking => _configuration?.FallbackFeedUrl != null
+            ? Localization.Choose("Checking your preferred update server, then the backup if it is unavailable.", "正在优先检查更新服务器，不可用时将自动使用备用服务器。")
+            : Localization.Choose("Getting the latest release information from your update server.", "正在从更新服务器获取最新版本信息。"),
         UpdateState.Available => Localization.Choose("Read the release notes, then download when you're ready.", "阅读更新说明后，可随时开始下载。"),
         UpdateState.Latest => Localization.Choose("Your client has the latest release for this channel.", "当前客户端已是此更新通道的最新版本。"),
         UpdateState.Downloading => Localization.Choose("The download will be verified before installation. You can cancel at any time.", "下载完成后将验证安装包。您可以随时取消下载。"),
@@ -209,7 +211,13 @@ public partial class UpdateWindow : Window, INotifyPropertyChanged
     private void Fail(Exception error)
     {
         _state = UpdateState.Failed;
-        _error = error.Message;
+        _error = error.Message switch
+        {
+            "The fallback update source does not have this exact release. Check for updates again." => Localization.Choose(error.Message, "备用服务器上的版本已变化，请重新检查更新。"),
+            "The update source timed out." => Localization.Choose(error.Message, "更新服务器响应超时，请检查网络后重试。"),
+            var message when message.StartsWith("The update source could not be reached. ", StringComparison.Ordinal) => Localization.Choose(message, "无法连接更新服务器，请检查网络后重试。"),
+            _ => error.Message
+        };
     }
 
     private void CloseClicked(object sender, RoutedEventArgs e)

@@ -1,10 +1,12 @@
 # Server updates and release publishing
 
+Normal releases now publish to both the existing LAN server and public GitHub Releases. Clients prefer LAN and fall back to GitHub on connection/HTTP/timeout failures. See [setup, migration and publishing](github-updates.md). The generic signing commands below remain useful for diagnostics; they do not replace the shared publish workflow.
+
 For a server on your own PC, use the [LAN hosting and publishing workflow](lan-updates.md), which serves signed releases over private-address HTTP.
 
 HappyCheats can check a static HTTPS feed, show English or Chinese release notes and newly supported games, and install a signed Windows x64 release after the user chooses to update. A release contains the launcher, game modules, trainer payloads and a separate updater. An ordinary HTTPS website or object-storage bucket is enough; a database and application server are unnecessary.
 
-The repository does not contain a production server URL or signing key. Builds without `update-settings.json` run normally with server updates unconfigured. You choose the hosting account and domain before distributing a configured build.
+Normal releases use the existing LAN host plus public GitHub Releases. Only the public verification key is embedded; private keys and upload credentials remain outside the repository and packages. Generic builds without `update-settings.json` still run with updates unconfigured.
 
 Configured release clients check once after startup. Open **Updates / 客户端更新** to check again, read the notes and choose **Download update / 下载更新**. After verification, choose **Install & restart / 安装并重启**. Downloads and installation require those explicit actions. Close supported games before installation; after restart, use each affected game's **Install / update** (**安装 / 更新**) action. Development runs using `--data-root`, previews and screenshot runs disable server updates.
 
@@ -112,7 +114,7 @@ The signed `latest.json` envelope contains `payload` (base64-encoded UTF-8 manif
 
 Server update packages must include the launcher and `updater/` executables, their managed DLLs/runtime configuration and game payload files, all under a single `HappyCheats/` top-level directory as produced by `Build.ps1 -Zip`. Publish that ZIP through the release publisher; the standalone EXE is a starter distribution format, not an update-feed package. Archives are limited to 2 GiB compressed and 4 GiB unpacked and reject unsafe paths, links, duplicate names and incomplete launcher/updater layouts. The updater checks the downloaded package against its signed size and SHA-256 and retains the installation's existing trusted update configuration even when the archive contains a configuration file.
 
-This first version distributes complete Windows x64 bundles. There are no delta patches, automatic new-game implementation, account-gated downloads, release analytics, built-in remote uploading or automatic signing-key rotation. The application directory must be writable by the current user, and updates need enough free disk space for the download, extracted bundle and previous installation. Keep game saves backed up according to your existing workflow; the release system updates application and payload files, and the per-game installer remains responsible for modifying game directories.
+This first version distributes complete Windows x64 bundles. There are no delta patches, automatic new-game implementation, account-gated downloads, release analytics, automatic signing-key rotation. The application directory must be writable by the current user, and updates need enough free disk space for the download, extracted bundle and previous installation. Keep game saves backed up according to your existing workflow; the release system updates application and payload files, and the per-game installer remains responsible for modifying game directories.
 
 ## Recovery and retained backups
 

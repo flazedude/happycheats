@@ -1,0 +1,9 @@
+HappyCheats 0.3.46 — LAN-first updates with GitHub fallback
+
+Update checks prefer the configured LAN server and use the public GitHub feed when LAN fails or times out. A failed or stalled LAN package transfer can restart from GitHub only after verifying a signed manifest for the same version, archive size and SHA-256. Signature, channel and integrity failures remain errors; cancelling does not trigger fallback.
+
+Existing LAN installations gain fallback after updating to this client while LAN is available. Their trusted settings and signing key are preserved; matching bundled defaults supply the fallback address. Alternatively, run the new complete standalone EXE. Older clients cannot use fallback before receiving this version.
+
+The release workflow publishes the same complete package to LAN and GitHub Releases in flazedude/happycheats, with the corresponding source commit and fresh standalone EXE. Shared AGENTS.md instructions require this for completed changes in every chat. Trainer payloads retain the already-published 0.3.45 versions, including Crimson Desert 0.2.5.
+
+Validation covers simulated availability, timeouts, cancellation, failed transfers, signed-feed and archive rejection, configuration migration and release staging. Live hosted-download and packaged-client results are recorded separately. No game or save is changed by these checks; second-PC connectivity and gameplay are not established.

@@ -1,5 +1,7 @@
 # Updates hosted on your LAN
 
+From **0.3.46**, clients try this server first and use public GitHub Releases when LAN is unavailable. The normal publish command also uploads to GitHub and requires the corresponding source commit. See [fallback, migration and publishing](github-updates.md).
+
 One Windows PC hosts signed releases. Other PCs on the same network install the configured starter once and then use **Updates / 客户端更新**, followed by **Install & restart**. No cloud account, domain or internet-facing port forwarding is needed. The host needs .NET 8 SDK or later for building/publishing. Run the scripts in PowerShell 7 (`pwsh`). Published clients and server include their runtimes.
 
 ## Start the host
@@ -23,12 +25,12 @@ To install or repair boot startup, run `scripts/Install-LanUpdateStartup.ps1` on
 Project policy in `AGENTS.md`: completed client/cheat releases must produce both the signed LAN update and a fresh standalone EXE, with English and Chinese changelogs. Publishing also saves `dist/HappyCheats-<version>.exe` alongside the latest `dist/HappyCheats.exe` and versioned ZIPs.
 
 ```powershell
-.\scripts\Publish-LanUpdate.ps1 -Version 0.3.43 `
-  -NotesEnglish .\docs\releases\0.3.43.en.txt `
-  -NotesChinese .\docs\releases\0.3.43.zh.txt
+.\scripts\Publish-LanUpdate.ps1 -Version 0.3.46 `
+  -NotesEnglish .\docs\releases\0.3.46.en.txt `
+  -NotesChinese .\docs\releases\0.3.46.zh.txt
 ```
 
-`-SkipPayloads` reuses already built trainer payloads. Omit it when rebuilding changed cheats; game-specific build prerequisites still apply. Tests run by default. The command builds a client with the saved LAN feed/public key, creates the single-EXE starter, signs the release, publishes its immutable ZIP, atomically updates `latest.json`, then replaces the starter EXE. Simultaneous publishing and equal/older versions are rejected. Optional `-NewGame 'Game name'` accepts multiple display names; the actual game implementation and payload must also be included in the project.
+`-SkipPayloads` reuses already built trainer payloads. Omit it when rebuilding changed cheats; game-specific build prerequisites still apply. Tests run by default. The command requires reviewed, committed source, verifies/pushes it to GitHub, builds a client with the saved LAN feed/public key and GitHub fallback, then stages and publishes both signed feeds and the complete distributions. See the [shared release workflow](github-updates.md). Simultaneous publishing and equal/older versions are rejected. Optional `-NewGame 'Game name'` accepts multiple display names; the actual game implementation and payload must also be included in the project.
 
 On another PC open:
 
@@ -36,7 +38,7 @@ On another PC open:
 http://192.168.2.76:17845/happycheats/HappyCheats.exe
 ```
 
-Run this file once. For later releases, write new changelog files and publish with a higher version (for example `0.3.44`). Clients check at startup or when **Updates** is opened. After updating the client, use **Install / update** for affected games to apply new trainers.
+Run this file once. For later releases, write new changelog files and publish with a higher version (for example `0.3.47`). Clients check at startup or when **Updates** is opened. After updating the client, use **Install / update** for affected games to apply new trainers.
 
 Older HTTPS/loopback-only clients cannot pull a LAN HTTP release themselves: distribute the new starter once. Previously cloud-configured clients also need the LAN starter/configuration, since updates preserve their trusted feed. User settings remain in `%LOCALAPPDATA%/HappyCheats/settings.json`.
 

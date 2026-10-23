@@ -11,7 +11,7 @@ public sealed class CrimsonDesertModule : IGameModule, IFeatureValueModule
     public IReadOnlyList<string> GameExecutables { get; } = [Executable];
     public const string Executable = "bin64/CrimsonDesert.exe";
     public const string SupportedExecutableHash = "57DA440D72F4DB974F25FEF047CF84C4DADD999A88CB2A3C5AF4C9BD67FDE1E7";
-    public const string TrainerVersion = "0.2.3";
+    public const string TrainerVersion = "0.2.5";
     public const string BridgeRoot = CrimsonDesertInstaller.TrainerRoot;
     private readonly string package;
     private readonly SemaphoreSlim commandLock = new(1, 1);

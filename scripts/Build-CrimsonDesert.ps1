@@ -28,13 +28,14 @@ if ($LASTEXITCODE -ne 0) { throw 'Crimson Desert native DLL startup/compatibilit
 New-Item -ItemType Directory -Force -Path $hcOutput | Out-Null
 Copy-Item -LiteralPath $hcDll -Destination $hcOutput -Force
 $hcNotice = @(
-    'HappyCheats Crimson Desert trainer 0.2.3',
+    'HappyCheats Crimson Desert trainer 0.2.5',
     'Original implementation for HappyCheats with interface research adapted from Trinity.',
     'Trinity source: https://github.com/gugi97/Trinity/tree/e5b3303854e7383cfeb3489e7830995772c52ea9',
     'Game executable and game assets are not redistributed.',
     '',
     (Get-Content -LiteralPath (Join-Path $hcNative 'TRINITY-LICENSE.txt') -Raw),
     'MinHook v1.3.4: https://github.com/TsudaKageyu/minhook/tree/v1.3.4',
+    'HappyCheats local changes: near-first extended x64 allocation and checked RIP-relative/relay displacements.',
     (Get-Content -LiteralPath (Join-Path $hcNative 'vendor/minhook/LICENSE.txt') -Raw),
     'JSON for Modern C++ v3.12.0: https://github.com/nlohmann/json/tree/v3.12.0',
     (Get-Content -LiteralPath (Join-Path $hcNative 'vendor/nlohmann/LICENSE.MIT') -Raw)
@@ -43,5 +44,5 @@ $hcNotice | Set-Content -LiteralPath (Join-Path $hcOutput 'ThirdPartyNotices.txt
 $hcFiles = @('bin64/HappyCheatsCrimsonDesert/HappyCheats.CrimsonDesert.dll','bin64/HappyCheatsCrimsonDesert/ThirdPartyNotices.txt') | ForEach-Object {
     @{ path = $_; sha256 = (Get-FileHash -LiteralPath (Join-Path $hcPayload $_) -Algorithm SHA256).Hash }
 }
-@{ schemaVersion=1; game='crimson-desert'; version='0.2.3'; files=$hcFiles } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $hcPayload 'package.json') -Encoding utf8NoBOM
+@{ schemaVersion=1; game='crimson-desert'; version='0.2.5'; files=$hcFiles } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $hcPayload 'package.json') -Encoding utf8NoBOM
 Write-Host "Built Crimson Desert trainer: $hcDll"

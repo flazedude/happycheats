@@ -8,9 +8,11 @@ param(
     [string]$ChineseParentsGameDirectory,
     [string]$StardewGameDirectory,
     [string]$ProjectHospitalGameDirectory,
-    [string]$Version = '0.3.43',
+    [string]$Version = '0.3.46',
     [string]$UpdateFeedUrl,
-    [string]$UpdatePublicKeyPath
+    [string]$UpdateFallbackFeedUrl,
+    [string]$UpdatePublicKeyPath,
+    [string]$ReleaseSourceCommit
 )
 $ErrorActionPreference = 'Stop'
 $hcRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
@@ -18,6 +20,8 @@ if ($Version -cnotmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$') {
 $hcParsedVersion = [Version]::Parse($Version)
 if ($hcParsedVersion.Major -gt 65534 -or $hcParsedVersion.Minor -gt 65534 -or $hcParsedVersion.Build -gt 65534) { throw 'Version components cannot exceed 65534 (assembly version limit).' }
 if ([bool]$UpdateFeedUrl -ne [bool]$UpdatePublicKeyPath) { throw 'Supply both UpdateFeedUrl and UpdatePublicKeyPath to configure server updates.' }
+if ($UpdateFallbackFeedUrl -and !$UpdateFeedUrl) { throw 'UpdateFallbackFeedUrl requires the primary feed and public key.' }
+if ($ReleaseSourceCommit -and $ReleaseSourceCommit -cnotmatch '^[0-9a-f]{40}$') { throw 'ReleaseSourceCommit must be a full Git commit SHA.' }
 if ($SingleExe -and $FrameworkDependent) { throw 'SingleExe requires a self-contained release; omit FrameworkDependent.' }
 if ($UpdatePublicKeyPath -and !(Test-Path -LiteralPath $UpdatePublicKeyPath -PathType Leaf)) { throw 'UpdatePublicKeyPath must point to the public verification PEM file.' }
 if (!$SkipPayloads) {
@@ -57,8 +61,17 @@ if ($LASTEXITCODE -ne 0) { throw 'Launcher publish failed.' }
 & dotnet publish (Join-Path $hcRoot 'src\HappyCheats.Updater') -c Release -r win-x64 --self-contained true "-p:Version=$Version" -o (Join-Path $hcStaging 'updater') --nologo -v minimal
 if ($LASTEXITCODE -ne 0) { throw 'Updater publish failed.' }
 if ($UpdateFeedUrl) {
-    & dotnet run --project (Join-Path $hcRoot 'tools\HappyCheats.Release') -c Release -- configure --feed-url $UpdateFeedUrl --public-key $UpdatePublicKeyPath --output (Join-Path $hcStaging 'update-settings.json')
+    $hcConfigureArgs = @('configure','--feed-url',$UpdateFeedUrl,'--public-key',$UpdatePublicKeyPath,'--output',(Join-Path $hcStaging 'update-settings.json'))
+    if ($UpdateFallbackFeedUrl) { $hcConfigureArgs += @('--fallback-feed-url',$UpdateFallbackFeedUrl) }
+    & dotnet run --project (Join-Path $hcRoot 'tools\HappyCheats.Release') -c Release -- @hcConfigureArgs
     if ($LASTEXITCODE -ne 0) { throw 'Update configuration failed.' }
+    # Defaults permit a new client to add the mirror only when retained trust matches.
+    Copy-Item -LiteralPath (Join-Path $hcStaging 'update-settings.json') -Destination (Join-Path $hcStaging 'update-defaults.json')
+}
+if ($ReleaseSourceCommit) {
+    if ((& git -C $hcRoot rev-parse HEAD) -cne $ReleaseSourceCommit -or $LASTEXITCODE -ne 0 -or
+        (& git -C $hcRoot status --porcelain --untracked-files=all)) { throw 'Release source changed during the build. Commit and review it before publishing.' }
+    [ordered]@{ version=$Version; commit=$ReleaseSourceCommit } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $hcStaging 'release-source.json') -Encoding utf8NoBOM
 }
 foreach ($hcGame in @('chinese-parents','onimusha','laundry','astroneer','stardew','dawnwalker','crimson-desert','black-myth-wukong','red-dead-redemption-2','gta-v-enhanced','project-hospital','hotel-architect','civilization-vi','civilization-vii','witcher-3','elden-ring')) {
     $hcPayload = Join-Path $hcRoot ('payload\' + $hcGame)

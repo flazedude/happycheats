@@ -43,6 +43,8 @@ internal static class CrimsonDesertTests
                 ("schema_version", JsonValue.Create(2)!), ("version", JsonValue.Create("0.1.0")!),
                 ("version", JsonValue.Create("0.2.1")!),
                 ("version", JsonValue.Create("0.2.2")!),
+                ("version", JsonValue.Create("0.2.3")!),
+                ("version", JsonValue.Create("0.2.4")!),
                 ("process_id", JsonValue.Create(Pid + 1)!), ("process_start_unix_ms", JsonValue.Create(Milliseconds(Started) + 1)!),
                 ("session_id", JsonValue.Create("../../bad")!)
             }) {
@@ -126,7 +128,7 @@ internal static class CrimsonDesertTests
             var current = Parse(State()).Status;
             var command = Command(current, "crimson_health", true);
             Check((string)command["session_id"] == Session && (string)command["request_id"] == Request);
-            Check((string)command["version"] == "0.2.3" && (int)command["schema_version"] == 1);
+            Check((string)command["version"] == "0.2.5" && (int)command["schema_version"] == 1);
             Check((bool)command["enabled"] && (long)command["expires_unix_ms"] == Milliseconds(Now) + 5000);
             Reject(() => CrimsonDesertModule.CreateCommand(current, current with { SessionId = "another-session" }, "crimson_health", true, null, Request, Milliseconds(Now)));
             Reject(() => CrimsonDesertModule.CreateCommand(current, current, "crimson_health", true, null, "bad", Milliseconds(Now)));

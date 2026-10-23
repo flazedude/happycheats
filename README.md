@@ -1,5 +1,11 @@
 # HappyCheats
 
+HappyCheats **0.3.46** checks LAN first and falls back to GitHub when LAN is unavailable. Both routes verify signatures and package hashes. [Download the latest complete EXE](https://github.com/flazedude/happycheats/releases/latest/download/HappyCheats.exe) or use the [LAN download](http://192.168.2.76:17845/happycheats/HappyCheats.exe). Existing clients need one LAN update or the new EXE to gain fallback. See [setup and publishing](docs/github-updates.md) and [release notes](docs/releases/0.3.46.en.txt).
+
+HappyCheats **0.3.45** includes Crimson Desert trainer **0.2.5**, correcting a possible missed health refill during unchanged-player refreshes. It also includes the earlier damage/marker hook allocation fix. Close the game, open the updated client and choose **Install / update** before reconnecting. The correction has isolated regression validation; the reported death and gameplay with the new DLL remain unverified. See [Crimson Desert setup](docs/crimson-desert.md) and [release notes](docs/releases/0.3.45.en.txt).
+
+HappyCheats **0.3.44** includes Crimson Desert trainer **0.2.4**, fixing the nearby-memory search limit behind the observed damage and map-marker hook allocation errors. Close Crimson Desert, update HappyCheats and choose **Install / update**, then launch the game yourself and reconnect. The correction passes isolated regression fixtures; live hook installation with the new DLL and gameplay remain unverified. See [Crimson Desert setup](docs/crimson-desert.md) and [release notes](docs/releases/0.3.44.en.txt).
+
 HappyCheats **0.3.43** recognizes Astroneer **1.45.1 / Steam build 25599237** with trainer **0.3.1**. The previous exact executable check rejected this game update even though the installed trainer files were intact. Close Astroneer and choose **Install / update** after updating HappyCheats. The six controls, independent collection/run-speed choices, and **Ctrl+Del / Menu+RB** menu shortcuts remain unchanged. Current-build startup and gameplay remain unverified. See [Astroneer setup](docs/astroneer.md) and [release notes](docs/releases/0.3.43.en.txt).
 
 HappyCheats **0.3.42** adds Astroneer **invulnerability (F5)** and **player run speed (F6)** with **3× / 5× / 10×** choices. Both are available in the client and shared **Ctrl+Del** menu. Choose a speed, then enable it; disabling restores the captured original values. Both controls start off and reset on gameplay-session changes. Close Astroneer and choose **Install / update** for trainer **0.3.0**. Actual gameplay remains unverified. See [Astroneer setup](docs/astroneer.md) and [release notes](docs/releases/0.3.42.en.txt).
@@ -30,7 +36,7 @@ HappyCheats **0.3.33** relaxes Civilization VI connection checks and adds functi
 
 A native Windows trainer library for Chinese Parents, Onimusha: Way of the Sword, Laundry Store Simulator, ASTRONEER, Stardew Valley, The Blood of Dawnwalker, Crimson Desert, Black Myth: Wukong, Red Dead Redemption 2, GTA V Enhanced Story Mode, Project Hospital, Hotel Architect, Civilization VI, Civilization VII, The Witcher 3: Wild Hunt — Remastered, and Elden Ring. The launcher takes its charcoal and warm-gold design from the existing Onimusha trainer, with a searchable library and consistent live controls.
 
-Download **`HappyCheats-0.3.43-win-x64-single-exe.zip`**, extract **`HappyCheats.exe`**, then run it. This is the complete Windows x64 release in one file: it includes the launcher, all sixteen trainer payloads, updater, runtimes, the official SMAPI installer and documentation. It needs no neighboring files or separate .NET installation for the launcher. The first launch verifies and extracts its contents to `%LOCALAPPDATA%/HappyCheats/Bundles/`, then opens the app; later launches reuse that local copy. No installation wizard or administrator permission is needed for the launcher. The unpackaged single EXE is also available at `dist/HappyCheats.exe`. See [single-EXE packaging](docs/single-exe.md) for cache locations, updates and build commands.
+Download **`HappyCheats-0.3.46-win-x64-single-exe.zip`**, extract **`HappyCheats.exe`**, then run it. This is the complete Windows x64 release in one file: it includes the launcher, all sixteen trainer payloads, updater, runtimes, the official SMAPI installer and documentation. It needs no neighboring files or separate .NET installation for the launcher. The first launch verifies and extracts its contents to `%LOCALAPPDATA%/HappyCheats/Bundles/`, then opens the app; later launches reuse that local copy. No installation wizard or administrator permission is needed for the launcher. The unpackaged single EXE is also available at `dist/HappyCheats.exe`. See [single-EXE packaging](docs/single-exe.md) for cache locations, updates and build commands.
 
 HappyCheats **0.3.29** adds a source backend targeting the current GTA V Enhanced Steam build **25261616 / 1.0.1158.16**, automatic loader / ScriptHookV setup, and corresponding source in both distribution formats. The seven Story Mode controls and F11 menu remain experimental; native startup and gameplay are unverified because GTA was kept closed. See [setup](docs/gta-v-enhanced.md) and [release notes](docs/releases/0.3.29.en.txt).
 
@@ -112,20 +118,20 @@ The launcher waits for acknowledgements and shows confirmed state. Missing, stal
 
 Updater-capable releases can download signed client and trainer-library updates from a configured HTTPS server, including release notes and newly supported games. Existing users need one manually installed starter release containing your server URL and public verification key. After a client update, use each affected game's **Install / update** to refresh its installed trainer.
 
-The single EXE preserves this update support: server updates replace its extracted client, and later launches of the same EXE use that updated copy. The EXE itself still contains its original release. The repository includes a release publisher and configurable packaging, with no production endpoint or private key embedded. See [server setup, first rollout and release publishing](docs/updates.md), including Alibaba Cloud OSS hosting options for users in China.
+The single EXE preserves this update support: server updates replace its extracted client, and later launches of the same EXE use that updated copy. The EXE itself still contains its original release. Normal releases include the saved LAN endpoint and public GitHub fallback, with only the public verification key embedded. See [LAN-first updates and publishing](docs/github-updates.md).
 
 ## Development
 
 Requires Windows, .NET 8 SDK, and the installed supported games to build their plugins. Stardew's build also needs installed SMAPI references. Its payload includes the official SMAPI installer, corresponding source and redistribution notices; proprietary game assemblies are not bundled. Astroneer's offline Lua tests additionally need Python and `lupa==2.6`; see its [developer checks](docs/astroneer.md#developer-checks). Destination PCs use the self-contained release; no SDK is needed. Laundry's in-game loader separately needs .NET 6 Desktop Runtime, bundled with the package.
 
 ```powershell
-.\scripts\Build.ps1 -Version 0.3.43 -Zip -SingleExe
+.\scripts\Build.ps1 -Version 0.3.46 -Zip -SingleExe
 # Wrap the existing complete release folder without rebuilding its trainers:
 .\scripts\Build-SingleExe.ps1 -PackageDirectory .\dist\HappyCheats -Zip
 # For a different Chinese Parents source-build installation:
 .\scripts\Build.ps1 -ChineseParentsGameDirectory 'D:\SteamLibrary\steamapps\common\ChineseParent' -Zip
 # Rebuild the launcher using existing payloads:
-.\scripts\Build.ps1 -Version 0.3.43 -SkipPayloads
+.\scripts\Build.ps1 -Version 0.3.46 -SkipPayloads
 # All offline tests, without starting installed games:
 .\scripts\Test.ps1
 # Read-only Steam/build detection:
@@ -136,7 +142,7 @@ dotnet run --project .\src\HappyCheats.App -- --data-root .
 
 Code is separated into `HappyCheats.App` (WPF), `HappyCheats.Core` (game modules and installation), `ChineseParents.Trainer` (Unity plugin), and copied module sources under `modules`. Add games through `IGameModule` and `ModuleCatalog`; the UI renders their feature definitions automatically. Original sibling projects are preserved.
 
-Distribute `dist/HappyCheats-0.3.43-win-x64-single-exe.zip` or `dist/HappyCheats.exe` to users. The single-EXE ZIP contains only `HappyCheats.exe`; its SHA-256 checksum is provided separately. `Build.ps1 -Zip -SingleExe` also produces the complete-folder `HappyCheats-0.3.43-win-x64.zip` in the existing server-update format. The `dist/HappyCheats/` folder remains a development artifact; do not substitute the smaller executable inside that folder for the complete single-file release.
+Distribute `dist/HappyCheats-0.3.46-win-x64-single-exe.zip` or `dist/HappyCheats.exe` to users. The single-EXE ZIP contains only `HappyCheats.exe`; its SHA-256 checksum is provided separately. `Build.ps1 -Zip -SingleExe` also produces the complete-folder `HappyCheats-0.3.46-win-x64.zip` in the existing server-update format. The `dist/HappyCheats/` folder remains a development artifact; do not substitute the smaller executable inside that folder for the complete single-file release.
 
 Official dependency provenance and redistribution notices are included with the relevant payload. No proprietary game assemblies are distributed. See [validation](docs/validation.md) for the precise tested scope.
 

@@ -1,0 +1,9 @@
+HappyCheats 0.3.45 — Crimson Desert health refresh correction
+
+Includes Crimson Desert trainer 0.2.5 in the signed LAN update and complete standalone EXE.
+
+Fixes a possible missed health refill during periodic player refresh. Previously, every refresh briefly cleared the cached player identity even when the same player remained active. A concurrent stat update could apply damage, fail the temporary identity check and skip its refill. Unchanged complete player identities now remain published. Actual player changes, invalid identities and expired connections still clear controls and retain the existing strict checks. The same correction covers the client identity used by movement features.
+
+The isolated regression fixture exercises the real stat hook and reproduces the old missed-refill sequence. It checks unchanged refreshes, real identity changes, reused owners, expired connections and resource/player discrimination. Existing allocation, teleport, Core, shared-menu and release checks also run. This does not establish that the race caused the reported enemy-attack death or that hiding a menu caused the race. Live samples showed health enabled and a valid connection but did not capture damage; gameplay with the new DLL remains unverified.
+
+This release also includes 0.3.44's damage/marker hook allocation correction for one-hit kill and both teleport controls. Close Crimson Desert, open the updated HappyCheats, choose Install / update, then launch the game yourself, load gameplay and Connect trainer. Existing game sessions keep their old DLL until exit. Health is not a guarantee against scripted death paths; unlimited item usage remains unavailable.

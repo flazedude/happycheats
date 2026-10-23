@@ -87,7 +87,7 @@ int main() {
     assert(summary.find("damage")==std::string::npos);
     assert(summary.find("Win32")==std::string::npos && summary.find("LastError")==std::string::npos);
 
-    constexpr std::size_t range=0x40000000,size=2*range+0x10000;
+    constexpr std::size_t range=MH_MAX_BUFFER_RANGE,size=2*range+0x10000;
     auto blocked=static_cast<unsigned char*>(VirtualAlloc(nullptr,size,MEM_RESERVE,PAGE_NOACCESS));
     assert(blocked);
     auto blockedTarget=blocked+range;
