@@ -1,4 +1,4 @@
--- Contracts inspected from Steam build 25232147 / CL-258504, Unreal 5.5.4.
+-- Contracts rechecked in Steam build 25915545 / CL-265636, Unreal 5.5.4.
 -- Calls must be made on the game thread. Only the possessed local player is used.
 -- The game's Lock* functions replace pre-existing gameplay-effect handles, so
 -- this module deliberately maintains resources with the native percent setters.

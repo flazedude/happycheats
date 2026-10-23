@@ -1,5 +1,8 @@
 # Dawnwalker binding evidence
 
+This is the original patch 2 investigation. For the current patch 3 trainer,
+see the [24 October compatibility review](dawnwalker-patch3.md).
+
 Inspected on 26 September 2026 from the user's installed Steam game and its
 already running process. Inspection used file reads and `ReadProcessMemory`
 only. No game was launched, stopped, injected into or modified, and no save was

@@ -563,7 +563,7 @@ public static class Localization
         ["The game refused map-marker travel"] = "游戏拒绝了地图标记传送",
         ["Travel result uncertain; waiting for the game's travel sequence"] = "传送结果尚未确定；等待游戏的移动流程",
         ["Waiting for The Blood of Dawnwalker trainer. Restart the game after installation."] = "等待 Dawnwalker 修改器连接。请先关闭游戏并安装修改器，再重新启动游戏。",
-        ["The Blood of Dawnwalker Steam build 25232147 detected. Experimental trainer; gameplay validation is pending."] = "已检测到 Dawnwalker Steam 版本 25232147。实验性模块，尚待游戏内验证。",
+        ["The Blood of Dawnwalker Steam build 25915545 detected. Experimental trainer; gameplay validation is pending."] = "已检测到 Dawnwalker Steam 版本 25915545。实验性模块，尚待游戏内验证。",
         ["Finding your games in Steam…"] = "正在查找 Steam 游戏…",
         ["Preview: launch a game to connect its trainer."] = "预览模式：启动游戏后即可连接修改器。",
         ["Choose a game to get started."] = "选择一款游戏，即可开始。",

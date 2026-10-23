@@ -1,4 +1,4 @@
--- Build 25232147: the native AI invulnerability effect grants
+-- Steam build 25915545, CL-265636: the native AI invulnerability effect grants
 -- Effect.Invulnerability with infinite duration and no persistence component.
 -- Own an active-effect handle, never the game's shared LockHealth handle or a
 -- loose gameplay-tag count. All calls are made on the validated game thread.
@@ -44,7 +44,7 @@ function Instance:_resolve_invisible()
     for _, path in ipairs(INVISIBLE_FUNCTIONS) do if not self.api.has_function(path) then return nil end end
     local class, library = self.api.resolve(PLAYER_STUB), self.api.resolve(AI_LIBRARY)
     if not self.api.valid(class) or not self.api.valid(library) then return nil end
-    -- Build 25232147: PlayerAIStub is exactly 0x270 bytes. Register on that
+    -- Build 25915545: PlayerAIStub is exactly 0x260 bytes. Register on that
     -- player-only subclass, never ActorStub generally or an actor flag byte.
     if not self.api.register_property(VISIBILITY_FLAGS, PLAYER_STUB, "ByteProperty", 0x30) then return nil end
     self.invisible_bindings = {class = class, library = library}

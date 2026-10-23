@@ -10,9 +10,9 @@ public sealed class DawnwalkerModule(string baseDirectory) : IGameModule
 {
     public IReadOnlyList<string> GameExecutables { get; } = [Executable];
     public const string Executable = "Dawnwalker/Binaries/Win64/Dawnwalker.exe";
-    public const string SupportedExecutableHash = "CB9B7D7BD88A6754C0A9C08318AA64D5013DDFD92D5BADCAE84E1B4EA980DCFC";
+    public const string SupportedExecutableHash = "E6222B815B1C376F2C85A2189120C5A9B5CD30AC5688A34B61A2C18EFBC9B117";
     public const string BridgeRoot = "Dawnwalker/Binaries/Win64/ue4ss/Mods/HappyCheatsDawnwalker/bridge/";
-    public const string TrainerVersion = "0.3.3";
+    public const string TrainerVersion = "0.3.4";
     private readonly string package = Path.Combine(baseDirectory, "payload", "dawnwalker");
     private readonly SemaphoreSlim commandLock = new(1, 1);
     private readonly object inspectionLock = new();
@@ -97,7 +97,7 @@ public sealed class DawnwalkerModule(string baseDirectory) : IGameModule
                 !compatible ? "This Dawnwalker build needs a compatibility check."
                 : installed ? matching ? "Experimental The Blood of Dawnwalker trainer installed. Gameplay validation is pending."
                     : "The Blood of Dawnwalker trainer update required. Installed files differ from the current module."
-                : "The Blood of Dawnwalker Steam build 25232147 detected. Experimental trainer; gameplay validation is pending.");
+                : "The Blood of Dawnwalker Steam build 25915545 detected. Experimental trainer; gameplay validation is pending.");
         } catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException) {
             return new GameInstallation(directory ?? "", "", false, false, false, false, error.Message);
         }

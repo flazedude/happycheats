@@ -1,4 +1,4 @@
--- Steam build 25232147, UE 5.5.4. Native reflected calls only, on the game thread.
+-- Steam build 25915545 / CL-265636, UE 5.5.4. Native reflected calls only, on the game thread.
 -- The engine owns collision, acceleration and horizontal movement during flight.
 local M, Instance = {}, {}
 Instance.__index = Instance
@@ -80,7 +80,7 @@ function Instance:_hit_flags_available()
     if self.hit_flags_ready ~= nil then return self.hit_flags_ready end
     self.hit_flags_ready = false
     if type(self.api.register_property) ~= "function" then return false end
-    -- Build25232147 HitResult: both native bool properties occupy byte0xAD,
+    -- Builds25232147/25915545 HitResult: both native bool properties occupy byte0xAD,
     -- masks1/2. UE4SS2bfa839f's GetNonTrivialLocal reads the whole byte as bool,
     -- so an ordinary blocking hit incorrectly yields bStartPenetrating=true.
     -- Custom ByteProperty fields retain that byte in OUT-struct Lua tables.

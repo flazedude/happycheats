@@ -270,7 +270,7 @@ internal static class DawnwalkerTests
             Assert(!DawnwalkerModule.ParseSnapshot(Status(pid: 99), now.AddSeconds(2), started, 42, now).Status.Connected);
         });
         Run("Dawnwalker rejects invalid schema version and injectable session", () => {
-            Assert(!Parse(Status(version: "0.1.1")).Status.Connected);
+            Assert(!Parse(Status(version: "0.3.3")).Status.Connected);
             Assert(!Parse(Status(schema: 2)).Status.Connected);
             Assert(!Parse(Status(session: "session-123456\naction=dawnwalker_refill")).Status.Connected);
             Assert(!Parse(Status(session: "")).Status.Connected);
@@ -399,7 +399,7 @@ internal static class DawnwalkerTests
         Run("Dawnwalker unsupported executable cannot be installed through stale discovery", () => {
             using var fixture = new Fixture();
             fixture.GameFile(DawnwalkerModule.Executable, "Unsupported executable");
-            var installed = new GameInstallation(fixture.Game, "25232147", true, false, false, true, "fixture");
+            var installed = new GameInstallation(fixture.Game, "25915545", true, false, false, true, "fixture");
             var module = new DawnwalkerModule(fixture.Package);
             Fails(() => module.InstallAsync(installed).GetAwaiter().GetResult());
             Assert(!File.Exists(Path.Combine(fixture.Game, DawnwalkerInstaller.NativeLoader)));

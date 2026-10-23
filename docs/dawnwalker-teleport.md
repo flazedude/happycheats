@@ -1,5 +1,9 @@
 # Dawnwalker map-pin teleport investigation
 
+Historical investigation of the disabled debug entry in patch 2. The current
+trainer uses the separate native fast-travel system; see [current controls](dawnwalker.md)
+and the [patch 3 compatibility review](dawnwalker-patch3.md).
+
 Inspected 26 September 2026, Steam build **25232147**, Unreal Engine **5.5.4**.
 Executable: `Dawnwalker/Binaries/Win64/Dawnwalker.exe`.
 SHA-256: `CB9B7D7BD88A6754C0A9C08318AA64D5013DDFD92D5BADCAE84E1B4EA980DCFC`.

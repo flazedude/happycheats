@@ -1,0 +1,9 @@
+HappyCheats 0.3.47 — Dawnwalker patch 3 compatibility
+
+Updates The Blood of Dawnwalker trainer to 0.3.4 for Steam build 25915545, executable dw1-pc-265636-shipping-patch3-all-CL-265636. The previous exact executable check rejected this game update. The new compatibility pin follows static inspection of the current native functions, generated reflection descriptors and the custom fields used by the trainer. Unknown executable hashes remain unsupported.
+
+All 14 controls are retained: health, stamina, one-shot refill, blood, invulnerability, super damage, invisibility, flight, manual and automatic marker teleport, carry weight, money, item use and instant XP. Teleport still uses the native travel/loading sequence. Ctrl+Del, F6 and hold Menu for 350 ms then tap RB keep opening the shared menu; existing direct controller shortcuts remain.
+
+Close Dawnwalker, open the new client and choose Install / update before launching the game. The rebuilt trainer is included in the signed LAN/GitHub update and complete standalone EXE. The client requires the new trainer heartbeat version.
+
+Validation covers static compatibility review and offline Lua, client, installer, menu/controller and packaging regression checks. These checks do not launch the game or activate cheats. The user confirmed teleport worked on the previous build; patch 3 startup, gameplay, physical-controller behavior and performance remain unverified.

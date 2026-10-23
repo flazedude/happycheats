@@ -1,4 +1,4 @@
--- Steam build 25232147, CL-258504. Game-thread calls only. This extension is
+-- Steam build 25915545, CL-265636. Game-thread calls only. This extension is
 -- handed a freshly validated, living, possessed local-player state by bindings.
 -- InventoryComponent.WeightLimit (float, +0x158) uses zero as unlimited in
 -- GetWeightLimit and all three native capacity/overweight checks.
@@ -105,11 +105,11 @@ end
 function Instance:enabled() return copy(self.flags) end
 
 -- GetCurrentLevelXPRequirement(int Level) checks the actual native level map
--- and returns zero for a missing entry (thunk 0x5DB1084, guard 0x5DB1180).
--- ForceLevelUp (0x5DB0AEC) is safe only after these immediate, same-game-thread
+-- and returns zero for a missing entry (thunk 0x5FD4490, guard 0x5FD459C).
+-- ForceLevelUp (0x5FD3F14) is safe only after these immediate, same-game-thread
 -- probes. Never call the unguarded quest-reward getter, even during discovery.
--- Native level-map insertion is confined to init callback 0x2051184; the known
--- clears are construction/destruction. See xp-guarded-route-review.md evidence.
+-- The new build moves the private level map to +0x8C0; no raw map offset is
+-- used here. See docs/dawnwalker-patch3-bindings.md for the offline audit.
 function Instance:_xp_plan(state)
     if self.xp_failed or not self:_xp_owner(state) then return nil end
     local a, development = self.api, self.development
