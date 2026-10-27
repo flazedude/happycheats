@@ -1,6 +1,8 @@
 # The Blood of Dawnwalker
 
-Experimental trainer **0.3.4** for HappyCheats **0.3.47**. Supports the inspected Windows Steam build **25915545**, executable version `dw1-pc-265636-shipping-patch3-all-CL-265636` (Unreal Engine 5.5.4). Other executable hashes are rejected pending a compatibility check.
+Experimental trainer **0.4.0** for HappyCheats **0.3.48**. Supports the inspected Windows Steam build **25915545**, executable version `dw1-pc-265636-shipping-patch3-all-CL-265636` (Unreal Engine 5.5.4). Other executable hashes are rejected pending a compatibility check.
+
+Version 0.4.0 replaces the fast-travel request in manual and automatic marker teleport with a direct character move. It retains the loaded-ground and collision checks, checks the resulting position and bounds confirmation failures. It never falls back to fast travel or retries a failed marker automatically. This removes the trainer's request for the native loading sequence that the user reported getting stuck in. Normal streaming hitches can still occur, and current gameplay remains unverified. See the [direct-teleport review](dawnwalker-direct-teleport.md). Close the game and choose **Install / update** before using this version.
 
 Version 0.3.4 updates the executable compatibility pin after checking the patch 3 native registrations, parameter layouts and custom fields. Gameplay properties are accessed by reflection, including the moved player ability-system component; the trainer does not use its old offset. All 14 controls, shared-menu shortcuts and native teleport/loading behavior are retained. Close Dawnwalker and choose **Install / update** in the new client before relaunching. The user confirmed teleport worked on the previous build; startup and gameplay on patch 3 remain unverified. See the [patch 3 compatibility review](dawnwalker-patch3.md).
 
@@ -46,7 +48,7 @@ Pages are Survival, Combat & movement, and Inventory & XP. Switching pages never
 
 Invisibility sets only the owned visibility bit on the validated player's AI stub. Inspected native paths reject that target during normal sight/hearing perception and attack selection; the player model stays visible. Disabling restores that bit while preserving unrelated flag changes. Existing alerts, scripted encounters and forced events may persist; this does not globally disable AI.
 
-For teleport, place a **custom marker after the updated trainer loads**, close the map and press F7 or Menu+Y. The trainer observes the native marker event, verifies the same player/world/map, repeats the map's ground trace and checks walkable ground and player-capsule clearance. It requests the game's own travel/loading sequence rather than directly relocating the actor. Distant unloaded terrain, steep slopes and obstructed spots are refused. A pending or uncertain travel request cannot be repeated until arrival is observed or the player session changes. Saved markers must be placed again after a restart or session change.
+For teleport, place a **custom marker after the updated trainer loads**, close the map and press F7 or Menu+Y. The trainer observes the native marker event, verifies the same player/world/map, repeats the map's ground trace and checks walkable ground and player-capsule clearance. It calls the character's native collision-checked teleport function with the capsule center above that ground, preserving rotation. It does not call the fast-travel system. Distant unloaded terrain, steep slopes and obstructed spots are refused. Pending moves cannot overlap. Failed requests are consumed without automatic retry; an unconfirmed move requires a new marker. Saved markers must be placed again after a restart or session change.
 
 Invulnerability owns one native active-effect handle and removes only that effect. Super damage captures the four positive base multipliers and writes 10× values through the native ability-system setter; disable restores still-owned values and preserves later game changes. Neither uses raw attribute memory writes or the game's shared health lock.
 
@@ -93,7 +95,7 @@ One 250 ms game-thread timer replaces the asynchronous polling loop and its repe
 
 Read-only inspection of the installed executable and running game's reflection metadata identified `CombatComponentBase.SetHealthPercent`, `SetStaminaPercent`, and `BloodBarComponent.SetBloodPercent`, their float parameters, ownership paths and resource getters. Native lock methods exist but replace an existing lock internally; this implementation avoids them. See [binding evidence](dawnwalker-bindings.md).
 
-The map system exposes tracked/user pins and pin locations. Its shipped `DebugTeleportPlayer` function is a **disabled stub**. The implemented teleport uses `FastTravelSystem.FastTravelToLocation`, with the inspected map ground trace and additional capsule-clearance checks. See [teleport investigation](dawnwalker-teleport.md). Invisibility uses the separately verified player AI-stub visibility bit described above.
+The map system exposes tracked/user pins and pin locations. Its shipped `DebugTeleportPlayer` function is a **disabled stub**. Trainer 0.4.0 uses the inspected `Actor.K2_TeleportTo` path after map ground and capsule-clearance checks; earlier versions used `FastTravelSystem.FastTravelToLocation`. See the [direct-teleport review](dawnwalker-direct-teleport.md) and [historical debug-entry investigation](dawnwalker-teleport.md). Invisibility uses the separately verified player AI-stub visibility bit described above.
 
 ## Validation scope
 

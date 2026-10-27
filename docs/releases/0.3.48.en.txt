@@ -1,0 +1,9 @@
+HappyCheats 0.3.48 — Direct Dawnwalker marker teleport
+
+Dawnwalker trainer 0.4.0 moves the player directly to custom map markers using the native character teleport path. Both manual and Auto teleport stop requesting the game's fast-travel loading sequence, following the reported loading-screen hang. There is no automatic fallback to fast travel.
+
+Ground, slope, capsule clearance, local-player ownership and rotation checks remain. The destination must already have loaded collision; unsafe or unloaded locations are refused. Position checks detect a refused, ineffective or unconfirmed move, and failed requests are consumed without automatic retry. Pending confirmation is bounded, so an unconfirmed direct move cannot leave teleport permanently waiting. Normal world-streaming hitches may still occur.
+
+Close Dawnwalker and select Install / update to apply trainer 0.4.0. Shared-menu and controller shortcuts are unchanged. The same complete update is supplied through LAN, GitHub and the standalone EXE.
+
+Validation uses static inspection of Steam build 25915545 and offline Lua/client regression checks. The new direct movement and landing have not been tested in gameplay. No game was launched or save modified for these checks. A recovery attempt for the reported stuck session sent no command because the game had already exited.

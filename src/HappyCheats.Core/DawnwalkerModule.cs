@@ -12,7 +12,7 @@ public sealed class DawnwalkerModule(string baseDirectory) : IGameModule
     public const string Executable = "Dawnwalker/Binaries/Win64/Dawnwalker.exe";
     public const string SupportedExecutableHash = "E6222B815B1C376F2C85A2189120C5A9B5CD30AC5688A34B61A2C18EFBC9B117";
     public const string BridgeRoot = "Dawnwalker/Binaries/Win64/ue4ss/Mods/HappyCheatsDawnwalker/bridge/";
-    public const string TrainerVersion = "0.3.4";
+    public const string TrainerVersion = "0.4.0";
     private readonly string package = Path.Combine(baseDirectory, "payload", "dawnwalker");
     private readonly SemaphoreSlim commandLock = new(1, 1);
     private readonly object inspectionLock = new();
@@ -33,8 +33,8 @@ public sealed class DawnwalkerModule(string baseDirectory) : IGameModule
             new("dawnwalker_damage", "Super damage", "Multiply the player's base melee, claw, magic and unarmed damage multipliers by 10. Disable restores the captured values while preserving later changes made by the game.", "F8", true, "Combat & movement"),
             new("dawnwalker_invisible", "Invisibility", "Block normal enemy perception and targeting while keeping your character visible. Existing alerts and scripted encounters may persist. Disable restores normal detection.", "F9", true, "Combat & movement"),
             new("dawnwalker_fly", "Fly", "Enable flight with normal directional movement. Space / Left Ctrl or right / left trigger ascend and descend. Disable restores the previous movement mode; collision remains active.", "F11", true, "Combat & movement"),
-            new("dawnwalker_teleport", "Teleport to map marker", "Place a custom map marker after loading this trainer, close the map, then teleport once. Requires loaded, walkable ground with space for the player; unsafe destinations are refused.", "F7", false, "Combat & movement"),
-            new("dawnwalker_auto_teleport", "Auto teleport", "Enable, then place a new custom map marker to attempt travel once. Close the map if waiting for player control. Enabling does not use an existing marker. Requires loaded, walkable ground with space for the player; unsafe destinations are refused.", "NumPad4", true, "Combat & movement"),
+            new("dawnwalker_teleport", "Teleport to map marker", "Move directly to a newly placed custom map marker without requesting fast travel. Close the map first. Requires loaded, walkable ground with clear space for the player; unloaded or unsafe destinations are refused.", "F7", false, "Combat & movement"),
+            new("dawnwalker_auto_teleport", "Auto teleport", "Automatically move to each new custom map marker without requesting fast travel. Close the map if waiting for player control. Enabling does not use an existing marker. Requires loaded, walkable ground and clear space; failed moves are not retried.", "NumPad4", true, "Combat & movement"),
             new("dawnwalker_carry", "Infinite carry weight", "Remove the inventory weight limit while enabled and restore its previous value when disabled.", "F12", true, "Inventory & XP"),
             new("dawnwalker_money", "Infinite money", "Keep at least 999,999 coins using the game's currency API. Added coins remain after disabling and may be saved normally.", "NumPad1", true, "Inventory & XP"),
             new("dawnwalker_items", "Unlimited item use", "Preserve ordinary consumables in your inventory after use. Quest items are excluded; newly acquired items may take two seconds to update.", "NumPad2", true, "Inventory & XP"),

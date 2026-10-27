@@ -8,7 +8,7 @@ local function object(name) return { name = name, valid = true } end
 local function fixture()
     local f = { calls = 0, lookups = 0, fnames = 0, setters = {}, inputs = {}, keys = {},
         local_player = true, authority = true, alive = true, ignored = false, analog = {}, delta = 1 / 60,
-        traces = {}, travels = {}, marker_present = true, ground_z = 250, normal_z = 1, property_registrations = 0 }
+        traces = {}, travels = {}, stops = 0, marker_present = true, ground_z = 250, normal_z = 1, property_registrations = 0 }
     f.pawn, f.controller, f.world, f.movement = object("pawn"), object("controller"), object("world"), object("movement")
     f.pawn.Controller, f.pawn.CharacterMovement = f.controller, f.movement
     f.world.OwningGameInstance = object("game instance")
@@ -16,6 +16,7 @@ local function fixture()
     f.possessed, f.owner = f.pawn, f.pawn
     f.movement.MovementMode, f.movement.CustomMovementMode = 1, 0
     f.movement.WalkableFloorZ = 0.7
+    f.movement.Velocity = { X = 125, Y = 0, Z = -900 }
     f.position = { X = 0, Y = 0, Z = 0 }
     -- Captured CoreUObject.Rotator has lowercase pitch. The pinned loader uses
     -- exact reflected spellings both for return tables and incoming arguments.
@@ -24,6 +25,7 @@ local function fixture()
     f.gameplay, f.system, f.subsystems, f.map_library, f.map, f.travel, f.capsule =
         object("gameplay"), object("system"), object("subsystems"), object("map_library"), object("map"), object("travel"), object("capsule")
     f.pawn.CapsuleComponent = f.capsule
+    f.pawn.RootComponent = f.capsule
     f.radius, f.height = 40, 90
     f.first_player = f.controller
     f.state = { character = f.pawn, controller = f.controller, world = f.world, key = "world/controller/pawn" }
@@ -31,7 +33,10 @@ local function fixture()
     function f.pawn:HasAuthority() return f.authority end
     function f.pawn:IsAlive() return f.alive end
     function f.pawn:GetWorld() return f.world end
-    function f.pawn:K2_GetActorLocation() return f.position end
+    function f.pawn:K2_GetActorLocation()
+        if f.location_error or (#f.travels > 0 and f.post_location_error) then error("location unavailable") end
+        return f.position
+    end
     function f.pawn:K2_GetActorRotation()
         if f.rotation_error then error("rotation unavailable") end
         return f.rotation
@@ -46,6 +51,17 @@ local function fixture()
         f.setters[#f.setters + 1] = { mode = mode, custom = custom }
         if f.setter_error then error("native setter error") end
         if not f.noop then self.MovementMode, self.CustomMovementMode = mode, custom end
+        if f.change_owner_on_restore and mode ~= 5 then f.possessed = object("new pawn") end
+    end
+    function f.movement:StopMovementImmediately()
+        f.stops = f.stops + 1
+        if f.stop_error then error("stop failed") end
+        if not f.stop_noop then self.Velocity = { X = 0, Y = 0, Z = 0 } end
+        if f.change_owner_on_stop then f.possessed = object("new pawn") end
+        if f.change_marker_on_stop then f.trainer:forget_marker() end
+        if f.marker_on_stop then f.trainer:observe_marker(f.map, f.marker_on_stop) end
+        if f.change_mode_on_stop then self.MovementMode = 0 end
+        if f.change_size_on_stop then f.height = f.height + 20 end
     end
     local function key_name(key)
         assert(type(key) == "table" and type(key.KeyName) == "table" and key.KeyName.is_fname,
@@ -76,9 +92,7 @@ local function fixture()
         return f.map
     end
     function f.subsystems:GetWorldSubsystem(character, class)
-        if class.path == "/Script/Engine.WorldPartitionSubsystem" then return f.partition end
-        assert(character == f.pawn and class.path == "/Script/DogwoodMap.FastTravelSystem")
-        return f.travel
+        error("Direct teleport must not request a fast-travel or world-partition subsystem")
     end
     function f.capsule:GetScaledCapsuleRadius() return f.radius end
     function f.capsule:GetScaledCapsuleHalfHeight() return f.height end
@@ -114,7 +128,8 @@ local function fixture()
         hit.bBlockingHit, hit.bStartPenetrating = flags ~= 0, flags ~= 0
         return f.obstructed == true
     end
-    function f.travel:FastTravelToLocation(location, rotation)
+    function f.travel:FastTravelToLocation() error("Direct teleport must never fall back to loading travel") end
+    function f.pawn:K2_TeleportTo(location, rotation)
         -- Reproduce convert_lua_table_to_struct: each reflected field is read
         -- with lua_rawget; a mismatched key silently leaves its default zero.
         local native_rotation = {}
@@ -122,9 +137,13 @@ local function fixture()
         f.travels[#f.travels + 1] = { location = location, rotation = native_rotation }
         if f.marker_during_travel then f.trainer:observe_marker(f.map, f.marker_during_travel) end
         if f.travel_error then error("travel uncertain") end
-        if f.travel_result == 0 or f.travel_result == 1 then return f.travel_result end
-        f.movement.MovementMode = 0
-        return f.travel_result or 2
+        if f.travel_result == false then return false end
+        if not f.teleport_noop then f.position = { X = location.X, Y = location.Y, Z = location.Z } end
+        if f.change_owner_in_teleport then f.possessed = object("new pawn") end
+        if f.change_root_in_teleport then f.pawn.RootComponent = object("new root") end
+        if f.clear_pending_in_teleport then f.trainer.pending = nil end
+        if f.travel_result ~= nil then return f.travel_result end
+        return true
     end
     local api = {
         valid = function(value) f.calls = f.calls + 1; return type(value) == "table" and value.valid == true end,
@@ -342,8 +361,8 @@ end
 local function complete_travel(f)
     local last = f.travels[#f.travels].location
     f.movement.MovementMode = 1
-    f.position = { X = last.X, Y = last.Y, Z = last.Z + f.height }
-    for _ = 1, 4 do f.trainer:refresh(f.state) end
+    f.position = { X = last.X, Y = last.Y, Z = last.Z }
+    for _ = 1, 4 do f.trainer:refresh(f.state); f.trainer:process_auto_teleport() end
 end
 
 -- Exercise the real return/outbound conversion shape through both dispatch
@@ -444,7 +463,7 @@ do
     equal(f.trainer:process_auto_teleport(), true)
     equal(#f.travels, 1)
     equal(f.travels[1].location.X, 1234, "Automatic request owns a copied destination")
-    equal(f.travels[1].location.Z, f.ground_z, "Auto uses verified ground, never the marker fallback Z")
+    equal(f.travels[1].location.Z, f.ground_z + f.height + 5, "Auto uses the checked capsule center, never ground level or marker fallback Z")
     equal(#f.traces, 2, "Auto uses both manual ground and capsule checks")
     equal(f.trainer:enabled().dawnwalker_auto_teleport, true, "Accepted travel preserves the opt-in")
     for _ = 1, 10 do f.trainer:refresh(f.state); f.trainer:process_auto_teleport() end
@@ -494,7 +513,7 @@ end
 
 for _, failure in ipairs({ "no_ground", "ground_penetrating", "missing_ground_flags", "obstructed",
     "clearance_penetrating", "missing_clearance_flags", "trace_error", "clearance_error", "steep",
-    "world_state", "partition", "ignore_error" }) do
+    "ignore_error" }) do
     local f = fixture(); auto_enable(f); marker(f)
     if failure == "steep" then f.normal_z = 0.2
     elseif failure == "world_state" then f.world_state = nil
@@ -512,18 +531,15 @@ end
 
 for _, failure in ipairs({ "refused", "error", "unexpected_result" }) do
     local f = fixture(); auto_enable(f); marker(f)
-    if failure == "refused" then f.travel_result = 0
+    if failure == "refused" then f.travel_result = false
     elseif failure == "error" then f.travel_error = true
-    else f.travel_result = 7 end
+    else f.travel_result, f.teleport_noop = 7, true end
     equal(f.trainer:process_auto_teleport(), false, "Native outcome is not presumed successful: " .. failure)
     for _ = 1, 10 do f.trainer:refresh(f.state); f.trainer:process_auto_teleport() end
     equal(#f.travels, 1, "No retries after a refused or uncertain native call: " .. failure)
     equal(#f.traces, 2)
-    if failure ~= "refused" then
-        marker(f)
-        equal(f.trainer:process_auto_teleport(), nil, "A fresh marker cannot overlap uncertain native travel")
-        equal(#f.travels, 1)
-    end
+    equal(f.trainer.pending, nil, "No failed native result leaves an indefinite travel lock")
+    if failure ~= "refused" then equal(f.trainer.marker, nil, "Unconfirmed result requires a fresh marker") end
 end
 
 do
@@ -635,15 +651,16 @@ do
     equal(f.property_registrations, 1, "Packed hit byte is registered only once")
     equal(#f.travels, 1)
     equal(f.travels[1].location.X, 1000, "Hook coordinates are copied, not retained by reference")
-    equal(f.travels[1].location.Z, f.ground_z, "Never pass the marker's Z=0 fallback to travel")
+    equal(f.travels[1].location.Z, f.ground_z + f.height + 5, "Use the clearance-tested capsule center")
     equal(f.travels[1].rotation.Yaw, f.rotation.Yaw)
-    equal(#f.inputs, 0, "Teleport does not use actor movement or raw teleport")
-    equal(#f.setters, 0, "Native travel owns movement changes")
+    equal(#f.inputs, 0, "Teleport does not sweep through intermediate obstacles")
+    equal(#f.setters, 0, "Direct teleport does not disable normal movement")
+    equal(f.stops, 1, "Native movement override clears existing velocity")
     equal(f.trainer:apply(f.state, "dawnwalker_teleport"), false, "No overlapping travel sequence")
     equal(#f.travels, 1)
     f.movement.MovementMode = 1
     f.position = { X = 1000, Y = 2000, Z = f.ground_z + f.height }
-    for _ = 1, 4 do f.trainer:refresh(f.state) end
+    for _ = 1, 4 do f.trainer:refresh(f.state); f.trainer:process_auto_teleport() end
     equal(f.trainer:apply(f.state, "dawnwalker_teleport"), true, "Completed native travel permits another explicit request")
 end
 
@@ -683,8 +700,8 @@ end
 
 for _, failure in ipairs({ "no_ground", "trace_error", "ground_penetrating", "slope", "nan_ground", "obstructed",
     "clearance_penetrating", "clearance_error", "radius", "height", "marker_removed", "other_map", "other_player",
-    "ignored", "change_marker_during_trace", "change_owner_during_trace", "rotation", "world_state", "partition",
-    "game_instance", "capsule_owner", "dead" }) do
+    "ignored", "change_marker_during_trace", "change_owner_during_trace", "rotation",
+    "game_instance", "capsule_owner", "root_component", "dead" }) do
     local f = fixture(); marker(f)
     if failure == "slope" then f.normal_z = 0.2
     elseif failure == "nan_ground" then f.ground_z = 0/0
@@ -698,6 +715,7 @@ for _, failure in ipairs({ "no_ground", "trace_error", "ground_penetrating", "sl
     elseif failure == "partition" then f.partition = nil
     elseif failure == "game_instance" then f.world.OwningGameInstance = nil
     elseif failure == "capsule_owner" then f.capsule_owner = object("other character")
+    elseif failure == "root_component" then f.pawn.RootComponent = object("different root")
     elseif failure == "dead" then f.alive = false
     else f[failure] = true end
     equal(f.trainer:apply(f.state, "dawnwalker_teleport"), false, "Reject unsafe teleport: " .. failure)
@@ -726,7 +744,7 @@ do
     equal(#f.travels, 0)
     equal(f.trainer:enabled().dawnwalker_fly, true)
 end
-for _, result in ipairs({ 0, 1 }) do
+for _, result in ipairs({ false }) do
     local f = fixture(); marker(f); f.travel_result = result
     equal(f.trainer:apply(f.state, "dawnwalker_teleport"), false, "Native refusal is not reported as successful travel")
     equal(f.trainer.pending, nil, "Explicit native refusal releases the request guard")
@@ -736,6 +754,111 @@ do
     equal(f.trainer:apply(f.state, "dawnwalker_teleport"), false)
     equal(f.trainer:apply(f.state, "dawnwalker_teleport"), false)
     equal(#f.travels, 1, "An uncertain native result cannot replay the travel request")
+end
+
+-- Direct relocation is synchronous, but custom locomotion is checked again
+-- across actual regular heartbeat dispatches, not repeated status refreshes.
+do
+    local f = fixture(); marker(f)
+    equal(f.trainer:apply(f.state, "dawnwalker_teleport"), true)
+    equal(f.position.Z, f.ground_z + f.height + 5)
+    equal(f.movement.Velocity.Z, 0, "Native stop removes the previous falling velocity")
+    equal(f.movement.MovementMode, 1, "No loading movement mode is entered")
+    for _ = 1, 100 do f.trainer:refresh(f.state) end
+    equal(f.trainer.pending ~= nil, true, "Status refreshes cannot impersonate later game ticks")
+    f.trainer:process_auto_teleport()
+    equal(f.trainer.pending ~= nil, true, "Same-tick command tail does not confirm movement")
+    f.position.X = f.position.X + 150 -- 600 units/s during a normal 250ms interval.
+    f.trainer:process_auto_teleport()
+    equal(f.trainer.pending, nil, "Normal walking after arrival does not fail confirmation")
+    equal(f.trainer.teleport_message, "Direct map-marker teleport completed")
+    equal(#f.travels, 1)
+end
+
+for _, failure in ipairs({ "noop", "rollback", "position_error", "owner_lost", "root_changed", "numeric_result" }) do
+    local f = fixture(); auto_enable(f)
+    f.position = { X = 900, Y = 2000, Z = f.ground_z + f.height + 5 }
+    local origin = { X = f.position.X, Y = f.position.Y, Z = f.position.Z }
+    marker(f, { X = 1000, Y = 2000, Z = 0 }) -- Both points fit the old broad tolerance.
+    if failure == "noop" then f.teleport_noop = true end
+    if failure == "numeric_result" then f.travel_result = 1 end
+    local ok = f.trainer:process_auto_teleport()
+    equal(ok, failure ~= "noop" and failure ~= "numeric_result", "Immediate result is checked: " .. failure)
+    if failure == "rollback" then f.position = origin
+    elseif failure == "position_error" then f.post_location_error = true
+    elseif failure == "owner_lost" then f.possessed = object("different pawn")
+    elseif failure == "root_changed" then f.pawn.RootComponent = object("different root") end
+    for _ = 1, 5 do f.trainer:refresh(f.state); f.trainer:process_auto_teleport() end
+    equal(f.trainer.pending, nil, "Every failure releases the bounded guard: " .. failure)
+    equal(#f.travels, 1, "Failure cannot automatically replay: " .. failure)
+    equal(f.trainer.teleport_message, "Teleport could not be confirmed; place a new marker to try again")
+    equal(f.trainer.marker, nil, "Unconfirmed move consumes the old marker: " .. failure)
+end
+
+do
+    local f = fixture(); auto_enable(f); marker(f); f.post_location_error = true
+    equal(f.trainer:process_auto_teleport(), false, "A missing immediate readback is not claimed successful")
+    f.post_location_error = false
+    for _ = 1, 3 do f.trainer:process_auto_teleport() end
+    equal(f.trainer.pending, nil, "A valid native result can be confirmed by later strict arrival and a following tick")
+    equal(f.trainer.teleport_message, "Direct map-marker teleport completed")
+    equal(#f.travels, 1)
+end
+
+for _, failure in ipairs({ "stop_error", "stop_noop", "change_owner_on_stop", "change_marker_on_stop", "change_mode_on_stop", "change_size_on_stop", "location_error" }) do
+    local f = fixture(); marker(f); f[failure] = true
+    equal(f.trainer:apply(f.state, "dawnwalker_teleport"), false, "Failed final validation refuses relocation: " .. failure)
+    equal(#f.travels, 0)
+    equal(f.trainer.pending, nil)
+end
+
+do
+    local f = fixture(); auto_enable(f); marker(f)
+    f.marker_on_stop = { X = 3000, Y = 4000, Z = 0 }
+    equal(f.trainer:process_auto_teleport(), false, "Native stop can invalidate the original marker")
+    equal(f.trainer.auto_queue, nil, "A marker callback inside StopMovementImmediately cannot enqueue another jump")
+    for _ = 1, 10 do f.trainer:process_auto_teleport() end
+    equal(#f.travels, 0)
+    equal(f.stops, 1)
+    f = fixture(); enable(f); marker(f); f.change_owner_on_restore = true
+    equal(f.trainer:apply(f.state, "dawnwalker_teleport"), false, "Flight restoration must be followed by ownership validation")
+    equal(f.stops, 0)
+    equal(#f.travels, 0)
+end
+
+do
+    local f = fixture(); auto_enable(f); marker(f); f.teleport_noop = true
+    equal(f.trainer:process_auto_teleport(), false)
+    for _ = 1, 4 do f.trainer:process_auto_teleport() end
+    equal(f.trainer.pending, nil)
+    f.teleport_noop = false
+    equal(f.trainer:process_auto_teleport(), nil, "Recovery never reuses the failed marker")
+    marker(f, { X = 3000, Y = 4000, Z = 0 })
+    equal(f.trainer:process_auto_teleport(), true, "A fresh marker can recover without restarting the game")
+    equal(#f.travels, 2)
+end
+
+for _, missing in ipairs({ "/Script/Engine.Actor:K2_TeleportTo", "/Script/Engine.MovementComponent:StopMovementImmediately" }) do
+    local f = fixture(); f.missing = missing; marker(f)
+    equal(f.trainer:apply(f.state, "dawnwalker_teleport"), false, "Missing direct native capability fails closed")
+    equal(#f.travels, 0)
+    equal(f.stops, 0)
+end
+
+for _, change in ipairs({ "change_owner_in_teleport", "change_root_in_teleport", "clear_pending_in_teleport" }) do
+    local f = fixture(); marker(f); f[change] = true
+    local call_ok, accepted = pcall(function() return f.trainer:apply(f.state, "dawnwalker_teleport") end)
+    equal(call_ok, true, "Native callbacks cannot make pending-state publication throw: " .. change)
+    equal(accepted, false, "Changed player context cannot be confirmed: " .. change)
+    for _ = 1, 4 do f.trainer:refresh(f.state); f.trainer:process_auto_teleport() end
+    equal(f.trainer.pending, nil)
+    equal(#f.travels, 1)
+end
+
+do
+    local f = fixture(); f.world_state, f.partition, f.travel = nil, nil, nil; marker(f)
+    equal(f.trainer:apply(f.state, "dawnwalker_teleport"), true, "Direct teleport does not depend on loading/travel services")
+    equal(#f.travels, 1)
 end
 
 print("movement: " .. checks .. " checks passed")

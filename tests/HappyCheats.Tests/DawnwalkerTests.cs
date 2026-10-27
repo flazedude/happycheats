@@ -270,7 +270,7 @@ internal static class DawnwalkerTests
             Assert(!DawnwalkerModule.ParseSnapshot(Status(pid: 99), now.AddSeconds(2), started, 42, now).Status.Connected);
         });
         Run("Dawnwalker rejects invalid schema version and injectable session", () => {
-            Assert(!Parse(Status(version: "0.3.3")).Status.Connected);
+            Assert(!Parse(Status(version: "0.3.4")).Status.Connected);
             Assert(!Parse(Status(schema: 2)).Status.Connected);
             Assert(!Parse(Status(session: "session-123456\naction=dawnwalker_refill")).Status.Connected);
             Assert(!Parse(Status(session: "")).Status.Connected);

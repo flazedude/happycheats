@@ -179,7 +179,7 @@ equal(notification(constructed),nil,"Notification remains registered")
 equal(state.observed,constructed,"Constructor callback only retains object")
 equal(refreshes,0,"Constructor callback never refreshes")
 tick()
-equal(latest.version,"0.3.4"); equal(latest.ready,true); equal(state.disables,1)
+equal(latest.version,"0.4.0"); equal(latest.ready,true); equal(state.disables,1)
 equal(state.auto_polls,1,"Normal timer checks automatic travel once")
 do
     local prefix="/Script/DogwoodMap.MappinSystemBlueprintLibrary:"

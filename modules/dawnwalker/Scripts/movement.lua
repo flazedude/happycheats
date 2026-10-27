@@ -6,6 +6,7 @@ local FLY = "dawnwalker_fly"
 local TELEPORT = "dawnwalker_teleport"
 local AUTO_TELEPORT = "dawnwalker_auto_teleport"
 local AUTO_WAIT_POLLS = 120 -- Normal 250ms heartbeat, never the flight timer.
+local TELEPORT_CONFIRM_POLLS = 4 -- Bounded observations; no native travel timer.
 local ENGINE = "/Script/Engine."
 local MOVE_FLYING = 5 -- Verified in this executable's EMovementMode enumerator table.
 local VERTICAL_SPEED, MAX_DELTA = 600, 0.05
@@ -24,9 +25,9 @@ local FLIGHT_FUNCTIONS = {
 }
 local TELEPORT_FUNCTIONS = {
     ENGINE .. "SubsystemBlueprintLibrary:GetGameInstanceSubsystem",
-    ENGINE .. "SubsystemBlueprintLibrary:GetWorldSubsystem",
     GAMEPLAY .. "GetPlayerController", SYSTEM .. "LineTraceSingle", SYSTEM .. "CapsuleTraceSingle",
-    MAP_LIBRARY .. "IsSetUserMappin", MAP .. "FastTravelSystem:FastTravelToLocation",
+    MAP_LIBRARY .. "IsSetUserMappin", ENGINE .. "Actor:K2_TeleportTo",
+    ENGINE .. "MovementComponent:StopMovementImmediately",
     ENGINE .. "Actor:K2_GetActorLocation", ENGINE .. "Actor:K2_GetActorRotation",
     ENGINE .. "CapsuleComponent:GetScaledCapsuleRadius", ENGINE .. "CapsuleComponent:GetScaledCapsuleHalfHeight",
     ENGINE .. "Controller:IsMoveInputIgnored",
@@ -251,22 +252,6 @@ function Instance:refresh(state)
     if self.flight and (not movement or not self.api.same(movement, self.flight.movement)
         or mode ~= MOVE_FLYING) then self:_disable_flight() end
     local supported = movement ~= nil and self:_functions_available()
-    if self.pending and movement then
-        self.pending.polls = self.pending.polls + 1
-        if self.pending.polls >= 4 and mode >= 1 and mode <= 4 then
-            local ignored_ok, ignored = self.api.invoke(state.controller, "IsMoveInputIgnored")
-            local location_ok, position = self.api.invoke(state.character, "K2_GetActorLocation")
-            position = location_ok and self:_vector(position) or nil
-            local destination = self.pending.destination
-            if ignored_ok and ignored == false and position
-                and math.abs(position.X - destination.X) < 500 and math.abs(position.Y - destination.Y) < 500
-                and math.abs(position.Z - destination.Z) < 1000 then
-                self.pending = nil
-                self.teleport_message = "Map-marker travel completed"
-                if self.auto_enabled then self.auto_message = "Auto teleport complete; drop a new custom map marker" end
-            end
-        end
-    end
     local teleport_supported = movement ~= nil and self:_functions_available(TELEPORT_FUNCTIONS)
         and self:_hit_flags_available()
     local travel_mode = movement ~= nil and (self.flight ~= nil or (mode >= 1 and mode <= 4))
@@ -306,16 +291,11 @@ function Instance:_teleport(state)
     local system = self:_library(ENGINE .. "Default__KismetSystemLibrary")
     local gameplay = self:_library(ENGINE .. "Default__GameplayStatics")
     local map = self:_subsystem(state, "MappinSystemImpl", false)
-    local travel = self:_subsystem(state, "FastTravelSystem", true)
-    if not library or not system or not gameplay or not map or not travel or not a.same(map, marker.map) then
-        return false, "Map or travel system changed; place a new marker"
+    if not library or not system or not gameplay or not map or not a.same(map, marker.map) then
+        return false, "Map system changed; place a new marker"
     end
-    -- The native phase callback dereferences these two services without null
-    -- checks. A living pawn and a FastTravelSystem alone do not prove readiness.
-    if not a.valid(a.read(state.world, "OwningGameInstance"))
-        or not self:_subsystem(state, "/Script/DogwoodSystem.WorldStateSystemInterface", false)
-        or not self:_subsystem(state, ENGINE .. "WorldPartitionSubsystem", true) then
-        return false, "World streaming services are not ready for map-marker travel"
+    if not a.valid(a.read(state.world, "OwningGameInstance")) then
+        return false, "Player world is not ready for teleport"
     end
     local pin_ok, pin_set = a.invoke(library, "IsSetUserMappin", map)
     local player_ok, player = a.invoke(gameplay, "GetPlayerController", state.character, 0)
@@ -351,6 +331,7 @@ function Instance:_teleport(state)
     local radius_ok, radius = a.invoke(capsule, "GetScaledCapsuleRadius")
     local height_ok, height = a.invoke(capsule, "GetScaledCapsuleHalfHeight")
     if not capsule_owner_ok or not a.same(capsule_owner, state.character)
+        or not a.same(a.read(state.character, "RootComponent"), capsule)
         or not radius_ok or not height_ok or not a.finite(radius) or not a.finite(height)
         or radius <= 0 or radius > 1000 or height < radius or height > 1000 then
         return false, "Player collision capsule unavailable"
@@ -375,20 +356,114 @@ function Instance:_teleport(state)
         local restored, message = self:_disable_flight()
         if not restored then return false, message end
     end
-    -- The game's native route owns unloading/loading, its safety platform,
-    -- capsule-floor placement and restoring movement. Never teleport directly.
-    self.pending = { key = state.key, destination = ground, polls = 0 }
-    local ok, result = a.invoke(travel, "FastTravelToLocation", ground, orientation)
-    if ok and (result == 0 or result == 1) then
-        self.pending = nil
-        return false, "The game refused map-marker travel"
+    -- TeleportTo operates on the actor root, so use the checked capsule center.
+    -- Stop through the possessed movement component's native override to avoid
+    -- carrying a fall velocity into the new location; never write velocity.
+    local function current_player(check_marker)
+        local living_ok, living = a.invoke(state.character, "IsAlive")
+        local input_ok, input_ignored = a.invoke(state.controller, "IsMoveInputIgnored")
+        local owner_ok, owner = a.invoke(capsule, "GetOwner")
+        local size_ok, current_radius = a.invoke(capsule, "GetScaledCapsuleRadius")
+        local height_ok, current_height = a.invoke(capsule, "GetScaledCapsuleHalfHeight")
+        local mode = a.read(movement, "MovementMode")
+        return (check_marker == false or self.marker == marker) and self:_owned(state, movement) and living_ok and living == true
+            and input_ok and input_ignored == false
+            and owner_ok and a.same(owner, state.character)
+            and size_ok and height_ok and a.finite(current_radius) and a.finite(current_height)
+            and math.abs(current_radius - radius) < 0.01 and math.abs(current_height - height) < 0.01
+            and a.finite(mode) and mode % 1 == 0 and mode >= 1 and mode <= 4
+            and a.same(a.read(state.character, "RootComponent"), capsule)
+            and a.same(a.read(state.character, "CapsuleComponent"), capsule)
     end
-    if not ok or result ~= 2 then
-        self.teleport_message = "Travel result uncertain; waiting for the game's travel sequence"
+    if not current_player() then return false, "Marker or player changed during checks" end
+    local origin_ok, origin = a.invoke(state.character, "K2_GetActorLocation")
+    origin = origin_ok and self:_vector(origin) or nil
+    if not origin then return false, "Player position unavailable" end
+    -- Both native calls may deliver reentrant marker callbacks. Their markers
+    -- must never become an automatic second request, even if stopping fails.
+    self.pending = { key = state.key, state = state, movement = movement, capsule = capsule,
+        destination = center, origin = origin, started = self.heartbeat_serial or 0 }
+    if not a.invoke(movement, "StopMovementImmediately") then
+        self.pending = nil
+        return false, "Player movement could not be stopped for teleport"
+    end
+    local velocity = self:_vector(a.read(movement, "Velocity"))
+    if not velocity or math.abs(velocity.X) > 0.01 or math.abs(velocity.Y) > 0.01 or math.abs(velocity.Z) > 0.01 then
+        self.pending = nil
+        return false, "Player movement could not be stopped for teleport"
+    end
+    if not current_player() then
+        self.pending = nil
+        return false, "Marker or player changed during checks"
+    end
+    -- Set the guard before invoking: overlap/marker callbacks may be reentrant.
+    -- There is deliberately no FastTravelSystem call or loading fallback.
+    local pending = self.pending
+    local ok, result = a.invoke(state.character, "K2_TeleportTo", center, orientation)
+    self.teleport_message = "Teleport position is unconfirmed; checking briefly without retrying"
+    if self.pending ~= pending then return false, self.teleport_message end
+    if ok and result == false then
+        self.pending = nil
+        return false, "The game refused direct teleport; choose another marker"
+    end
+    pending.accepted = ok and result == true
+    if not self.state or self.state.key ~= pending.key or not current_player(false) then
         return false, self.teleport_message
     end
-    self.teleport_message = "Travelling to the custom marker; the game is loading the destination"
-    return true, self.teleport_message
+    local location_ok, position = a.invoke(state.character, "K2_GetActorLocation")
+    position = location_ok and self:_vector(position) or nil
+    if self.pending ~= pending then return false, self.teleport_message end
+    if ok and result == true and position and self:_near(position, center, 25, 25)
+        and current_player(false) and self.pending == pending then
+        pending.observed = self.heartbeat_serial or 0
+        self.teleport_message = "Character moved to the marker; checking the next movement update"
+        return true, self.teleport_message
+    end
+    return false, self.teleport_message
+end
+
+function Instance:_near(position, destination, horizontal, vertical)
+    return math.abs(position.X - destination.X) <= horizontal and math.abs(position.Y - destination.Y) <= horizontal
+        and math.abs(position.Z - destination.Z) <= vertical
+end
+
+function Instance:_observe_teleport()
+    local pending, state, a = self.pending, self.state, self.api
+    if not pending then return end
+    local elapsed = self.heartbeat_serial - pending.started
+    -- refresh() also runs during commands, so it must not advance confirmation.
+    -- Two regular heartbeats ensure even a manual command crosses a game tick.
+    if elapsed < 2 then return end
+    local movement, mode = self:_movement(state)
+    local alive_ok, alive = a.invoke(pending.state.character, "IsAlive")
+    local owned = state and state.key == pending.key and a.same(movement, pending.movement)
+        and self:_owned(pending.state, pending.movement) and alive_ok and alive == true
+        and a.same(a.read(pending.state.character, "RootComponent"), pending.capsule)
+        and a.same(a.read(pending.state.character, "CapsuleComponent"), pending.capsule)
+    local location_ok, position = false, nil
+    if owned then location_ok, position = a.invoke(state.character, "K2_GetActorLocation") end
+    position = location_ok and self:_vector(position) or nil
+    if pending.accepted and position and mode >= 1 and mode <= 4 then
+        if not pending.observed and self:_near(position, pending.destination, 25, 25) then
+            pending.observed = self.heartbeat_serial
+        elseif pending.observed and self.heartbeat_serial > pending.observed then
+            -- Allow ordinary walking away after immediate arrival. An exact
+            -- return to a distinct source position is a movement rollback.
+            local rollback = not self:_near(pending.origin, pending.destination, 50, 50)
+                and self:_near(position, pending.origin, 25, 25)
+            if not rollback and self:_near(position, pending.destination, 500, 500) then
+                self.pending = nil
+                self.teleport_message = "Direct map-marker teleport completed"
+                if self.auto_enabled then self.auto_message = "Auto teleport complete; drop a new custom map marker" end
+                return
+            end
+        end
+    end
+    if not owned or elapsed >= TELEPORT_CONFIRM_POLLS then
+        self.pending, self.marker, self.auto_queue = nil, nil, nil
+        self.teleport_message = "Teleport could not be confirmed; place a new marker to try again"
+        if self.auto_enabled then self.auto_message = self.teleport_message end
+    end
 end
 
 -- Called once after commands on the normal heartbeat. Hook callbacks only copy
@@ -396,6 +471,8 @@ end
 -- as manual travel. A consumed request is never replayed after any result.
 -- nil means idle/waiting; bool,message means a request was consumed or canceled.
 function Instance:process_auto_teleport()
+    self.heartbeat_serial = (self.heartbeat_serial or 0) + 1
+    self:_observe_teleport()
     local request = self.auto_queue
     if not self.auto_enabled or not request then return nil end
     local state, a = self.state, self.api
@@ -436,7 +513,7 @@ function Instance:process_auto_teleport()
     end
     self.auto_queue = nil -- Before any native call; errors/refusals cannot replay.
     local ok, message = self:_teleport(state)
-    self.auto_message = ok and "Auto teleport started; waiting for the game to finish travel"
+    self.auto_message = ok and "Auto teleport moved the character; checking the next movement update"
         or ("Auto teleport skipped: " .. tostring(message))
     if not ok then self.teleport_message = message end
     return ok, self.auto_message
