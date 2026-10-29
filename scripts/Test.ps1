@@ -17,6 +17,7 @@ if ($LASTEXITCODE -ne 0) { throw 'WPF modal-update regression suite failed.' }
 & (Join-Path $PSScriptRoot 'Test-Dawnwalker.ps1')
 & (Join-Path $PSScriptRoot 'Test-CrimsonDesert.ps1')
 & (Join-Path $PSScriptRoot 'Test-Wukong.ps1')
+& (Join-Path $PSScriptRoot 'Test-PhantomBlade.ps1')
 & (Join-Path $PSScriptRoot 'Test-Rdr2.ps1')
 & (Join-Path $PSScriptRoot 'Test-GtaV.ps1')
 & (Join-Path $PSScriptRoot 'Test-ProjectHospital.ps1')

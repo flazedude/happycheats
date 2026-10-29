@@ -83,7 +83,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool GtaStorySession => _selected?.Id == "gta-v-enhanced" && _selected.Status.Connected
         && _selected.Status.Values.TryGetValue("gta_online", out var online) && online == bool.FalseString;
     public bool CanDisableAll => !_busy && (_selected?.Id != "gta-v-enhanced" || GtaStorySession)
-        && (_selected?.Status.Ready == true || GtaStorySession || _selected?.Id is "dawnwalker" or "black-myth-wukong" or "red-dead-redemption-2" or "hotel-architect" or "civilization-vi" or "civilization-vii" or "witcher-3" or "elden-ring" or "astroneer" && _selected.Status.Connected) && Features.Any(f => f.Definition.IsToggle);
+        && (_selected?.Status.Ready == true || GtaStorySession || _selected?.Id is "dawnwalker" or "black-myth-wukong" or "phantom-blade-zero" or "red-dead-redemption-2" or "hotel-architect" or "civilization-vi" or "civilization-vii" or "witcher-3" or "elden-ring" or "astroneer" && _selected.Status.Connected) && Features.Any(f => f.Definition.IsToggle);
     private bool CrimsonInitializationFailed => _selected?.Id == "crimson-desert" && _selected.Status.Connected && !_selected.Status.Ready
         && _selected.Status.Values.TryGetValue("diagnostic_crimson_initialization_failed", out var failed) && failed == bool.TrueString;
     private bool WitcherPaused => _selected?.Id == "witcher-3" && _selected.Status.Connected
@@ -680,7 +680,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async Task SendFeatureAsync(FeatureDefinition feature)
     {
-        var cleanup = _selected?.Id is "dawnwalker" or "black-myth-wukong" or "red-dead-redemption-2" or "hotel-architect" or "civilization-vi" or "civilization-vii" or "witcher-3" or "elden-ring" or "astroneer" && _selected.Status.Connected
+        var cleanup = _selected?.Id is "dawnwalker" or "black-myth-wukong" or "phantom-blade-zero" or "red-dead-redemption-2" or "hotel-architect" or "civilization-vi" or "civilization-vii" or "witcher-3" or "elden-ring" or "astroneer" && _selected.Status.Connected
             && (feature.Id == "disable_all" || feature.IsToggle && _selected.Status.Enabled.TryGetValue(feature.Id, out var activeCleanup) && activeCleanup);
         cleanup |= GtaStorySession && (feature.Id == "disable_all" || feature.IsToggle && _selected!.Status.Enabled.TryGetValue(feature.Id, out var gtaActive) && gtaActive);
         cleanup |= _selected?.Id == "crimson-desert" && _selected.Status.Connected
@@ -1008,7 +1008,7 @@ public sealed class FeatureItem : INotifyPropertyChanged
             && status.Values.TryGetValue("diagnostic_crimson_initialization_failed", out var failed) && failed == bool.TrueString;
         var availabilityKey = Definition.Id switch { "wash" => "washAvailable", "dry" or "dry_slower" or "dry_faster" => "dryAvailable", "shop" => "shopAvailable", _ => "available_" + Definition.Id };
         _unavailable = status?.Ready == true && status.Values.TryGetValue(availabilityKey, out var value) && string.Equals(value, "false", StringComparison.OrdinalIgnoreCase);
-        var cleanup = (Definition.Id.StartsWith("dawnwalker_", StringComparison.Ordinal) || Definition.Id.StartsWith("wukong_", StringComparison.Ordinal) || Definition.Id.StartsWith("rdr2_", StringComparison.Ordinal) || Definition.Id.StartsWith("ha_", StringComparison.Ordinal) || Definition.Id.StartsWith("civ6_", StringComparison.Ordinal) || Definition.Id.StartsWith("civ7_", StringComparison.Ordinal) || Definition.Id.StartsWith("witcher3_", StringComparison.Ordinal) || Definition.Id.StartsWith("er_", StringComparison.Ordinal) || Definition.Id == "crimson_auto_teleport") && Definition.IsToggle && _active;
+        var cleanup = (Definition.Id.StartsWith("dawnwalker_", StringComparison.Ordinal) || Definition.Id.StartsWith("wukong_", StringComparison.Ordinal) || Definition.Id.StartsWith("pbz_", StringComparison.Ordinal) || Definition.Id.StartsWith("rdr2_", StringComparison.Ordinal) || Definition.Id.StartsWith("ha_", StringComparison.Ordinal) || Definition.Id.StartsWith("civ6_", StringComparison.Ordinal) || Definition.Id.StartsWith("civ7_", StringComparison.Ordinal) || Definition.Id.StartsWith("witcher3_", StringComparison.Ordinal) || Definition.Id.StartsWith("er_", StringComparison.Ordinal) || Definition.Id == "crimson_auto_teleport") && Definition.IsToggle && _active;
         var gtaStory = !Definition.Id.StartsWith("gta_", StringComparison.Ordinal)
             || status?.Values.TryGetValue("gta_online", out var gtaOnline) == true && gtaOnline == bool.FalseString;
         cleanup |= Definition.Id.StartsWith("gta_", StringComparison.Ordinal) && gtaStory && Definition.IsToggle && _active;

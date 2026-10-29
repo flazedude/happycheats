@@ -24,6 +24,7 @@ public static class GameArtwork
             "dawnwalker" => "dawnwalker",
             "crimson-desert" => "crimson-desert",
             "black-myth-wukong" => "black-myth-wukong",
+            "phantom-blade-zero" => "phantom-blade-zero",
             "red-dead-redemption-2" => "red-dead-redemption-2",
             "gta-v-enhanced" => "gta-v-enhanced",
             "witcher-3" => "witcher-3",

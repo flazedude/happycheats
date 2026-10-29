@@ -62,6 +62,7 @@ internal static class Program
             else if (args.Contains("--witcher3")) Results.Add(Witcher3UiChecks.Run(main, artifacts));
             else if (args.Contains("--civ7")) Results.Add(Civ7UiChecks.Run(main, artifacts));
             else if (args.Contains("--elden-ring")) Results.Add(EldenRingUiChecks.Run(main, artifacts));
+            else if (args.Contains("--phantom-blade")) Results.Add(PhantomBladeUiChecks.Run(main, artifacts));
             else
             {
             Results.Add(LibrarySortChecks.Run(main, root, artifacts, Check));
@@ -106,6 +107,7 @@ internal static class Program
             Results.Add(Civ6HotkeyChecks.Run(main));
             Results.Add(Civ7UiChecks.Run(main, artifacts));
             Results.Add(EldenRingUiChecks.Run(main, artifacts));
+            Results.Add(PhantomBladeUiChecks.Run(main, artifacts));
             Results.Add(Witcher3UiChecks.Run(main, artifacts));
             ValidateCrimsonInitializationFailure(main);
             ValidateCrimsonTeleportReporting(main);

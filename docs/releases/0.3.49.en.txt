@@ -1,0 +1,9 @@
+HappyCheats 0.3.49 — Phantom Blade Zero
+
+Adds experimental Phantom Blade Zero trainer 0.1.0 for Steam build 26266538 (CL-301524_JKS-17219): living-player health refills, Sha-Chi refills, and an adjustable 1–20× attack-power multiplier. Final damage remains subject to the game's combat rules. Refills do not prevent lethal hits between updates. All controls start disabled; base attributes are preserved. Normal game stat recalculation can cancel the attack multiplier, requiring it to be applied again; restoration preserves later changes made by gameplay.
+
+The module includes exact executable/build checks, an ownership-preserving installer, the pinned UE4SS loader with the inspected object-array compatibility profile, session-bound commands, English/Chinese controls and bundled Steam artwork. Ctrl+Del and hold Menu for 350 ms then tap RB use the existing shared menu. Mouse/keyboard operate its controls in windowed/borderless mode.
+
+Close Phantom Blade Zero and choose Install / update, then launch through Steam and load a save. F1 toggles health, F2 toggles Sha-Chi, and F10 disables all. Apply the attack multiplier through the client or shared menu; 1× requests restoration. The complete trainer is included in the LAN update, public GitHub Release and fresh standalone EXE.
+
+Validation covers installed-binary inspection, user-authorized read-only runtime inspection and offline Lua/client/installer/shared-menu/controller regressions. Read-only inspection did not activate cheats or edit saves. Trainer startup, actual cheat effects, physical-controller operation and second-PC access remain unverified.

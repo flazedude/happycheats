@@ -8,7 +8,7 @@ param(
     [string]$ChineseParentsGameDirectory,
     [string]$StardewGameDirectory,
     [string]$ProjectHospitalGameDirectory,
-    [string]$Version = '0.3.48',
+    [string]$Version = '0.3.49',
     [string]$UpdateFeedUrl,
     [string]$UpdateFallbackFeedUrl,
     [string]$UpdatePublicKeyPath,
@@ -33,6 +33,7 @@ if (!$SkipPayloads) {
     & (Join-Path $PSScriptRoot 'Build-Dawnwalker.ps1')
     & (Join-Path $PSScriptRoot 'Build-CrimsonDesert.ps1')
     & (Join-Path $PSScriptRoot 'Build-Wukong.ps1')
+    & (Join-Path $PSScriptRoot 'Build-PhantomBlade.ps1')
     & (Join-Path $PSScriptRoot 'Build-Rdr2.ps1')
     & (Join-Path $PSScriptRoot 'Build-GtaV.ps1')
     & (Join-Path $PSScriptRoot 'Build-HotelArchitect.ps1')
@@ -73,7 +74,7 @@ if ($ReleaseSourceCommit) {
         (& git -C $hcRoot status --porcelain --untracked-files=all)) { throw 'Release source changed during the build. Commit and review it before publishing.' }
     [ordered]@{ version=$Version; commit=$ReleaseSourceCommit } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $hcStaging 'release-source.json') -Encoding utf8NoBOM
 }
-foreach ($hcGame in @('chinese-parents','onimusha','laundry','astroneer','stardew','dawnwalker','crimson-desert','black-myth-wukong','red-dead-redemption-2','gta-v-enhanced','project-hospital','hotel-architect','civilization-vi','civilization-vii','witcher-3','elden-ring')) {
+foreach ($hcGame in @('chinese-parents','onimusha','laundry','astroneer','stardew','dawnwalker','crimson-desert','black-myth-wukong','phantom-blade-zero','red-dead-redemption-2','gta-v-enhanced','project-hospital','hotel-architect','civilization-vi','civilization-vii','witcher-3','elden-ring')) {
     $hcPayload = Join-Path $hcRoot ('payload\' + $hcGame)
     if (!(Test-Path -LiteralPath $hcPayload)) { throw "Missing payload: $hcGame" }
     New-Item -ItemType Directory -Force -Path (Join-Path $hcStaging 'payload') | Out-Null

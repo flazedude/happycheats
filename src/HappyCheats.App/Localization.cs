@@ -64,6 +64,7 @@ public static class Localization
         "civilization-vii" => "文明 VII",
         "elden-ring" => "艾尔登法环",
         "witcher-3" => "巫师 3：狂猎 重制版",
+        "phantom-blade-zero" => "影之刃零",
         "chinese-parents" => "中国式家长", "onimusha" => "鬼武者：剑之道", "laundry" => "洗衣店模拟器", "astroneer" => "异星探险家", "stardew-valley" or "stardew" => "星露谷物语", "dawnwalker" => "黎明行者之血", "crimson-desert" => "红色沙漠", "black-myth-wukong" => "黑神话：悟空", "red-dead-redemption-2" => "荒野大镖客：救赎 2", "gta-v-enhanced" => "侠盗猎车手 V 增强版", _ => definition.Name
     };
     public static string Subtitle(GameDefinition definition) => definition.Id switch
@@ -81,6 +82,7 @@ public static class Localization
         "dawnwalker" => Choose("THE BLOOD OF DAWNWALKER", "黑暗奇幻 · Steam 版"),
         "crimson-desert" => Choose("OPEN WORLD ADVENTURE", "开放世界冒险 · Steam 版"),
         "black-myth-wukong" => Choose("ACTION RPG", "动作角色扮演 · Steam 版"),
+        "phantom-blade-zero" => Choose("ACTION RPG · STEAM", "动作角色扮演 · Steam 版"),
         "red-dead-redemption-2" => Choose("STORY MODE", "故事模式 · 单人游戏"),
         "gta-v-enhanced" => Choose("ENHANCED · STORY MODE", "增强版 · 故事模式"),
         "stardew-valley" or "stardew" => Choose("FARMING & LIFE", "田园生活 · Steam 版"), _ => definition.Subtitle
@@ -100,6 +102,7 @@ public static class Localization
         "dawnwalker" => "生存、战斗、飞行、物品与经验功能，支持三页手柄快捷键和窗口 / 无边框游戏悬浮面板。新功能为实验性功能，尚待游戏内验证。",
         "crimson-desert" => "实验性修改器，支持手动与自动地图标记传送。标记没有高度时沿用当前角色高度；地形落点尚未验证。无限使用物品暂不可用。",
         "black-myth-wukong" => "为 Steam 版提供生命、法力、气力、伤害、葫芦、棍势和成长功能。实验性模块，尚待游戏内验证。",
+        "phantom-blade-zero" => "生命、体力与伤害倍率控制。实验性 Steam 模块，尚待游戏内验证。Ctrl+Del 或按住 Menu 350 毫秒后点按 RB 可开关统一菜单。",
         "red-dead-redemption-2" => "支持 PC 1.0.1491.50 的故事模式生命、体力、死亡之眼、弹药、坐骑和通缉控制。“安装 / 更新”会自动配置经校验的 Script Hook RDR2 与 ASI 加载器，首次配置需联网。不支持官方线上模式；尚待游戏内验证。",
         "gta-v-enhanced" => "面向 Steam 最新版 1.0.1158.16 的实验性故事模式菜单，F11 打开。“安装 / 更新”自动配置所需加载器或 Script Hook V，首次配置需联网。不支持在线模式，包括邀请战局；尚待游戏内验证。",
         "stardew-valley" or "stardew" => "按自己的节奏经营农场。支持游戏 1.6.15 及更新的 1.6 版本，已内置 SMAPI 4.5.2。仅支持单人存档，尚待游戏内验证。", _ => definition.Description
@@ -107,6 +110,9 @@ public static class Localization
 
     private static readonly Dictionary<string, (string Name, string Description)> Features = new()
     {
+        ["pbz_health"] = ("持续恢复生命", "开启后持续补满当前玩家的生命。两次恢复之间受到致命伤害仍可能死亡。"),
+        ["pbz_stamina"] = ("持续恢复杀气", "开启后持续补满当前玩家的杀气（Sha-Chi）。"),
+        ["pbz_damage"] = ("伤害倍率（攻击力）", "设置 1–20 倍攻击力；最终伤害遵循游戏规则。游戏重新计算属性时可能取消倍率。设为 1 或关闭全部可恢复本修改器仍持有的原值。游戏改变属性后不会覆盖其新值。"),
         ["er_health"] = ("持续恢复生命", "在本页保持开启时定期补满存活角色的生命。不是无敌，两次恢复之间受到致命伤害仍可能死亡。仅限离线单人游戏。"),
         ["er_fp"] = ("持续恢复专注值", "在本页保持开启时定期补满角色的专注值（FP），不改变上限。仅限离线单人游戏。"),
         ["er_stamina"] = ("持续恢复精力", "在本页保持开启时定期补满角色的精力，不改变上限。仅限离线单人游戏。"),
@@ -229,6 +235,7 @@ public static class Localization
         if (key == "FP") return Choose("FP", "专注值");
         if (key == "er_stamina_value") return Choose("Stamina", "精力");
         if (Witcher3Localization.ValueLabel(key) is { } witcherLabel) return witcherLabel;
+        if (PhantomBladeLocalization.ValueLabel(key) is { } phantomLabel) return phantomLabel;
         if (HotelArchitectLocalization.ValueLabel(key) is { } hotelLabel) return hotelLabel;
         if (Civ6Localization.ValueLabel(key) is { } civLabel) return civLabel;
         if (Civ7Localization.ValueLabel(key) is { } civ7Label) return civ7Label;
@@ -897,6 +904,7 @@ public static class Localization
         if (Civ6Localization.Translate(source) is { } civMessage) return civMessage;
         if (Civ7Localization.Translate(source) is { } civ7Message) return civ7Message;
         if (Witcher3Localization.Translate(source) is { } witcherMessage) return witcherMessage;
+        if (PhantomBladeLocalization.Translate(source) is { } phantomMessage) return phantomMessage;
         foreach (var prefix in new[] { ("Game found. ", "已找到游戏。"), ("Trainer installed. ", "修改器已安装。"),
             ("Waiting for the Red Dead Redemption 2 Story Mode trainer: ", "正在等待荒野大镖客 2 故事模式修改器："),
             ("Script Hook RDR2 component checksum failed: ", "Script Hook RDR2 组件校验失败："),

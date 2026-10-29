@@ -49,6 +49,7 @@ public static class ModuleCatalog
         new DawnwalkerModule(baseDirectory ?? AppContext.BaseDirectory),
         new CrimsonDesertModule(baseDirectory ?? AppContext.BaseDirectory),
         new WukongModule(baseDirectory ?? AppContext.BaseDirectory),
+        new PhantomBladeModule(baseDirectory ?? AppContext.BaseDirectory),
         new Rdr2Module(baseDirectory ?? AppContext.BaseDirectory),
         new GtaVModule(baseDirectory ?? AppContext.BaseDirectory),
         new Witcher3Module(baseDirectory ?? AppContext.BaseDirectory)
