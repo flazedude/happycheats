@@ -41,7 +41,7 @@ reflected float property and dispatches the registered `FloatProperty` setter.
 This preserves the struct's other fields, including `BaseValue`. Relevant
 source is `LuaUObject.cpp` (`push_structproperty`, `push_floatproperty` Set case) and
 `LuaUScriptStruct.cpp` (`__newindex`) at pinned revision
-`b4cefa18ac7349c4389c1ce244c1a70b66a05fe5`.
+`2bfa839fe2945f9230204145646b5be4ae84fde8`.
 
 ## Inspected native APIs and the marshalling limitation
 

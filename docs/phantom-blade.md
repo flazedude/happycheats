@@ -1,6 +1,6 @@
 # Phantom Blade Zero
 
-Experimental trainer 0.1.0 for the inspected Steam build **26266538**, AppID **4115450**, executable version **CL-301524_JKS-17219** (Unreal Engine 5.7.4). The module pins the actual `platform/steam/PBZ.exe` SHA-256; the small `steam/PBZ.exe` is a launcher and is not a menu or trainer target. Different executable hashes require a compatibility review.
+Experimental trainer 0.1.1 for the inspected Steam build **26266538**, AppID **4115450**, executable version **CL-301524_JKS-17219** (Unreal Engine 5.7.4). The module pins the actual `platform/steam/PBZ.exe` SHA-256; the small `steam/PBZ.exe` is a launcher and is not a menu or trainer target. Different executable hashes require a compatibility review.
 
 ## Controls
 
@@ -14,6 +14,8 @@ Experimental trainer 0.1.0 for the inspected Steam build **26266538**, AppID **4
 Damage defaults to 2× in the editor and stays inactive until applied. Applying 1× requests restoration. Use **Disable all** when the player is temporarily unavailable and numeric controls are disabled. All controls start off; player/session changes reset them. Normal stat recalculation, equipment changes or other gameplay effects may cancel the attack multiplier, requiring it to be applied again. Resource refills are not undone when disabled.
 
 ## Installation and shared menu
+
+Trainer **0.1.1** corrects the object-deletion listener layout that caused a fatal error before Lua startup in 0.1.0. The loader now uses the inspected object array directly because its hash-table self-test found incompatible game layouts. See [crash analysis](phantom-blade-loader.md).
 
 Close the game and select **Install / update** in HappyCheats. The package includes the pinned UE4SS loader and the Lua trainer; unrelated or modified mod files are preserved and can block installation. Start the game through Steam and load a save. A fresh matching trainer heartbeat and a validated local player are required before controls become available.
 

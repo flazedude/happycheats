@@ -1,0 +1,9 @@
+HappyCheats 0.3.50 — Phantom Blade Zero startup correction
+
+Updates Phantom Blade Zero trainer to 0.1.1 for Steam build 26266538. The crash dump showed UE4SS treating the game's create-listener synchronization lock as its object-deletion listener array. The corrected profile supplies the native deletion-listener array, serial counter and recycle-flag offsets. The failure occurred before trainer Lua started.
+
+The loader now uses the inspected object array directly instead of incompatible hash-table layouts. Dependency provenance records the DLL's actual source commit, and the build verifies the DLL hash as well as the archive hash. Health, Sha-Chi, attack-power controls and shared-menu shortcuts retain their existing behavior. All cheats start disabled.
+
+Close Phantom Blade Zero and choose Install / update in the new client. The complete LAN update, GitHub Release and standalone EXE contain the corrected payload.
+
+Validation includes the saved crash dump, native add/remove/constructor inspection, 783 offline Lua/profile checks, and installed-file hash verification. Corrected live startup validation is pending. Cheat effects, physical-controller operation and second-PC access remain unverified.
