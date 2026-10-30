@@ -45,17 +45,17 @@ The historical 0.3.52 bridge served the identical GitHub-signed feed at the orig
 GitHub is the shared source of truth for both checkouts. At the start of work on either PC, read `AGENTS.md` and use the source-sync helper in PowerShell 7:
 
 ```powershell
-.\scripts\Sync-Source.ps1 -Mode Status
+.\scripts\Sync-Source.ps1 -Status
 .\scripts\Sync-Source.ps1
 ```
 
-The default `Pull` mode fetches and fast-forwards the current branch only when the checkout is clean. `Status` fetches and reports without changing working files. After reviewing and committing a completed change, send its branch:
+The default receive operation fetches and fast-forwards the current `main` or `codex/` branch only when the checkout is clean. `-Status` fetches and reports without changing working files, including for detached HEAD or an upstream mismatch that needs diagnosis. After reviewing and committing a completed change, send its branch:
 
 ```powershell
-.\scripts\Sync-Source.ps1 -Mode Push
+.\scripts\Sync-Source.ps1 -Publish
 ```
 
-The helper verifies the official repository and same-name `origin` upstream, preserves unfinished work and rejects divergence. It does not commit, stash, resolve conflicts or switch branches. See [source synchronization](source-sync.md) for initial clone/bootstrap commands, `-RepositoryPath`, and receiving a published task branch on the other PC. If the helper stops, preserve local work and review the incoming history before integrating deliberately. Re-read `AGENTS.md` after updating because the other PC may have changed the shared instructions.
+The helper verifies the official repository and requires any configured upstream to name the same branch on `origin` before changing source. It preserves unfinished work and ignored local files, rejects divergence, and pins the inspected commit when pushing so a concurrent local commit is not sent accidentally. It does not commit, stash, resolve conflicts or switch branches. See [source synchronization](source-sync.md) for initial clone/bootstrap commands, `-RepositoryPath`, equivalent `-Mode Pull|Push|Status` options, and receiving a published task branch on the other PC. If the helper stops, preserve local work and review the incoming history before integrating deliberately. Re-read `AGENTS.md` after updating because the other PC may have changed the shared instructions.
 
 Use a separate `codex/` branch for each change and PC, with shared `main` as the integration branch. Concurrent local chats should use separate checkouts/worktrees when they need isolated files or build outputs. Fetch again before integration and pushing. Merge incoming `origin/main` changes into an already shared task branch; rebase only unpublished local commits. Resolve conflicts while preserving both intended changes and rerun affected checks. A rejected push means fetch and integrate before retrying, not force-push over the other PC.
 

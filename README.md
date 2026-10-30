@@ -132,7 +132,7 @@ The single EXE preserves this update support: server updates replace its extract
 
 ## Development
 
-JACK-PC and GPD-PC share source through GitHub. Run `.\scripts\Sync-Source.ps1` before work and `.\scripts\Sync-Source.ps1 -Mode Push` after reviewing and committing a completed change. See [source synchronization](docs/source-sync.md) for initial setup, task-branch handoff and conflict handling.
+JACK-PC and GPD-PC share source through GitHub. Run `.\scripts\Sync-Source.ps1` before work to receive changes, and `.\scripts\Sync-Source.ps1 -Publish` after reviewing and committing completed work. The helper preserves unfinished work and stops when integration is needed. See [source synchronization and branch handoff](docs/source-sync.md).
 
 Requires Windows, .NET 8 SDK, and the installed supported games to build their plugins. Stardew's build also needs installed SMAPI references. Its payload includes the official SMAPI installer, corresponding source and redistribution notices; proprietary game assemblies are not bundled. Astroneer's offline Lua tests additionally need Python and `lupa==2.6`; see its [developer checks](docs/astroneer.md#developer-checks). Destination PCs use the self-contained release; no SDK is needed. Laundry's in-game loader separately needs .NET 6 Desktop Runtime, bundled with the package.
 

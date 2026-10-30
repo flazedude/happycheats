@@ -1,71 +1,56 @@
 #requires -Version 7.0
 [CmdletBinding()]
 param()
+
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $false
 $hcSyncScript = Join-Path $PSScriptRoot 'Sync-Source.ps1'
-$hcPwsh = Join-Path $PSHOME $(if ($IsWindows) { 'pwsh.exe' } else { 'pwsh' })
-$hcTempParent = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
-$hcTestRoot = Join-Path $hcTempParent ('HappyCheats-SourceSync-Tests-' + [Guid]::NewGuid().ToString('N'))
+$hcTestRoot = [IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetTempPath()) ('HappyCheats-SourceSync-' + [Guid]::NewGuid().ToString('N'))))
+$hcOrigin = Join-Path $hcTestRoot 'origin.git'
+$hcJack = Join-Path $hcTestRoot 'JACK-PC'
+$hcGpd = Join-Path $hcTestRoot 'GPD-PC'
 $hcOfficialUrl = 'https://github.com/flazedude/happycheats.git'
-$hcCount = 0
 $hcSavedEnvironment = @{}
+$hcCount = 0
 
-function Invoke-HcFixtureGit([string]$Repository, [string[]]$GitArguments) {
-    $hcOutput = @(& git -C $Repository @GitArguments 2>&1 | ForEach-Object { "$_" })
-    if ($LASTEXITCODE -ne 0) { throw "Fixture Git failed: $($GitArguments -join ' ')`n$($hcOutput -join "`n")" }
-    return ($hcOutput -join "`n").Trim()
+function Invoke-HcTestGit {
+    param([string]$Directory, [string[]]$Arguments, [int]$ExpectedExit = 0)
+    $hcOutput = @(& git -C $Directory -c commit.gpgsign=false -c tag.gpgsign=false -c core.hooksPath="$hcTestRoot/empty-hooks" @Arguments 2>&1)
+    if ($LASTEXITCODE -ne $ExpectedExit) {
+        throw "Fixture git $($Arguments -join ' ') exited $LASTEXITCODE (expected $ExpectedExit): $($hcOutput -join [Environment]::NewLine)"
+    }
+    return ($hcOutput -join [Environment]::NewLine)
 }
-function Assert-HcSourceTest([bool]$Condition, [string]$Message) {
-    if (!$Condition) { throw "Source sync regression failed: $Message" }
+
+function Assert-HcSourceSync {
+    param([bool]$Condition, [string]$Message)
+    if (!$Condition) { throw "Source synchronization regression failed: $Message" }
     $script:hcCount++
 }
-function Invoke-HcFixtureSync([string]$Repository, [string]$Mode = 'Pull', [switch]$Reject) {
-    $hcOutput = @(& $hcPwsh -NoProfile -File $hcSyncScript -RepositoryPath $Repository -Mode $Mode 2>&1 | ForEach-Object { "$_" })
-    $hcExit = $LASTEXITCODE
-    Assert-HcSourceTest $(if ($Reject) { $hcExit -ne 0 } else { $hcExit -eq 0 }) "$Mode expected rejection=$Reject, exit=$hcExit`n$($hcOutput -join "`n")"
-    return ($hcOutput -join "`n")
+
+function Assert-HcSourceSyncRejected {
+    param([scriptblock]$Action, [string]$Message)
+    $hcRejected = $false
+    try { & $Action | Out-Null } catch { $hcRejected = $true }
+    Assert-HcSourceSync $hcRejected $Message
 }
-function Get-HcFixtureHead([string]$Repository) { Invoke-HcFixtureGit $Repository @('rev-parse', 'HEAD') }
-function Add-HcFixtureCommit([string]$Repository, [string]$Name) {
-    Set-Content -LiteralPath (Join-Path $Repository "$Name.txt") -Value $Name -Encoding utf8NoBOM
-    $null = Invoke-HcFixtureGit $Repository @('add', '--', "$Name.txt")
-    $null = Invoke-HcFixtureGit $Repository @('commit', '-m', $Name)
-    return Get-HcFixtureHead $Repository
+
+function Get-HcTestHead([string]$Directory) {
+    return (Invoke-HcTestGit $Directory @('rev-parse', 'HEAD'))
 }
-function New-HcSourceFixture([string]$Name) {
-    $hcRoot = Join-Path $hcTestRoot $Name
-    $hcRemote = Join-Path $hcRoot 'shared.git'
-    $hcA = Join-Path $hcRoot 'pc-a'
-    $hcB = Join-Path $hcRoot 'pc-b'
-    $null = New-Item -ItemType Directory -Path $hcRoot, $hcA
-    $null = Invoke-HcFixtureGit $hcRoot @('init', '--bare', '--initial-branch=main', $hcRemote)
-    $null = Invoke-HcFixtureGit $hcA @('init', '--initial-branch=main')
-    $null = Invoke-HcFixtureGit $hcA @('config', 'user.name', 'Source sync fixture')
-    $null = Invoke-HcFixtureGit $hcA @('config', 'user.email', 'fixture@example.invalid')
-    $null = Add-HcFixtureCommit $hcA 'initial'
-    $null = Invoke-HcFixtureGit $hcA @('remote', 'add', 'origin', $hcRemote)
-    $null = Invoke-HcFixtureGit $hcA @('push', '-u', 'origin', 'main')
-    $null = Invoke-HcFixtureGit $hcRoot @('clone', $hcRemote, $hcB)
-    $hcFileUrl = ([Uri]([IO.Path]::GetFullPath($hcRemote))).AbsoluteUri
-    foreach ($hcCheckout in @($hcA, $hcB)) {
-        $null = Invoke-HcFixtureGit $hcCheckout @('config', 'user.name', 'Source sync fixture')
-        $null = Invoke-HcFixtureGit $hcCheckout @('config', 'user.email', 'fixture@example.invalid')
-        $null = Invoke-HcFixtureGit $hcCheckout @('config', 'commit.gpgSign', 'false')
-        $null = Invoke-HcFixtureGit $hcCheckout @('config', 'protocol.allow', 'never')
-        $null = Invoke-HcFixtureGit $hcCheckout @('config', 'protocol.file.allow', 'always')
-        $null = Invoke-HcFixtureGit $hcCheckout @('config', "url.$hcFileUrl.insteadOf", $hcOfficialUrl)
-        $null = Invoke-HcFixtureGit $hcCheckout @('remote', 'set-url', 'origin', $hcOfficialUrl)
-    }
-    return [pscustomobject]@{ Root=$hcRoot; Remote=$hcRemote; A=$hcA; B=$hcB; FileUrl=$hcFileUrl }
+
+function Add-HcTestCommit {
+    param([string]$Directory, [string]$Name, [string]$Content)
+    [IO.File]::WriteAllText((Join-Path $Directory $Name), $Content)
+    $null = Invoke-HcTestGit $Directory @('add', '--', $Name)
+    $null = Invoke-HcTestGit $Directory @('commit', '-m', "Fixture: $Name")
+    return (Get-HcTestHead $Directory)
 }
 
 try {
     $null = New-Item -ItemType Directory -Path $hcTestRoot
     $hcEmptyConfig = Join-Path $hcTestRoot 'empty-git-config'
     Set-Content -LiteralPath $hcEmptyConfig -Value ''
-    # The child helper inherits isolated Git configuration. Local allowlists also
-    # prohibit network transports if a fixture URL rewrite is accidentally broken.
     foreach ($hcName in @('GIT_CONFIG_GLOBAL', 'GIT_CONFIG_NOSYSTEM', 'GIT_TERMINAL_PROMPT', 'GIT_CONFIG_COUNT',
         'GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_OBJECT_DIRECTORY', 'GIT_ALTERNATE_OBJECT_DIRECTORIES', 'GIT_COMMON_DIR')) {
         $hcSavedEnvironment[$hcName] = [Environment]::GetEnvironmentVariable($hcName, 'Process')
@@ -77,151 +62,168 @@ try {
     foreach ($hcName in @('GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_OBJECT_DIRECTORY', 'GIT_ALTERNATE_OBJECT_DIRECTORIES', 'GIT_COMMON_DIR')) {
         Remove-Item -LiteralPath "Env:$hcName" -ErrorAction SilentlyContinue
     }
-
-    $hcFixture = New-HcSourceFixture 'handoff'
-    $null = Invoke-HcFixtureSync $hcFixture.A
-    $hcRelativeRunner = Join-Path $hcTestRoot 'invoke-relative.ps1'
-    @'
-param([string]$SyncScript, [string]$Directory)
-$ErrorActionPreference = 'Stop'
-Set-Location -LiteralPath $Directory
-& $SyncScript -RepositoryPath 'pc-a' -Mode Status
-'@ | Set-Content -LiteralPath $hcRelativeRunner -Encoding utf8NoBOM
-    $hcRelativeOutput = @(& $hcPwsh -NoProfile -File $hcRelativeRunner -SyncScript $hcSyncScript -Directory $hcFixture.Root 2>&1)
-    Assert-HcSourceTest ($LASTEXITCODE -eq 0) "relative repository path honors PowerShell's current directory: $hcRelativeOutput"
-    $hcInitial = Get-HcFixtureHead $hcFixture.B
-    $hcSent = Add-HcFixtureCommit $hcFixture.A 'from-a'
-    $null = Invoke-HcFixtureSync $hcFixture.A 'Push'
-    $null = Invoke-HcFixtureSync $hcFixture.B 'Status'
-    Assert-HcSourceTest ((Get-HcFixtureHead $hcFixture.B) -ceq $hcInitial) 'Status fetch does not update checked-out source'
-    Assert-HcSourceTest ((Invoke-HcFixtureGit $hcFixture.B @('rev-parse', 'origin/main')) -ceq $hcSent) 'Status fetch sees incoming commits'
-    $null = Invoke-HcFixtureSync $hcFixture.B 'Push' -Reject
-    $null = Invoke-HcFixtureSync $hcFixture.B
-    Assert-HcSourceTest ((Get-HcFixtureHead $hcFixture.B) -ceq $hcSent) 'PC B receives PC A source by fast-forward'
-    $hcReturned = Add-HcFixtureCommit $hcFixture.B 'from-b'
-    $null = Invoke-HcFixtureSync $hcFixture.B 'Push'
-    $null = Invoke-HcFixtureSync $hcFixture.A
-    Assert-HcSourceTest ((Get-HcFixtureHead $hcFixture.A) -ceq $hcReturned) 'PC A receives PC B source by fast-forward'
-
-    $hcFixture = New-HcSourceFixture 'unfinished'
-    $hcBefore = Get-HcFixtureHead $hcFixture.B
-    $null = Add-HcFixtureCommit $hcFixture.A 'incoming'
-    $null = Invoke-HcFixtureSync $hcFixture.A 'Push'
-    $hcTracked = Join-Path $hcFixture.B 'initial.txt'
-    Set-Content -LiteralPath $hcTracked -Value 'unfinished local edit'
-    $hcDirtyHash = (Get-FileHash -LiteralPath $hcTracked).Hash
-    $null = Invoke-HcFixtureSync $hcFixture.B -Reject
-    $null = Invoke-HcFixtureSync $hcFixture.B 'Push' -Reject
-    $null = Invoke-HcFixtureSync $hcFixture.B 'Status'
-    Assert-HcSourceTest ((Get-HcFixtureHead $hcFixture.B) -ceq $hcBefore -and (Get-FileHash -LiteralPath $hcTracked).Hash -ceq $hcDirtyHash) 'dirty source and its branch survive all modes'
-    $null = Invoke-HcFixtureGit $hcFixture.B @('add', 'initial.txt')
-    $null = Invoke-HcFixtureSync $hcFixture.B -Reject
-    Assert-HcSourceTest ((Invoke-HcFixtureGit $hcFixture.B @('diff', '--cached', '--name-only')) -ceq 'initial.txt') 'staged unfinished work remains staged'
-    $null = Invoke-HcFixtureGit $hcFixture.B @('restore', '--source=HEAD', '--staged', '--worktree', 'initial.txt')
-    $hcUntracked = Join-Path $hcFixture.B 'untracked.txt'
-    Set-Content -LiteralPath $hcUntracked -Value 'not reviewed'
-    $null = Invoke-HcFixtureSync $hcFixture.B -Reject
-    Assert-HcSourceTest ((Get-Content -LiteralPath $hcUntracked -Raw).Trim() -ceq 'not reviewed') 'untracked file remains untouched'
-    Remove-Item -LiteralPath $hcUntracked
-    foreach ($hcMarker in @('MERGE_HEAD', 'CHERRY_PICK_HEAD', 'REVERT_HEAD', 'rebase-merge', 'rebase-apply', 'sequencer', 'BISECT_START', 'index.lock')) {
-        $hcMarkerPath = Join-Path $hcFixture.B ".git/$hcMarker"
-        Set-Content -LiteralPath $hcMarkerPath -Value $hcBefore
-        $null = Invoke-HcFixtureSync $hcFixture.B -Reject
-        Assert-HcSourceTest (Test-Path -LiteralPath $hcMarkerPath) "$hcMarker is preserved"
-        Remove-Item -LiteralPath $hcMarkerPath
+    $null = New-Item -ItemType Directory -Path (Join-Path $hcTestRoot 'empty-hooks')
+    $null = Invoke-HcTestGit $hcTestRoot @('init', '--bare', '--initial-branch=main', $hcOrigin)
+    $null = Invoke-HcTestGit $hcTestRoot @('clone', $hcOrigin, $hcJack)
+    foreach ($hcEntry in @(@('user.name', 'Source Sync Fixture'), @('user.email', 'source-sync@example.invalid'))) {
+        $null = Invoke-HcTestGit $hcJack @('config', '--local', $hcEntry[0], $hcEntry[1])
     }
-    $hcSyncLock = [IO.File]::Open((Join-Path $hcFixture.B '.git/happycheats-source-sync.lock'), 'OpenOrCreate', 'ReadWrite', 'None')
-    try { $null = Invoke-HcFixtureSync $hcFixture.B -Reject } finally { $hcSyncLock.Dispose() }
-    $null = Invoke-HcFixtureGit $hcFixture.B @('switch', '--detach')
-    $null = Invoke-HcFixtureSync $hcFixture.B -Reject
-    Assert-HcSourceTest ((Get-HcFixtureHead $hcFixture.B) -ceq $hcBefore) 'detached checkout is preserved'
-    $null = Invoke-HcFixtureGit $hcFixture.B @('switch', 'main')
-    $null = Invoke-HcFixtureGit $hcFixture.B @('config', 'branch.main.merge', 'refs/heads/another-branch')
-    $null = Invoke-HcFixtureSync $hcFixture.B -Reject
-    $null = Invoke-HcFixtureGit $hcFixture.B @('config', 'branch.main.merge', 'refs/heads/main')
-    $null = Invoke-HcFixtureGit $hcFixture.B @('config', 'remote.origin.url', 'https://example.invalid/another/repository.git')
-    $null = Invoke-HcFixtureSync $hcFixture.B 'Push' -Reject
-    $null = Invoke-HcFixtureGit $hcFixture.B @('config', 'remote.origin.url', $hcOfficialUrl)
-    $null = Invoke-HcFixtureGit $hcFixture.B @('config', 'remote.origin.pushurl', 'https://example.invalid/another/repository.git')
-    $null = Invoke-HcFixtureSync $hcFixture.B 'Push' -Reject
-    $null = Invoke-HcFixtureGit $hcFixture.B @('config', '--unset', 'remote.origin.pushurl')
-    $null = Invoke-HcFixtureGit $hcFixture.B @('config', 'remote.origin.mirror', 'true')
-    $null = Invoke-HcFixtureSync $hcFixture.B 'Push' -Reject
-    $null = Invoke-HcFixtureGit $hcFixture.B @('config', '--unset', 'remote.origin.mirror')
-    Assert-HcSourceTest ((Get-HcFixtureHead $hcFixture.B) -ceq $hcBefore) 'operation and repository guard failures never advance source'
-
-    $hcFixture = New-HcSourceFixture 'branches'
-    $null = Invoke-HcFixtureGit $hcFixture.A @('switch', '-c', 'codex/handoff-a')
-    $hcTask = Add-HcFixtureCommit $hcFixture.A 'task-source'
-    $null = Invoke-HcFixtureSync $hcFixture.A -Reject
-    $null = Invoke-HcFixtureSync $hcFixture.A 'Push'
-    Assert-HcSourceTest ((Invoke-HcFixtureGit $hcFixture.A @('rev-parse', '--abbrev-ref', '@{upstream}')) -ceq 'origin/codex/handoff-a') 'first task push establishes its same-name upstream'
-    $null = Invoke-HcFixtureSync $hcFixture.B 'Status'
-    $null = Invoke-HcFixtureGit $hcFixture.B @('switch', '--track', 'origin/codex/handoff-a')
-    $null = Invoke-HcFixtureSync $hcFixture.B
-    Assert-HcSourceTest ((Get-HcFixtureHead $hcFixture.B) -ceq $hcTask) 'published task branch can be continued on the other PC'
-    $hcUnsent = Add-HcFixtureCommit $hcFixture.B 'unsent'
-    $null = Invoke-HcFixtureSync $hcFixture.B
-    Assert-HcSourceTest ((Get-HcFixtureHead $hcFixture.B) -ceq $hcUnsent -and (Invoke-HcFixtureGit $hcFixture.Remote @('rev-parse', 'refs/heads/codex/handoff-a')) -ceq $hcTask) 'Pull keeps ahead-only commits local without publishing them'
-    $null = Invoke-HcFixtureGit $hcFixture.B @('switch', '-c', 'unprefixed-task')
-    $null = Invoke-HcFixtureSync $hcFixture.B 'Push' -Reject
-
-    $hcFixture = New-HcSourceFixture 'divergence'
-    $hcAHead = Add-HcFixtureCommit $hcFixture.A 'a-divergent'
-    $hcBHead = Add-HcFixtureCommit $hcFixture.B 'b-divergent'
-    $null = Invoke-HcFixtureSync $hcFixture.A 'Push'
-    $null = Invoke-HcFixtureSync $hcFixture.B -Reject
-    $null = Invoke-HcFixtureSync $hcFixture.B 'Push' -Reject
-    Assert-HcSourceTest ((Get-HcFixtureHead $hcFixture.B) -ceq $hcBHead -and (Invoke-HcFixtureGit $hcFixture.Remote @('rev-parse', 'main')) -ceq $hcAHead) 'divergence preserves both histories without automatic merge or force push'
-
-    $hcFixture = New-HcSourceFixture 'ignored-collision'
-    $hcBefore = Get-HcFixtureHead $hcFixture.B
-    foreach ($hcCheckout in @($hcFixture.A, $hcFixture.B)) {
-        $null = New-Item -ItemType Directory -Path (Join-Path $hcCheckout 'local-only')
+    $null = Add-HcTestCommit $hcJack '.gitignore' "artifacts/`ndist/`n"
+    $hcSeed = Add-HcTestCommit $hcJack 'shared.txt' 'Initial source'
+    $null = Invoke-HcTestGit $hcJack @('push', '-u', 'origin', 'main')
+    $null = Invoke-HcTestGit $hcTestRoot @('clone', $hcOrigin, $hcGpd)
+    foreach ($hcEntry in @(@('user.name', 'Source Sync Fixture'), @('user.email', 'source-sync@example.invalid'))) {
+        $null = Invoke-HcTestGit $hcGpd @('config', '--local', $hcEntry[0], $hcEntry[1])
     }
-    Set-Content -LiteralPath (Join-Path $hcFixture.B '.git/info/exclude') -Value 'local-only/'
-    $hcLocalConfig = Join-Path $hcFixture.B 'local-only/settings.txt'
-    Set-Content -LiteralPath $hcLocalConfig -Value 'machine-local settings'
-    $hcConfigHash = (Get-FileHash -LiteralPath $hcLocalConfig).Hash
-    Set-Content -LiteralPath (Join-Path $hcFixture.A 'local-only/settings.txt') -Value 'incoming tracked file'
-    $null = Invoke-HcFixtureGit $hcFixture.A @('add', 'local-only/settings.txt')
-    $null = Invoke-HcFixtureGit $hcFixture.A @('commit', '-m', 'incoming path collision')
-    $null = Invoke-HcFixtureSync $hcFixture.A 'Push'
-    $null = Invoke-HcFixtureSync $hcFixture.B -Reject
-    Assert-HcSourceTest ((Get-HcFixtureHead $hcFixture.B) -ceq $hcBefore -and (Get-FileHash -LiteralPath $hcLocalConfig).Hash -ceq $hcConfigHash) 'incoming tracked files cannot overwrite ignored local configuration'
+    foreach ($hcCheckout in @($hcJack, $hcGpd)) {
+        # Keep the production origin identity while redirecting only these local
+        # fixtures; a missing rewrite cannot accidentally contact the real repo.
+        $hcFileUrl = ([Uri]([IO.Path]::GetFullPath($hcOrigin))).AbsoluteUri
+        $null = Invoke-HcTestGit $hcCheckout @('config', '--local', "url.$hcFileUrl.insteadOf", $hcOfficialUrl)
+        $null = Invoke-HcTestGit $hcCheckout @('config', '--local', 'protocol.allow', 'never')
+        $null = Invoke-HcTestGit $hcCheckout @('config', '--local', 'protocol.file.allow', 'always')
+        $null = Invoke-HcTestGit $hcCheckout @('remote', 'set-url', 'origin', $hcOfficialUrl)
+        $null = Invoke-HcTestGit $hcCheckout @('config', '--local', 'core.hooksPath', (Join-Path $hcTestRoot 'empty-hooks'))
+        $null = New-Item -ItemType Directory -Path (Join-Path $hcCheckout 'artifacts/lan-updates'), (Join-Path $hcCheckout 'dist')
+        [IO.File]::WriteAllText((Join-Path $hcCheckout 'artifacts/lan-updates/server.json'), "Local host fixture: $hcCheckout")
+        [IO.File]::WriteAllText((Join-Path $hcCheckout 'dist/HappyCheats.exe'), "Local package fixture: $hcCheckout")
+    }
+    $null = Invoke-HcTestGit $hcJack @('tag', '-a', 'local-recovery-fixture', '-m', 'Preserve local recovery tag')
+    $hcRecoveryTag = Invoke-HcTestGit $hcJack @('rev-parse', 'refs/tags/local-recovery-fixture')
+    $null = Invoke-HcTestGit $hcJack @('branch', 'codex/unrelated-fixture')
+    foreach ($hcSetting in @('fetch.pruneTags', 'remote.origin.pruneTags', 'push.followTags', 'remote.origin.mirror')) {
+        $null = Invoke-HcTestGit $hcJack @('config', '--local', $hcSetting, 'true')
+    }
 
-    $hcFixture = New-HcSourceFixture 'transport'
-    $hcBefore = Get-HcFixtureHead $hcFixture.A
-    $hcMissingUrl = ([Uri](Join-Path $hcFixture.Root 'missing.git')).AbsoluteUri
-    $null = Invoke-HcFixtureGit $hcFixture.A @('config', '--unset', "url.$($hcFixture.FileUrl).insteadOf")
-    $null = Invoke-HcFixtureGit $hcFixture.A @('config', "url.$hcMissingUrl.insteadOf", $hcOfficialUrl)
-    $null = Invoke-HcFixtureSync $hcFixture.A -Reject
-    Assert-HcSourceTest ((Get-HcFixtureHead $hcFixture.A) -ceq $hcBefore) 'failed fetch leaves checkout unchanged'
-    $null = Invoke-HcFixtureGit $hcFixture.A @('config', '--unset', "url.$hcMissingUrl.insteadOf")
-    $null = Invoke-HcFixtureGit $hcFixture.A @('config', "url.$($hcFixture.FileUrl).insteadOf", $hcOfficialUrl)
-    $hcPending = Add-HcFixtureCommit $hcFixture.A 'push-rejected'
-    $hcHook = Join-Path $hcFixture.A '.git/hooks/pre-push'
-    [IO.File]::WriteAllText($hcHook, "#!/bin/sh`nexit 1`n", [Text.UTF8Encoding]::new($false))
-    $null = Invoke-HcFixtureSync $hcFixture.A 'Push' -Reject
-    Assert-HcSourceTest ((Get-HcFixtureHead $hcFixture.A) -ceq $hcPending -and (Invoke-HcFixtureGit $hcFixture.Remote @('rev-parse', 'main')) -ceq $hcBefore) 'rejected push keeps local commit and remote history'
-    Remove-Item -LiteralPath $hcHook
-    $hcRacing = Add-HcFixtureCommit $hcFixture.B 'concurrent-pc'
-    $null = Invoke-HcFixtureGit $hcFixture.B @('push', 'origin', 'HEAD:refs/heads/race-reserved')
-    # Simulate the other PC advancing main after push advertised its old ref.
-    $hcRemoteShellPath = $hcFixture.Remote.Replace('\', '/').Replace("'", "'\''")
-    [IO.File]::WriteAllText($hcHook, "#!/bin/sh`ngit --git-dir='$hcRemoteShellPath' update-ref refs/heads/main $hcRacing`n", [Text.UTF8Encoding]::new($false))
-    $null = Invoke-HcFixtureSync $hcFixture.A 'Push' -Reject
-    Assert-HcSourceTest ((Get-HcFixtureHead $hcFixture.A) -ceq $hcPending -and (Invoke-HcFixtureGit $hcFixture.Remote @('rev-parse', 'main')) -ceq $hcRacing) 'concurrent remote advancement is never overwritten'
+    # A completed change can travel in either direction through the shared main.
+    $hcFromJack = Add-HcTestCommit $hcJack 'jack.txt' 'Completed on JACK-PC'
+    & $hcSyncScript -RepositoryPath $hcJack -Publish | Out-Null
+    Assert-HcSourceSync ((Invoke-HcTestGit $hcOrigin @('rev-parse', 'refs/heads/main')) -ceq $hcFromJack) 'publish uploads JACK-PC committed main'
+    Assert-HcSourceSync ((Invoke-HcTestGit $hcJack @('rev-parse', 'refs/tags/local-recovery-fixture')) -ceq $hcRecoveryTag) 'source fetch preserves local recovery tags despite configured tag pruning'
+    Assert-HcSourceSync ([string]::IsNullOrWhiteSpace((Invoke-HcTestGit $hcOrigin @('for-each-ref', '--format=%(refname)', 'refs/tags')))) 'source publish does not follow annotated tags despite push.followTags'
+    Assert-HcSourceSync ([string]::IsNullOrWhiteSpace((Invoke-HcTestGit $hcOrigin @('for-each-ref', '--format=%(refname)', 'refs/heads/codex/unrelated-fixture')))) 'source publish does not mirror unrelated branches despite remote mirror configuration'
+    & $hcSyncScript -RepositoryPath $hcGpd | Out-Null
+    Assert-HcSourceSync ((Get-HcTestHead $hcGpd) -ceq $hcFromJack) 'GPD-PC receives JACK-PC source by fast-forward'
+    $hcFromGpd = Add-HcTestCommit $hcGpd 'gpd.txt' 'Completed on GPD-PC'
+    & $hcSyncScript -RepositoryPath $hcGpd -Publish | Out-Null
+    & $hcSyncScript -RepositoryPath $hcJack | Out-Null
+    Assert-HcSourceSync ((Get-HcTestHead $hcJack) -ceq $hcFromGpd) 'JACK-PC receives GPD-PC source by fast-forward'
 
-    $hcFixture = New-HcSourceFixture 'local-commit-race'
-    $hcReviewed = Add-HcFixtureCommit $hcFixture.A 'reviewed-for-push'
-    $hcHook = Join-Path $hcFixture.A '.git/hooks/pre-push'
-    $hcCheckoutShellPath = $hcFixture.A.Replace('\', '/').Replace("'", "'\''")
-    [IO.File]::WriteAllText($hcHook, "#!/bin/sh`ngit -C '$hcCheckoutShellPath' commit --allow-empty -m 'added during push'`n", [Text.UTF8Encoding]::new($false))
-    $null = Invoke-HcFixtureSync $hcFixture.A 'Push' -Reject
-    Assert-HcSourceTest ((Get-HcFixtureHead $hcFixture.A) -cne $hcReviewed -and (Invoke-HcFixtureGit $hcFixture.Remote @('rev-parse', 'main')) -ceq $hcReviewed) 'push publishes only the inspected commit when the local branch advances concurrently'
+    # Merely receiving must never publish local commits.
+    $hcLocalOnly = Add-HcTestCommit $hcJack 'local-only.txt' 'Awaiting explicit publication'
+    & $hcSyncScript -RepositoryPath $hcJack | Out-Null
+    Assert-HcSourceSync ((Invoke-HcTestGit $hcOrigin @('rev-parse', 'refs/heads/main')) -ceq $hcFromGpd) 'default receive leaves unpublished commits local'
+    Assert-HcSourceSync ((Get-HcTestHead $hcJack) -ceq $hcLocalOnly) 'default receive preserves local ahead commit'
+    $null = Invoke-HcTestGit $hcJack @('remote', 'remove', 'origin')
+    Assert-HcSourceSyncRejected { & $hcSyncScript -RepositoryPath $hcJack } 'missing origin is reported as a failure'
+    Assert-HcSourceSync ((Get-HcTestHead $hcJack) -ceq $hcLocalOnly) 'missing origin preserves committed source'
+    $null = Invoke-HcTestGit $hcJack @('remote', 'add', 'origin', $hcOfficialUrl)
+    $hcUnavailableUrl = ([Uri](Join-Path $hcTestRoot 'unavailable-origin.git')).AbsoluteUri
+    $hcPushIdentity = 'https://github.com/flazedude/happycheats'
+    $null = Invoke-HcTestGit $hcJack @('config', '--local', "url.$hcUnavailableUrl.insteadOf", $hcPushIdentity)
+    $null = Invoke-HcTestGit $hcJack @('remote', 'set-url', '--push', 'origin', $hcPushIdentity)
+    Assert-HcSourceSyncRejected { & $hcSyncScript -RepositoryPath $hcJack -Publish } 'push transport failure is reported instead of claiming publication'
+    Assert-HcSourceSync ((Get-HcTestHead $hcJack) -ceq $hcLocalOnly) 'failed push preserves local commit'
+    Assert-HcSourceSync ((Invoke-HcTestGit $hcOrigin @('rev-parse', 'refs/heads/main')) -ceq $hcFromGpd) 'failed push leaves peer source unchanged'
+    $null = Invoke-HcTestGit $hcJack @('config', '--local', '--unset-all', 'remote.origin.pushurl')
+    $null = Invoke-HcTestGit $hcJack @('config', '--local', '--unset-all', "url.$hcUnavailableUrl.insteadOf")
+    & $hcSyncScript -RepositoryPath $hcJack -Publish | Out-Null
 
-    Write-Host "Source sync checks passed: $hcCount (isolated local Git fixtures; no physical second-PC or GitHub validation)."
+    # Status may fetch while dirty, but must preserve the current files and HEAD.
+    [IO.File]::WriteAllText((Join-Path $hcGpd 'shared.txt'), 'Unfinished peer edit')
+    $hcBeforeStatus = Get-HcTestHead $hcGpd
+    & $hcSyncScript -RepositoryPath $hcGpd -Status | Out-Null
+    Assert-HcSourceSync ((Get-HcTestHead $hcGpd) -ceq $hcBeforeStatus) 'status does not fast-forward a checkout'
+    Assert-HcSourceSync (([IO.File]::ReadAllText((Join-Path $hcGpd 'shared.txt'))) -ceq 'Unfinished peer edit') 'status preserves unfinished source'
+    $hcDirtyStatus = Invoke-HcTestGit $hcGpd @('status', '--porcelain=v1', '--untracked-files=all')
+    Assert-HcSourceSyncRejected { & $hcSyncScript -RepositoryPath $hcGpd } 'receive rejects unstaged changes'
+    Assert-HcSourceSyncRejected { & $hcSyncScript -RepositoryPath $hcGpd -Publish } 'publish rejects unstaged changes'
+    Assert-HcSourceSync ((Invoke-HcTestGit $hcGpd @('status', '--porcelain=v1', '--untracked-files=all')) -ceq $hcDirtyStatus) 'rejected synchronization preserves dirty index and worktree'
+    $null = Invoke-HcTestGit $hcGpd @('restore', '--', 'shared.txt')
+
+    [IO.File]::WriteAllText((Join-Path $hcGpd 'untracked.txt'), 'Unfinished untracked source')
+    Assert-HcSourceSyncRejected { & $hcSyncScript -RepositoryPath $hcGpd } 'receive rejects untracked source'
+    Assert-HcSourceSyncRejected { & $hcSyncScript -RepositoryPath $hcGpd -Publish } 'publish rejects untracked source'
+    Assert-HcSourceSync (([IO.File]::ReadAllText((Join-Path $hcGpd 'untracked.txt'))) -ceq 'Unfinished untracked source') 'untracked source remains intact'
+    Remove-Item -LiteralPath (Join-Path $hcGpd 'untracked.txt')
+
+    [IO.File]::WriteAllText((Join-Path $hcGpd 'shared.txt'), 'Staged unfinished source')
+    $null = Invoke-HcTestGit $hcGpd @('add', '--', 'shared.txt')
+    $hcIndexBefore = Invoke-HcTestGit $hcGpd @('write-tree')
+    Assert-HcSourceSyncRejected { & $hcSyncScript -RepositoryPath $hcGpd -Publish } 'publish rejects staged changes'
+    Assert-HcSourceSync ((Invoke-HcTestGit $hcGpd @('write-tree')) -ceq $hcIndexBefore) 'rejection preserves staged content'
+    Assert-HcSourceSync ((Get-HcTestHead $hcGpd) -ceq $hcBeforeStatus) 'dirty rejections never create automatic commits'
+    $null = Invoke-HcTestGit $hcGpd @('restore', '--staged', '--worktree', '--', 'shared.txt')
+    & $hcSyncScript -RepositoryPath $hcGpd | Out-Null
+
+    # A new task branch is published under its own name and tracked on the peer.
+    $hcTaskBranch = 'codex/source-sync-fixture-jack'
+    $null = Invoke-HcTestGit $hcJack @('switch', '-c', $hcTaskBranch)
+    $hcTaskCommit = Add-HcTestCommit $hcJack 'task.txt' 'Task branch change'
+    try { & $hcSyncScript -RepositoryPath $hcJack | Out-Null } catch { }
+    Assert-HcSourceSync ((Get-HcTestHead $hcJack) -ceq $hcTaskCommit) 'new unpublished branch receive never substitutes main'
+    & $hcSyncScript -RepositoryPath $hcJack -Publish | Out-Null
+    Assert-HcSourceSync ((Invoke-HcTestGit $hcOrigin @('rev-parse', "refs/heads/$hcTaskBranch")) -ceq $hcTaskCommit) 'first publish creates the same-named remote task branch'
+    Assert-HcSourceSync ((Invoke-HcTestGit $hcJack @('rev-parse', '--abbrev-ref', '@{upstream}')) -ceq "origin/$hcTaskBranch") 'first publish establishes the correct task upstream'
+    Assert-HcSourceSync ((Invoke-HcTestGit $hcOrigin @('rev-parse', 'refs/heads/main')) -ceq $hcLocalOnly) 'task publication leaves shared main unchanged'
+    $null = Invoke-HcTestGit $hcGpd @('fetch', 'origin')
+    $null = Invoke-HcTestGit $hcGpd @('switch', '--track', "origin/$hcTaskBranch")
+    $hcTaskReturn = Add-HcTestCommit $hcGpd 'task-return.txt' 'Peer continues task'
+    & $hcSyncScript -RepositoryPath $hcGpd -Publish | Out-Null
+    & $hcSyncScript -RepositoryPath $hcJack | Out-Null
+    Assert-HcSourceSync ((Get-HcTestHead $hcJack) -ceq $hcTaskReturn) 'shared task branch accepts peer continuation without rewriting history'
+
+    $null = Invoke-HcTestGit $hcJack @('branch', '--set-upstream-to=origin/main', $hcTaskBranch)
+    Assert-HcSourceSyncRejected { & $hcSyncScript -RepositoryPath $hcJack } 'mismatched upstream cannot receive main into a task branch'
+    Assert-HcSourceSyncRejected { & $hcSyncScript -RepositoryPath $hcJack -Publish } 'mismatched upstream cannot publish a task branch to main'
+    Assert-HcSourceSync ((Invoke-HcTestGit $hcOrigin @('rev-parse', 'refs/heads/main')) -ceq $hcLocalOnly) 'mismatched upstream rejection preserves remote main'
+    $null = Invoke-HcTestGit $hcJack @('branch', "--set-upstream-to=origin/$hcTaskBranch", $hcTaskBranch)
+
+    $null = Invoke-HcTestGit $hcJack @('switch', '--detach')
+    Assert-HcSourceSyncRejected { & $hcSyncScript -RepositoryPath $hcJack -Publish } 'detached HEAD cannot be published'
+    Assert-HcSourceSync ((Get-HcTestHead $hcJack) -ceq $hcTaskReturn) 'detached HEAD is preserved'
+    $null = Invoke-HcTestGit $hcJack @('switch', 'main')
+    $null = Invoke-HcTestGit $hcGpd @('switch', 'main')
+
+    # Simultaneous commits require deliberate integration, not a reset or force push.
+    $hcDivergedJack = Add-HcTestCommit $hcJack 'diverged-jack.txt' 'JACK-PC concurrent commit'
+    $hcDivergedGpd = Add-HcTestCommit $hcGpd 'diverged-gpd.txt' 'GPD-PC concurrent commit'
+    & $hcSyncScript -RepositoryPath $hcGpd -Publish | Out-Null
+    Assert-HcSourceSyncRejected { & $hcSyncScript -RepositoryPath $hcJack } 'divergent source cannot be received automatically'
+    Assert-HcSourceSyncRejected { & $hcSyncScript -RepositoryPath $hcJack -Publish } 'divergent source cannot be force-published'
+    Assert-HcSourceSync ((Get-HcTestHead $hcJack) -ceq $hcDivergedJack) 'divergence preserves local commits'
+    Assert-HcSourceSync ((Invoke-HcTestGit $hcOrigin @('rev-parse', 'refs/heads/main')) -ceq $hcDivergedGpd) 'divergence preserves peer commits'
+    Assert-HcSourceSync (!(Test-Path -LiteralPath (Join-Path $hcJack '.git/MERGE_HEAD'))) 'rejected divergence does not leave an implicit merge'
+    $null = Invoke-HcTestGit $hcJack @('merge', '--no-edit', 'origin/main')
+    $hcIntegrated = Get-HcTestHead $hcJack
+    & $hcSyncScript -RepositoryPath $hcJack -Publish | Out-Null
+    & $hcSyncScript -RepositoryPath $hcGpd | Out-Null
+    Assert-HcSourceSync ((Get-HcTestHead $hcGpd) -ceq $hcIntegrated) 'manually integrated history synchronizes normally'
+    $null = Invoke-HcTestGit $hcJack @('merge-base', '--is-ancestor', $hcDivergedJack, $hcIntegrated)
+    $null = Invoke-HcTestGit $hcJack @('merge-base', '--is-ancestor', $hcDivergedGpd, $hcIntegrated)
+    Assert-HcSourceSync $true 'deliberate integration retains both concurrent commits'
+
+    # Preserve real unresolved merge state rather than continuing an operation.
+    $null = Invoke-HcTestGit $hcJack @('switch', '-c', 'codex/conflict-fixture')
+    $null = Add-HcTestCommit $hcJack 'shared.txt' 'Task conflict'
+    $null = Invoke-HcTestGit $hcJack @('switch', 'main')
+    $null = Add-HcTestCommit $hcJack 'shared.txt' 'Main conflict'
+    $null = Invoke-HcTestGit $hcJack @('merge', 'codex/conflict-fixture') -ExpectedExit 1
+    $hcConflictStatus = Invoke-HcTestGit $hcJack @('status', '--porcelain=v1')
+    $hcConflictBytes = [IO.File]::ReadAllText((Join-Path $hcJack 'shared.txt'))
+    Assert-HcSourceSyncRejected { & $hcSyncScript -RepositoryPath $hcJack } 'active conflicted merge is rejected'
+    Assert-HcSourceSyncRejected { & $hcSyncScript -RepositoryPath $hcJack -Publish } 'active merge cannot be published'
+    Assert-HcSourceSync ((Invoke-HcTestGit $hcJack @('status', '--porcelain=v1')) -ceq $hcConflictStatus) 'active merge index state is preserved'
+    Assert-HcSourceSync (([IO.File]::ReadAllText((Join-Path $hcJack 'shared.txt'))) -ceq $hcConflictBytes) 'conflict content is preserved'
+    Assert-HcSourceSync (Test-Path -LiteralPath (Join-Path $hcJack '.git/MERGE_HEAD')) 'active merge remains available for deliberate resolution'
+
+    foreach ($hcCheckout in @($hcJack, $hcGpd)) {
+        Assert-HcSourceSync (([IO.File]::ReadAllText((Join-Path $hcCheckout 'artifacts/lan-updates/server.json'))) -ceq "Local host fixture: $hcCheckout") 'machine-local LAN settings remain local and unchanged'
+        Assert-HcSourceSync (([IO.File]::ReadAllText((Join-Path $hcCheckout 'dist/HappyCheats.exe'))) -ceq "Local package fixture: $hcCheckout") 'source synchronization does not install or replace client artifacts'
+        Assert-HcSourceSync ([string]::IsNullOrWhiteSpace((Invoke-HcTestGit $hcCheckout @('stash', 'list')))) 'source synchronization never creates an automatic stash'
+    }
+
+    Write-Host "Source synchronization regression checks passed: $hcCount (two disposable clones and a local bare origin; no physical peer or GitHub network validation)."
 } finally {
     foreach ($hcName in $hcSavedEnvironment.Keys) {
         if ($null -eq $hcSavedEnvironment[$hcName]) {
@@ -230,11 +232,12 @@ Set-Location -LiteralPath $Directory
             [Environment]::SetEnvironmentVariable($hcName, $hcSavedEnvironment[$hcName], 'Process')
         }
     }
-    $hcResolvedRoot = [IO.Path]::GetFullPath($hcTestRoot)
-    $hcParentPrefix = [IO.Path]::TrimEndingDirectorySeparator($hcTempParent) + [IO.Path]::DirectorySeparatorChar
-    if (!$hcResolvedRoot.StartsWith($hcParentPrefix, [StringComparison]::OrdinalIgnoreCase) -or
-        [IO.Path]::GetFileName($hcResolvedRoot) -notmatch '^HappyCheats-SourceSync-Tests-[0-9a-f]{32}$') {
-        throw 'Refusing cleanup outside the generated source-sync fixture directory.'
+    # Delete only this test's resolved, uniquely named directory under TEMP.
+    $hcTempRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
+    $hcResolvedTest = [IO.Path]::GetFullPath($hcTestRoot)
+    if ($hcResolvedTest.StartsWith($hcTempRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase) -and
+        [IO.Path]::GetFileName($hcResolvedTest) -match '^HappyCheats-SourceSync-[0-9a-f]{32}$' -and
+        (Test-Path -LiteralPath $hcResolvedTest)) {
+        Remove-Item -LiteralPath $hcResolvedTest -Recurse -Force
     }
-    if (Test-Path -LiteralPath $hcResolvedRoot) { Remove-Item -LiteralPath $hcResolvedRoot -Recurse -Force }
 }
