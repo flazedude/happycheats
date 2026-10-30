@@ -3,7 +3,9 @@ param()
 $ErrorActionPreference = 'Stop'
 $hcRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 # These suites use temporary fixtures and never start an installed game.
+& (Join-Path $PSScriptRoot 'Test-PublisherConfiguration.ps1')
 & (Join-Path $PSScriptRoot 'Test-GitHubRelease.ps1')
+& (Join-Path $PSScriptRoot 'Test-GitHubPublishLock.ps1')
 & dotnet run --project (Join-Path $hcRoot 'tests\HappyCheats.Bootstrap.Tests') -c Release --no-launch-profile
 if ($LASTEXITCODE -ne 0) { throw 'Single-EXE extraction test suite failed.' }
 foreach ($hcTest in @('tests\HappyCheats.Tests', 'tools\InspectChineseParents\Tests', 'modules\laundry\tests\LaundryTrainer.Tests', 'modules\laundry\tests\LaundryTrainer.Setup.Tests', 'modules\laundry\tests\LaundryBridge.Tests', 'modules\stardew\tests\HappyCheats.StardewValley.Tests')) {

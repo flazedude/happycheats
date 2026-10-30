@@ -1,50 +1,113 @@
-# LAN-first updates with GitHub fallback
+# GitHub updates and publishing
 
-HappyCheats 0.3.46 and later try the configured LAN update feed first. If it cannot be reached, returns an HTTP error or exceeds the four-second primary request deadline, the client checks the public GitHub feed. A valid LAN response saying the client is current does not contact GitHub. Downloads still require the existing **Download update** and **Install & restart** actions.
+From **0.3.52**, official HappyCheats clients check public GitHub Releases directly. Downloads remain available while the publisher's PC is off. LAN hosting and normal LAN publishing were retired on **30 October 2026**; the old server is stopped and its scheduled startup task is disabled. Downloads still require **Download update** and **Install & restart**.
 
-- Source and releases: https://github.com/flazedude/happycheats
-- Stable signed feed: https://github.com/flazedude/happycheats/releases/latest/download/latest.json
-- Latest complete standalone: https://github.com/flazedude/happycheats/releases/latest/download/HappyCheats.exe
-- LAN download: http://192.168.2.76:17845/happycheats/HappyCheats.exe
+- [Source and releases](https://github.com/flazedude/happycheats)
+- [Stable signed feed](https://github.com/flazedude/happycheats/releases/latest/download/latest.json)
+- [Latest complete standalone EXE](https://github.com/flazedude/happycheats/releases/latest/download/HappyCheats.exe)
 
-The source repository is public so clients can download releases without a GitHub account or token. Publishing authentication stays on the operator's PC. Never include tokens or the private signing key in source, packages or the served directory.
+The repository is public so clients can download releases without a GitHub account or token. Publishing authentication stays on the operator's PC. Never include tokens or the private signing key in source, packages or a public directory.
 
-## Verification and interrupted downloads
+## Verification and downloads
 
-Both feeds use the existing signing key and describe the same update ZIP bytes. The LAN feed points to the saved LAN address. The GitHub feed points to an immutable version-specific URL such as `/releases/download/v0.3.46/HappyCheats-0.3.46-win-x64.zip`, never a changing latest ZIP.
+GitHub releases retain the established signing key. The signed feed points to an immutable version-specific package URL such as `/releases/download/v0.3.52/HappyCheats-0.3.52-win-x64.zip`. The client verifies the signature, channel, archive size and SHA-256 before installation, then validates the complete package structure. Invalid signatures, channels, hashes and archive structure remain errors.
 
-If the LAN package request fails or stalls, the client can retry via the configured GitHub feed. It verifies that feed's signature and channel and requires the exact same version, archive size and SHA-256 before switching URLs. A partial transfer restarts from zero. If GitHub has advanced to another release, check for updates again. Invalid signatures, channels, hashes and archive structure remain errors. Cancelling does not start another download.
-
-The four-second primary download timeout measures inactivity, not total transfer time. Large packages continue downloading while data arrives. Internet requests use a 60-second feed/response deadline and a 60-second read inactivity limit. If neither host is reachable, the installed client remains usable.
+Internet requests use a 60-second feed/response deadline and a 60-second read inactivity limit; the update window also bounds its overall check. A continuously progressing package download is not limited to 60 seconds in total. Cancellation ends the operation. If GitHub is unavailable, the installed client remains usable and the user can retry later. Official 0.3.52 clients do not retry the retired LAN server.
 
 ## Existing installations
 
-Pre-0.3.46 clients need one update while LAN is reachable, or users can run the new complete standalone EXE. Old clients cannot discover fallback before receiving the new code.
+Official **0.3.46–0.3.51** clients already include GitHub fallback. With the LAN server stopped, they can discover and install 0.3.52 through that fallback, after their existing LAN timeout. A stale running LAN feed can prevent these clients from checking GitHub, so keep the retired server stopped and its startup task disabled.
 
-The updater preserves `update-settings.json`, including the trusted primary endpoint and public key. New packages also carry `update-defaults.json`. The new client supplements a missing fallback URL from bundled defaults only when the primary feed, channel and RSA public key match the preserved settings. An explicit fallback is retained; unrelated configurations are not redirected. Both signed feeds remain compatible with older clients.
+**Pre-0.3.46** clients do not know the GitHub endpoint. Run the [latest complete standalone EXE](https://github.com/flazedude/happycheats/releases/latest/download/HappyCheats.exe) once to obtain the configured client. User preferences remain in `%LOCALAPPDATA%/HappyCheats/settings.json`.
+
+The updater continues preserving `update-settings.json` and its trusted signing key. When 0.3.52 loads bundled `update-defaults.json`, it switches the effective primary endpoint to GitHub only if all of these conditions hold:
+
+- The saved primary feed is exactly the original official LAN endpoint, `http://192.168.2.76:17845/happycheats/latest.json`.
+- The bundled default is the official GitHub feed above, without a fallback.
+- The saved and bundled RSA public keys and update channels match.
+- The saved fallback is absent or is the official GitHub feed.
+
+This migration does not rewrite the preserved settings file. Custom primary feeds, explicit custom fallbacks and mismatched signing identities remain unchanged. Existing generic fallback support remains available for custom configurations. Fresh official standalone releases contain GitHub as their primary feed, without a LAN fallback.
+
+## Developing on either PC
+
+GitHub is the shared source of truth for both checkouts. At the start of work on either PC, read `AGENTS.md`, inspect local changes and fetch the remote branch:
+
+```powershell
+git status --short --branch
+git fetch --prune origin
+```
+
+For a clean `main` checkout, bring it up to date before editing:
+
+```powershell
+git pull --ff-only origin main
+```
+
+If there are unfinished edits or local commits, preserve them and review how they relate to incoming changes. Finish or save the intended work and merge deliberately; do not discard changes, reset the checkout or force-push to make the PCs agree. If a fast-forward fails, inspect the divergence before proceeding. Re-read `AGENTS.md` after updating because the other PC may have changed the shared instructions.
+
+After completing a change, review and commit its source, notes and tests, then push normally. Verify the remote branch contains the intended commit before switching PCs or publishing. The second PC receives the work through its next source sync. Build output, trainer build caches, publisher settings, credentials and signing keys are local and are not synchronized by Git.
+
+Both PCs can build and publish when each has its existing build prerequisites, the same established signing key and its own GitHub authentication. A client update from **Updates / 客户端更新** updates the installed application; it does not pull source into a development checkout. Conversely, pulling source does not update an installed client. Use the app's update action or the latest standalone EXE for that.
+
+Only one PC should publish at a time. Immediately before choosing a version and again before publishing, inspect GitHub releases, drafts and tags as well as retained local release records. Choose a higher unused version; an in-progress draft on the other PC is not an available version. If publication was interrupted, resume the original verified stage and source commit rather than rebuilding different bytes on the other PC under the same version.
+
+The current publisher serializes GitHub draft creation, uploads and finalization with the repository-wide ref `refs/tags/happycheats-publish-lock`. Its tag metadata identifies the version, source commit, random ownership token and creation time; it contains no credentials or signing key. A second publisher stops when the lock is held and can retry after the first finishes. The script releases its own lock on normal exit and never steals another publisher's lock. Both PCs must sync the new publisher scripts before relying on this protection; an older script does not honor it.
+
+## One-time publisher setup on each PC
+
+Source synchronization carries the scripts and project instructions to the other PC; it does not configure that PC remotely. Run this setup locally on each publishing PC. The second PC's actual setup and release capability must be verified there.
+
+1. Sign in to GitHub separately on each PC using its existing Git credential manager, or `gh auth login --hostname github.com`. The account needs permission to push source and publish releases to `flazedude/happycheats`. Credentials stay in that PC's credential store and are never copied into source or client packages.
+2. Securely transfer the **existing private signing key** once to a protected local file on the second PC. Use a private transfer method; never commit the key, attach it to a GitHub release or place it in a public/synchronized repository directory. Both PCs must use the same signing identity already trusted by installed clients. Do not generate a new key.
+3. In PowerShell 7, point the initializer to that existing key. Replace the example path with the protected file's actual location:
+
+   ```powershell
+   .\scripts\Initialize-Publisher.ps1 -PrivateKeyPath 'D:\secure-transfer\release-private.pem'
+   ```
+
+The initializer downloads the current public GitHub feed anonymously, derives the public key from the supplied private key and verifies the live feed's signature, stable channel and version-pinned package URL before copying any key. A wrong key or unavailable feed stops setup. It never generates a replacement key, preserves the supplied file and refuses to replace a different existing key or publisher configuration.
+
+Successful setup stores the protected signing files under `%LOCALAPPDATA%\HappyCheatsPublisher\Signing\flazedude_happycheats\` and writes repository/key paths to `%LOCALAPPDATA%\HappyCheatsPublisher\publisher.json`. Each PC has its own local paths; no LAN address, server, task or shared folder is required. The JSON file contains configuration paths, not the private key itself.
+
+On the original publishing PC, the established key path can be read from the preserved legacy configuration without displaying the key:
+
+```powershell
+$hcLegacyPublisher = Get-Content -LiteralPath .\artifacts\lan-updates\server.json -Raw | ConvertFrom-Json
+.\scripts\Initialize-Publisher.ps1 -PrivateKeyPath $hcLegacyPublisher.PrivateKeyPath
+```
+
+After setup, either PC uses the same normal publishing command below. Keep a secure backup of the established private key. Source sync alone cannot recover a missing signing key or GitHub credential.
 
 ## Publishing every completed iteration
 
-The standing workflow in [AGENTS.md](../AGENTS.md) applies to every chat/window sharing this checkout. Re-read it from disk before releasing. Each completed client or trainer change requires source sync, LAN and GitHub releases and a fresh standalone EXE. Documentation-only changes require source sync but no new binary release.
+The standing workflow in [AGENTS.md](../AGENTS.md) applies to every chat/window sharing this checkout. Re-read it from disk before implementation and before releasing. Each completed client or trainer change requires source sync, a signed public GitHub Release and a fresh complete standalone EXE. Documentation-only changes require source sync but no new binary release.
 
-1. Fetch GitHub state and inspect local changes and both hosts' latest versions. Choose a higher version and align app/build defaults. Preserve other chats' unfinished work.
-2. Rebuild changed payloads, write English/Chinese notes and finish relevant checks.
-3. Review, commit and push the intended source. Publishing requires a clean checkout and verifies source provenance; never silently commit unrelated changes.
-4. Run in PowerShell 7:
+1. Sync source using the workflow above and inspect GitHub Releases, drafts, tags and retained local release records, including the last LAN feed during migration. Choose a strictly higher unused version than every previously published version and align app/build defaults. Preserve other chats' unfinished work.
+2. Rebuild changed payloads, write English and Chinese notes and finish relevant checks.
+3. Review, commit and push the intended source. Publishing requires a clean checkout matching that commit and verifies source provenance; never commit unrelated unfinished work to satisfy this check.
+4. Run in PowerShell 7, substituting the new version and matching notes:
 
    ```powershell
-   .\scripts\Start-LanUpdateServer.ps1
-   .\scripts\Publish-LanUpdate.ps1 -Version 0.3.46 `
-     -NotesEnglish .\docs\releases\0.3.46.en.txt `
-     -NotesChinese .\docs\releases\0.3.46.zh.txt
+   .\scripts\Publish-Update.ps1 -Version 0.3.52 `
+     -NotesEnglish .\docs\releases\0.3.52.en.txt `
+     -NotesChinese .\docs\releases\0.3.52.zh.txt
    ```
 
-The command builds/tests once and stages both signed feeds and complete artifacts. It uploads and verifies assets in a GitHub draft before publishing. Packages include `release-source.json` identifying the Git commit. The default repository is `flazedude/happycheats`; saved LAN configuration and signing keys remain authoritative.
+The command builds and tests once, signs the GitHub feed, stages complete artifacts, then uploads and verifies a GitHub draft before publishing it. It does not start the LAN server or publish files to the old LAN public directory. Packages include `release-source.json` identifying the Git commit. The default repository is `flazedude/happycheats`.
 
-Use `-SkipPayloads` only when payloads are unchanged or every changed payload was rebuilt and validated in the current task. Do not use `-SkipTests` for normal releases. Upload credentials stay outside client packages.
+The publisher prefers the machine-local `%LOCALAPPDATA%\HappyCheatsPublisher\publisher.json` created by the initializer. For the original PC's existing setup, it can still read established signing-key paths from `artifacts/lan-updates/server.json`; that compatibility path does not require a running LAN server. Preserve the old configuration, established key, archives and recovery backups. If a key is missing, restore it rather than generating a replacement. The private key stays outside the repository and public download directories.
 
-Interrupted publishing retains staged artifacts. Follow the script's recovery instructions and reuse verified bytes rather than rebuilding a published version. Published archives/assets are immutable. Keep old releases and recovery backups. Report exactly which source/host/artifact steps completed if any step fails.
+Use `-SkipPayloads` only when payloads are unchanged or every changed payload was rebuilt and validated in the current task. Do not use `-SkipTests` for normal releases. `-PublishLan` and the legacy `Publish-LanUpdate.ps1` wrapper are retained solely for a future explicit user request to publish to LAN; they are not part of normal releases.
 
-Finally verify anonymous GitHub downloads and both signed feeds, exercise LAN preference and unreachable-LAN fallback, compare hashes and smoke-test the packaged client. Simulated LAN failure on the host does not establish access from another PC/network. No game launch or save change is part of update verification.
+## Artifacts, recovery and verification
 
-Existing chats see these checked-in instructions when they next read them; running chats can retain an older snapshot. The shared publisher enforces release checks independently of that snapshot.
+Every release produces the complete `dist/HappyCheats.exe`, a versioned `dist/HappyCheats-<version>.exe`, the single-EXE ZIP and the complete directory-format update ZIP. GitHub receives the signed `latest.json`, the exact update ZIP, complete standalone EXE and single-EXE ZIP. The source branch and release tag must identify the package's source commit. The smaller executable inside the unpacked client folder is not a standalone distribution.
+
+Interrupted publishing retains verified staged artifacts under `artifacts/releases/<version>/`. Follow the script's recovery instructions and resume with the original source and targets. Reuse the staged bytes rather than rebuilding a published version. Published archives and assets are immutable. Report exactly which source, hosting or artifact step remains incomplete if a step fails.
+
+A process interruption or network failure can leave the GitHub publishing lock behind. Before manual recovery, verify that **neither PC is publishing**, then inspect the lock tag's version, source and creation time. Only after confirming it is abandoned, explicitly remove **only** `refs/tags/happycheats-publish-lock`; preserve all versioned release tags, drafts, assets and local staged files. Retry the original verified stage. Never remove a live lock or treat its age alone as permission to take it over.
+
+Before calling a release complete, verify the hosted signature and channel, anonymous GitHub downloads, package sizes/hashes, direct GitHub configuration, trusted LAN-settings migration, fresh EXE version and a suitable packaged-client smoke check. Synthetic migration and network tests do not establish second-PC or physical-network validation. No game launch or save change is part of update verification.
+
+Existing chats receive these checked-in instructions when they next read them; running chats can retain an older snapshot. Re-read the current instructions instead of restarting LAN from an older release procedure.

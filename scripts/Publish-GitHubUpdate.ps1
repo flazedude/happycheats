@@ -7,16 +7,20 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'GitHubRelease.Common.ps1')
+. (Join-Path $PSScriptRoot 'GitHubPublishLock.ps1')
 $hcRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 if (!$ReleaseDirectory) { $ReleaseDirectory = Join-Path $hcRoot "artifacts/releases/$Version" }
-$hcClient = $null; $hcLock = $null
+$hcClient = $null; $hcLock = $null; $hcRemoteLock = $null
 try {
     $hcStage = Get-HcReleaseStage -Directory $ReleaseDirectory -Version $Version -Repository $GitHubRepository
-    $hcConfig = Get-Content -LiteralPath (Join-Path $hcRoot 'artifacts/lan-updates/server.json') -Raw | ConvertFrom-Json
+    $hcConfig = Get-HcPublisherConfiguration -Root $hcRoot -Repository $GitHubRepository -RequireLan:(Test-HcReleaseIncludesLan $hcStage)
     Assert-HcReleaseStageTrust -Directory $ReleaseDirectory -Stage $hcStage -Config $hcConfig
-    $hcLock = [IO.File]::Open((Join-Path $hcRoot 'artifacts/lan-updates/github-publish.lock'), [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::Write, [IO.FileShare]::None)
+    $hcLockDirectory = Join-Path $hcRoot 'artifacts/lan-updates'
+    New-Item -ItemType Directory -Path $hcLockDirectory -Force | Out-Null
+    $hcLock = [IO.File]::Open((Join-Path $hcLockDirectory 'github-publish.lock'), [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::Write, [IO.FileShare]::None)
     $null = Assert-HcReleaseSource -Root $hcRoot -Repository $GitHubRepository -ExpectedCommit $hcStage.commit
     $hcClient = New-HcGitHubClient
+    $hcRemoteLock = Enter-HcGitHubPublishLock -Client $hcClient -Repository $GitHubRepository -Version $Version -SourceCommit $hcStage.commit
     $hcRelease = Assert-HcGitHubPreflight -Client $hcClient -Repository $GitHubRepository -Version $Version -SourceCommit $hcStage.commit
     $hcUploads = @($hcStage.files | Where-Object upload)
     $hcNames = @($hcUploads | ForEach-Object { [IO.Path]::GetFileName($_.path) })
@@ -61,12 +65,18 @@ try {
         if ($hcAsset.Count -ne 1) { throw "Prepared draft is missing $hcName." }
         Assert-HcGitHubAsset -Client $hcClient -Repository $GitHubRepository -Asset $hcAsset[0] -Path (Join-Path $ReleaseDirectory $hcFile.path)
     }
-    if ($PrepareOnly) { Write-Host "GitHub v$Version draft is complete and verified; publication is pending LAN completion."; return }
-    # Direct recovery invocation still requires the identical LAN release to be ready.
-    foreach ($hcPair in @(@('lan/latest.json','latest.json'), @("lan/HappyCheats-$Version-win-x64.zip","HappyCheats-$Version-win-x64.zip"), @('assets/HappyCheats.exe','HappyCheats.exe'))) {
-        if ((Get-FileHash -LiteralPath (Join-Path $ReleaseDirectory $hcPair[0])).Hash -cne (Get-FileHash -LiteralPath (Join-Path $hcConfig.PublicDirectory $hcPair[1])).Hash) { throw 'The identical LAN release must be ready before making GitHub latest.' }
+    if ($PrepareOnly) { Write-Host "GitHub v$Version draft is complete and verified; publication is pending finalization."; return }
+    # Legacy dual-host stages retain their original LAN-first publication invariant.
+    if (Test-HcReleaseIncludesLan $hcStage) {
+        foreach ($hcPair in @(@('lan/latest.json','latest.json'), @("lan/HappyCheats-$Version-win-x64.zip","HappyCheats-$Version-win-x64.zip"), @('assets/HappyCheats.exe','HappyCheats.exe'))) {
+            if ((Get-FileHash -LiteralPath (Join-Path $ReleaseDirectory $hcPair[0])).Hash -cne (Get-FileHash -LiteralPath (Join-Path $hcConfig.PublicDirectory $hcPair[1])).Hash) { throw 'The identical LAN release must be ready before making GitHub latest.' }
+        }
     }
+    Assert-HcGitHubPublishLock -Client $hcClient -Lock $hcRemoteLock
     $hcPublished = Invoke-HcGitHub -Client $hcClient -Method PATCH -Path "/repos/$GitHubRepository/releases/$($hcRelease.id)" -Body @{ draft=$false; make_latest='true' }
     if ($hcPublished.draft) { throw 'GitHub did not publish the prepared release.' }
     Write-Host "Published GitHub release: $($hcPublished.html_url)"
-} finally { if ($hcClient) { $hcClient.Dispose() }; if ($hcLock) { $hcLock.Dispose() } }
+} finally {
+    try { if ($hcRemoteLock) { Exit-HcGitHubPublishLock -Client $hcClient -Lock $hcRemoteLock } }
+    finally { if ($hcClient) { $hcClient.Dispose() }; if ($hcLock) { $hcLock.Dispose() } }
+}

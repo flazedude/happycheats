@@ -1,0 +1,11 @@
+HappyCheats 0.3.52 — GitHub-only updates
+
+Official clients now check GitHub Releases directly. The publishing PC no longer needs to remain on for update downloads. LAN publishing is deprecated, and the normal release command publishes signed packages and complete standalone downloads to GitHub only using the existing signing key.
+
+Either configured development PC can publish to the same repository. Machine-local publisher setup imports the existing signing identity after checking it against the hosted signed feed. Source changes are fetched and integrated before work, then committed and pushed when complete. A repository-wide GitHub publishing lock protects uploads and final publication from simultaneous publishers; version, source and immutable-asset checks remain required. Private keys and credentials are never synchronized through source control.
+
+Preserved official LAN settings migrate to GitHub when their public key and channel match the bundled defaults. Custom update endpoints, fallbacks and signing identities are preserved. Signature, channel, size, SHA-256 and archive checks remain required. Clients from 0.3.46 can obtain this release through their existing GitHub fallback while LAN is stopped; older clients should run the new standalone EXE once.
+
+The complete release includes all seventeen trainer payloads, including the previously committed Phantom Blade Zero 0.1.1 startup correction and Dawnwalker 0.4.1 damage-activation correction. Close the affected game and select Install / update to apply those trainer fixes. This update adds no new cheat controls.
+
+Validation covers offline update migration/security/installer tests, publishing checks, client/shared-menu/controller regressions and rebuilt Dawnwalker/Phantom Blade payload checks. Packaged-client smoke and hosted signature/download/hash checks are part of publication verification. No games or saves are changed by update validation; gameplay, physical controllers and second-PC access remain unverified.

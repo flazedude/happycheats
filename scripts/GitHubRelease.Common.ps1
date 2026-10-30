@@ -1,4 +1,5 @@
 # Shared publishing helpers. Credentials remain in memory and never enter arguments or logs.
+. (Join-Path $PSScriptRoot 'PublisherConfiguration.Common.ps1')
 function New-HcGitHubClient {
     $hcToken = $null
     $hcCredentialProcess = $null
@@ -143,9 +144,19 @@ function Get-HcReleaseStage {
     return $hcStage
 }
 
+function Test-HcReleaseIncludesLan {
+    param($Stage)
+    # Stages created before GitHub-only publishing always targeted both hosts.
+    if ($Stage.PSObject.Properties.Name -notcontains 'publishLan') { return $true }
+    if ($Stage.publishLan -isnot [bool]) { throw 'Release publication targets are invalid.' }
+    return $Stage.publishLan
+}
+
 function Assert-HcReleaseStageTrust {
     param([string]$Directory, $Stage, $Config)
-    if ($Stage.lanBaseUrl -cne $Config.BaseUrl) { throw 'The staged LAN address differs from the saved server.' }
+    $hcIncludesLan = Test-HcReleaseIncludesLan $Stage
+    if ($hcIncludesLan -and $Stage.lanBaseUrl -cne $Config.BaseUrl) { throw 'The staged LAN address differs from the saved server.' }
+    if (!$hcIncludesLan -and ($Stage.lanBaseUrl -or @($Stage.files | Where-Object { $_.path.StartsWith('lan/') }).Count)) { throw 'A GitHub-only stage cannot contain a LAN publication target.' }
     $hcVersion = $Stage.version
     $hcZipName = "HappyCheats-$hcVersion-win-x64.zip"
     $hcZipPath = Join-Path $Directory "github/$hcZipName"
@@ -154,14 +165,16 @@ function Assert-HcReleaseStageTrust {
     $hcKey = [Security.Cryptography.RSA]::Create()
     try {
         $hcKey.ImportFromPem([IO.File]::ReadAllText($Config.PublicKeyPath))
-        foreach ($hcTarget in @(@('lan',$Config.BaseUrl), @('github',"https://github.com/$($Stage.repository)/releases/download/v$hcVersion"))) {
+        $hcTargets = ,@('github',"https://github.com/$($Stage.repository)/releases/download/v$hcVersion")
+        if ($hcIncludesLan) { $hcTargets += ,@('lan',$Config.BaseUrl) }
+        foreach ($hcTarget in $hcTargets) {
             $hcEnvelope = Get-Content -LiteralPath (Join-Path $Directory ($hcTarget[0] + '/latest.json')) -Raw | ConvertFrom-Json
             $hcPayload = [Convert]::FromBase64String($hcEnvelope.payload)
             if (!$hcKey.VerifyData($hcPayload, [Convert]::FromBase64String($hcEnvelope.signature), [Security.Cryptography.HashAlgorithmName]::SHA256, [Security.Cryptography.RSASignaturePadding]::Pkcs1)) { throw 'Staged release signature is invalid.' }
             $hcFeed = [Text.Encoding]::UTF8.GetString($hcPayload) | ConvertFrom-Json
             if ($hcFeed.version -cne $hcVersion -or $hcFeed.channel -cne 'stable' -or $hcFeed.packageSize -ne $hcZipBytes -or $hcFeed.sha256 -ine $hcZipHash -or $hcFeed.packageUrl -cne ($hcTarget[1] + '/' + $hcZipName)) { throw 'Signed release identity or download URL does not match the staged package.' }
         }
-        if ((Get-FileHash -LiteralPath (Join-Path $Directory "lan/$hcZipName")).Hash -cne $hcZipHash) { throw 'LAN and GitHub update packages must be byte-identical.' }
+        if ($hcIncludesLan -and (Get-FileHash -LiteralPath (Join-Path $Directory "lan/$hcZipName")).Hash -cne $hcZipHash) { throw 'LAN and GitHub update packages must be byte-identical.' }
         $hcZip = [IO.Compression.ZipFile]::OpenRead($hcZipPath)
         try {
             function Read-HcStageZipText([string]$Name) {
@@ -175,7 +188,10 @@ function Assert-HcReleaseStageTrust {
             $hcSettingsText = Read-HcStageZipText 'update-settings.json'
             if ($hcSettingsText -cne (Read-HcStageZipText 'update-defaults.json')) { throw 'Bundled update defaults must match the configured starter.' }
             $hcSettings = $hcSettingsText | ConvertFrom-Json
-            if ($hcSettings.feedUrl -cne ($Config.BaseUrl + '/latest.json') -or $hcSettings.fallbackFeedUrl -cne "https://github.com/$($Stage.repository)/releases/latest/download/latest.json" -or $hcSettings.channel -cne 'stable') { throw 'Packaged LAN/GitHub update configuration is incorrect.' }
+            $hcGitHubFeed = "https://github.com/$($Stage.repository)/releases/latest/download/latest.json"
+            if ($hcIncludesLan) {
+                if ($hcSettings.feedUrl -cne ($Config.BaseUrl + '/latest.json') -or $hcSettings.fallbackFeedUrl -cne $hcGitHubFeed -or $hcSettings.channel -cne 'stable') { throw 'Packaged LAN/GitHub update configuration is incorrect.' }
+            } elseif ($hcSettings.feedUrl -cne $hcGitHubFeed -or $hcSettings.fallbackFeedUrl -or $hcSettings.channel -cne 'stable') { throw 'Packaged GitHub-only update configuration is incorrect.' }
             $hcEmbeddedKey = [Security.Cryptography.RSA]::Create()
             try {
                 $hcEmbeddedKey.ImportFromPem($hcSettings.publicKeyPem)

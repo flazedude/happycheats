@@ -1,16 +1,18 @@
 # Server updates and release publishing
 
-Normal releases now publish to both the existing LAN server and public GitHub Releases. Clients prefer LAN and fall back to GitHub on connection/HTTP/timeout failures. See [setup, migration and publishing](github-updates.md). The generic signing commands below remain useful for diagnostics; they do not replace the shared publish workflow.
+From **0.3.52**, normal releases publish only to public GitHub Releases and official clients check GitHub directly. LAN hosting and publishing are deprecated; updates no longer require the publisher's PC to remain on. Use `scripts/Publish-Update.ps1` and follow [setup, migration and publishing](github-updates.md). The generic signing commands below are historical setup and diagnostic references; they do not replace the current workflow.
 
-For a server on your own PC, use the [LAN hosting and publishing workflow](lan-updates.md), which serves signed releases over private-address HTTP.
+The [legacy LAN guide](lan-updates.md) is retained for recovery. The LAN server was stopped and its startup task disabled on 30 October 2026. Do not start or publish to LAN without a new explicit user request.
 
 HappyCheats can check a static HTTPS feed, show English or Chinese release notes and newly supported games, and install a signed Windows x64 release after the user chooses to update. A release contains the launcher, game modules, trainer payloads and a separate updater. An ordinary HTTPS website or object-storage bucket is enough; a database and application server are unnecessary.
 
-Normal releases use the existing LAN host plus public GitHub Releases. Only the public verification key is embedded; private keys and upload credentials remain outside the repository and packages. Generic builds without `update-settings.json` still run with updates unconfigured.
+Normal releases use public GitHub Releases with the existing signing key. Only the public verification key is embedded; private keys and upload credentials remain outside the repository and packages. Each publishing PC uses `%LOCALAPPDATA%\HappyCheatsPublisher\publisher.json`; the original PC's saved `artifacts/lan-updates/server.json` remains a compatibility source for its established signing-key paths. Neither requires a running LAN server. See [setup on each PC](github-updates.md#one-time-publisher-setup-on-each-pc). Generic builds without `update-settings.json` still run with updates unconfigured.
 
 Configured release clients check once after startup. Open **Updates / 客户端更新** to check again, read the notes and choose **Download update / 下载更新**. After verification, choose **Install & restart / 安装并重启**. Downloads and installation require those explicit actions. Close supported games before installation; after restart, use each affected game's **Install / update** (**安装 / 更新**) action. Development runs using `--data-root`, previews and screenshot runs disable server updates.
 
-## First rollout
+## Historical first rollout and generic signing reference
+
+These examples document the original updater setup for a separate installation. The existing HappyCheats release workflow already has a signing key and GitHub host: preserve that key and use the [current publisher](github-updates.md#publishing-every-completed-iteration). Do not generate a replacement key or configure another host during normal releases.
 
 Clients released before this update system must obtain one configured starter release manually. They cannot discover a feed retroactively. Build with `-SingleExe` and distribute `dist/HappyCheats.exe` by itself. Its first launch extracts the full configured client into a writable per-user cache, where the existing updater can replace it. Alternatively, distribute the entire starter ZIP for manual extraction. The executable inside the unpacked `dist/HappyCheats/` folder still needs its neighboring files. See [single-EXE packaging](single-exe.md).
 
@@ -62,7 +64,9 @@ dotnet run --project .\tools\HappyCheats.Release -c Release -- configure `
 
 Restart the client after changing its configuration. Always supply the public PEM to `configure`; it rejects private keys.
 
-## Publishing the next update
+## Generic publisher reference
+
+The commands in this section describe the low-level signing tool. Normal HappyCheats releases require both English and Chinese notes and the complete GitHub workflow, including source sync and standalone artifacts.
 
 Choose a strictly increasing `major.minor.patch` version, such as `0.2.1`, and write UTF-8 changelog text files. Prerelease suffixes and leading zeros are not accepted. Build with `-Version 0.2.1`, using the same feed URL and public key, then publish that ZIP with `--version 0.2.1`. Add `--new-game 'Game name'` for each newly supported game; this information appears with the release notes. `--notes-zh` is optional. Use a separate feed URL and `--channel` only when also distributing a matching client channel configuration; the normal setup uses `stable` throughout.
 
@@ -78,7 +82,9 @@ Release **0.3.3** includes the official SMAPI 4.5.2 installer, corresponding sou
 
 For single-EXE users, server updates replace the client under `%LOCALAPPDATA%/HappyCheats/Bundles/<bundlehash>/HappyCheats/`. Subsequent launches of that same EXE reuse the updated client. Its embedded release does not change: distributing the original EXE to a new user still starts from its original version. Build a new single EXE when distributing a newer starter. Main settings remain at `%LOCALAPPDATA%/HappyCheats/settings.json`.
 
-## Hosting in China with Alibaba Cloud
+## Historical alternative hosting: Alibaba Cloud
+
+This alternative was not selected. It is retained as a historical design reference, not a current hosting recommendation; provider requirements and network performance need fresh verification before any future change. GitHub is the only normal publication target.
 
 For an initial rollout without an existing mainland ICP filing, consider an Alibaba Cloud OSS bucket in **Hong Kong**, with a custom download domain and HTTPS. Verify download speed from the actual mainland networks your users use; location alone does not guarantee performance. The client needs public HTTPS GET access to the feed and ZIPs. Keep bucket write credentials on the release operator's machine or in the publishing pipeline, never in the client.
 
@@ -86,7 +92,9 @@ Alibaba Cloud documents that custom domains for **mainland China OSS buckets req
 
 Use your custom HTTPS domain as the stable feed address so that storage can be moved behind it later. Upload the immutable ZIP with the OSS console or your deployment tool, then upload `latest.json`. Set the feed object's `Content-Type` to `application/json` and `Cache-Control` to `no-cache, max-age=0, must-revalidate`. Give versioned ZIPs `Cache-Control: public, max-age=31536000, immutable`. If a CDN is added, ensure it respects the feed's cache policy or refresh the feed URL when publishing.
 
-## Static server example
+## Historical alternative hosting: static server
+
+This example is retained for reference. A separate web server is not required for GitHub updates.
 
 An HTTPS Nginx server can serve the same files. In an existing TLS-enabled `server` block, this example maps the feed and packages to `/srv/www/updates/happycheats/`:
 

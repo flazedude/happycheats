@@ -8,7 +8,7 @@ param(
     [string]$ChineseParentsGameDirectory,
     [string]$StardewGameDirectory,
     [string]$ProjectHospitalGameDirectory,
-    [string]$Version = '0.3.51',
+    [string]$Version = '0.3.52',
     [string]$UpdateFeedUrl,
     [string]$UpdateFallbackFeedUrl,
     [string]$UpdatePublicKeyPath,
@@ -66,7 +66,7 @@ if ($UpdateFeedUrl) {
     if ($UpdateFallbackFeedUrl) { $hcConfigureArgs += @('--fallback-feed-url',$UpdateFallbackFeedUrl) }
     & dotnet run --project (Join-Path $hcRoot 'tools\HappyCheats.Release') -c Release -- @hcConfigureArgs
     if ($LASTEXITCODE -ne 0) { throw 'Update configuration failed.' }
-    # Defaults permit a new client to add the mirror only when retained trust matches.
+    # Defaults permit migration of official endpoints only when retained trust matches.
     Copy-Item -LiteralPath (Join-Path $hcStaging 'update-settings.json') -Destination (Join-Path $hcStaging 'update-defaults.json')
 }
 if ($ReleaseSourceCommit) {

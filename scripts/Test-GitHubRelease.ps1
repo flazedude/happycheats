@@ -24,12 +24,25 @@ function Write-HcTestFeed([string]$Target, [string]$HashOverride) {
     $hcSignature = $hcTestKey.SignData($hcBytes, [Security.Cryptography.HashAlgorithmName]::SHA256, [Security.Cryptography.RSASignaturePadding]::Pkcs1)
     @{ payload=[Convert]::ToBase64String($hcBytes); signature=[Convert]::ToBase64String($hcSignature) } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $hcStagePath "$Target/latest.json") -Encoding utf8NoBOM
 }
-function Save-HcTestStage {
-    $hcFiles = @(Get-ChildItem -LiteralPath $hcStagePath -File -Recurse | Where-Object Name -ne 'release.json' | ForEach-Object {
+function Save-HcTestStage([switch]$GitHubOnly) {
+    $hcFiles = @(Get-ChildItem -LiteralPath $hcStagePath -File -Recurse | Where-Object { $_.Name -ne 'release.json' -and (!$GitHubOnly -or $_.Directory.Name -ne 'lan') } | ForEach-Object {
         $hcRel = [IO.Path]::GetRelativePath($hcStagePath, $_.FullName).Replace('\','/')
         [ordered]@{ path=$hcRel; size=$_.Length; sha256=(Get-FileHash $_.FullName).Hash; upload=(!$hcRel.StartsWith('lan/')) }
     })
-    [ordered]@{ version='0.0.1'; repository='example/happycheats'; commit=('a'*40); lanBaseUrl='http://192.168.2.76:17845/happycheats'; files=$hcFiles } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $hcStagePath 'release.json') -Encoding utf8NoBOM
+    $hcMetadata = [ordered]@{ version='0.0.1'; repository='example/happycheats'; commit=('a'*40); lanBaseUrl='http://192.168.2.76:17845/happycheats'; files=$hcFiles }
+    if ($GitHubOnly) { $hcMetadata.publishLan = $false; $hcMetadata.lanBaseUrl = $null }
+    $hcMetadata | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $hcStagePath 'release.json') -Encoding utf8NoBOM
+}
+function Set-HcTestPackageSettings($Settings) {
+    $hcPackage = [IO.Compression.ZipFile]::Open((Join-Path $hcStagePath 'github/HappyCheats-0.0.1-win-x64.zip'), [IO.Compression.ZipArchiveMode]::Update)
+    try {
+        foreach ($hcName in @('update-settings.json','update-defaults.json')) {
+            $hcPackage.GetEntry('HappyCheats/' + $hcName).Delete()
+            $hcWriter = [IO.StreamWriter]::new($hcPackage.CreateEntry('HappyCheats/' + $hcName).Open())
+            try { $hcWriter.Write(($Settings | ConvertTo-Json)) } finally { $hcWriter.Dispose() }
+        }
+    } finally { $hcPackage.Dispose() }
+    Write-HcTestFeed 'github'
 }
 try {
     New-Item -ItemType Directory -Path (Join-Path $hcStagePath 'github'),(Join-Path $hcStagePath 'lan'),(Join-Path $hcStagePath 'assets'),(Join-Path $hcTestRoot 'package/HappyCheats') -Force | Out-Null
@@ -76,6 +89,39 @@ try {
     $hcStage | ConvertTo-Json -Depth 6 | Set-Content (Join-Path $hcStagePath 'release.json')
     Assert-HcRejected { Get-HcReleaseStage -Directory $hcStagePath -Version '0.0.1' -Repository 'example/happycheats' } 'duplicate staged paths rejected'
     Save-HcTestStage
+
+    # New releases need only the preserved signing key, without a running LAN host
+    # or any LAN publication paths. Old dual-host stages above still resume safely.
+    $hcGitHubSettings = $hcSettings | ConvertFrom-Json
+    $hcGitHubSettings.feedUrl = $hcGitHubSettings.fallbackFeedUrl
+    $hcGitHubSettings.fallbackFeedUrl = $null
+    Set-HcTestPackageSettings $hcGitHubSettings
+    Save-HcTestStage -GitHubOnly
+    $hcStage = Get-HcReleaseStage -Directory $hcStagePath -Version '0.0.1' -Repository 'example/happycheats'
+    $hcSigningOnlyConfig = [pscustomobject]@{ PublicKeyPath=$hcPublicPath }
+    Assert-HcReleaseStageTrust -Directory $hcStagePath -Stage $hcStage -Config $hcSigningOnlyConfig
+    Assert-HcTest ($hcStage.files.Count -eq 5 -and !(Test-HcReleaseIncludesLan $hcStage)) 'signed GitHub-only stage works without LAN address or public directory'
+    $hcStage.publishLan = 'false'
+    Assert-HcRejected { Test-HcReleaseIncludesLan $hcStage } 'publication target cannot be an ambiguous string'
+    $hcStage.publishLan = $false
+    $hcStage.lanBaseUrl = $hcConfig.BaseUrl
+    Assert-HcRejected { Assert-HcReleaseStageTrust -Directory $hcStagePath -Stage $hcStage -Config $hcConfig } 'GitHub-only stage cannot retain a LAN target'
+    $hcStage.lanBaseUrl = $null
+    $hcGitHubSettings.fallbackFeedUrl = $hcConfig.BaseUrl + '/latest.json'
+    Set-HcTestPackageSettings $hcGitHubSettings
+    Assert-HcRejected { Assert-HcReleaseStageTrust -Directory $hcStagePath -Stage $hcStage -Config $hcSigningOnlyConfig } 'GitHub-only starter cannot keep LAN fallback'
+    $hcGitHubSettings.fallbackFeedUrl = $null
+    $hcGitHubSettings.feedUrl = $hcConfig.BaseUrl + '/latest.json'
+    Set-HcTestPackageSettings $hcGitHubSettings
+    Assert-HcRejected { Assert-HcReleaseStageTrust -Directory $hcStagePath -Stage $hcStage -Config $hcSigningOnlyConfig } 'GitHub-only starter cannot keep LAN primary'
+    $hcGitHubSettings.feedUrl = 'https://github.com/example/happycheats/releases/latest/download/latest.json'
+    Set-HcTestPackageSettings $hcGitHubSettings
+    Save-HcTestStage -GitHubOnly
+    $hcStage = Get-HcReleaseStage -Directory $hcStagePath -Version '0.0.1' -Repository 'example/happycheats'
+    Assert-HcReleaseStageTrust -Directory $hcStagePath -Stage $hcStage -Config $hcSigningOnlyConfig
+    $hcGitHubSettings.channel = 'preview'
+    Set-HcTestPackageSettings $hcGitHubSettings
+    Assert-HcRejected { Assert-HcReleaseStageTrust -Directory $hcStagePath -Stage $hcStage -Config $hcSigningOnlyConfig } 'GitHub-only starter still requires stable channel'
 
     $hcExePath = Join-Path $hcStagePath 'assets/HappyCheats.exe'
     $hcAsset = [pscustomobject]@{ name='HappyCheats.exe'; state='uploaded'; size=5; digest=('sha256:'+(Get-FileHash $hcExePath).Hash.ToLowerInvariant()) }

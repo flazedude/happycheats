@@ -10,6 +10,7 @@ internal static class Program
         if (args.Contains("--witcher3")) return Witcher3Tests.RunAll() == 0 ? 0 : 1;
         if (args.Contains("--witcher3-installer")) return Witcher3InstallerTests.RunAll();
         if (args.Contains("--elden-ring")) return EldenRingTests.RunAll();
+        if (args.Contains("--updates")) return UpdateTests.RunAll() | UpdateInstallerTests.RunAll();
         var legacy = OnimushaTrainer.BackendTests.Main();
         var controllers = HappyCheats.App.ControllerTests.Main();
         var onimusha = OnimushaModuleTests.RunAll();

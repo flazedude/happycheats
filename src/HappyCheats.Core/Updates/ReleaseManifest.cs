@@ -6,6 +6,9 @@ namespace HappyCheats.Core.Updates;
 
 public sealed record UpdateConfiguration
 {
+    private const string LegacyLanFeed = "http://192.168.2.76:17845/happycheats/latest.json";
+    private const string GitHubFeed = "https://github.com/flazedude/happycheats/releases/latest/download/latest.json";
+
     public string FeedUrl { get; init; } = "";
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? FallbackFeedUrl { get; init; }
@@ -18,20 +21,29 @@ public sealed record UpdateConfiguration
         if (!File.Exists(path)) return null;
         var settings = Read(path);
         // The updater preserves the installation's trusted settings. A signed
-        // application bundle may supplement a missing mirror, but cannot change
-        // its primary feed, channel, key or explicitly configured fallback.
+        // bundle may retire the original official LAN endpoint while retaining
+        // its signing identity, or supplement a missing mirror for other feeds.
         var defaultsPath = Path.Combine(appDirectory, "update-defaults.json");
-        if (settings.FallbackFeedUrl == null && File.Exists(defaultsPath))
+        if (File.Exists(defaultsPath))
         {
             try
             {
                 var defaults = Read(defaultsPath);
                 using var trusted = ReleaseSigning.ReadKey(settings.PublicKeyPem);
                 using var bundled = ReleaseSigning.ReadKey(defaults.PublicKeyPem);
-                if (defaults.FallbackFeedUrl != null && settings.Channel == defaults.Channel
-                    && UpdateValidation.Url(settings.FeedUrl, "Update feed").Equals(UpdateValidation.Url(defaults.FeedUrl, "Update feed"))
+                if (settings.Channel == defaults.Channel
                     && CryptographicOperations.FixedTimeEquals(trusted.ExportSubjectPublicKeyInfo(), bundled.ExportSubjectPublicKeyInfo()))
-                    settings = settings with { FallbackFeedUrl = defaults.FallbackFeedUrl };
+                {
+                    // Only the known official configuration is migrated. A custom
+                    // primary or explicit custom fallback remains the user's choice.
+                    if (SameFeed(settings.FeedUrl, LegacyLanFeed) && SameFeed(defaults.FeedUrl, GitHubFeed)
+                        && defaults.FallbackFeedUrl == null
+                        && (settings.FallbackFeedUrl == null || SameFeed(settings.FallbackFeedUrl, GitHubFeed)))
+                        settings = settings with { FeedUrl = defaults.FeedUrl, FallbackFeedUrl = null };
+                    else if (settings.FallbackFeedUrl == null && defaults.FallbackFeedUrl != null
+                        && SameFeed(settings.FeedUrl, defaults.FeedUrl))
+                        settings = settings with { FallbackFeedUrl = defaults.FallbackFeedUrl };
+                }
             }
             catch (Exception error) when (error is IOException or InvalidDataException or UnauthorizedAccessException or JsonException or CryptographicException)
             {
@@ -40,6 +52,9 @@ public sealed record UpdateConfiguration
         }
         return settings;
     }
+
+    private static bool SameFeed(string left, string right)
+        => UpdateValidation.Url(left, "Update feed").Equals(UpdateValidation.Url(right, "Update feed"));
 
     private static UpdateConfiguration Read(string path)
     {

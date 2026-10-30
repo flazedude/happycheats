@@ -222,8 +222,108 @@ internal static class UpdateTests
             StageFails(package, Manifest(package), privateKey, publicKey);
         });
         RunFallbackTests(Run, privateKey, publicKey);
+        RunGitHubMigrationTests(Run, privateKey, publicKey);
         Console.WriteLine($"Update tests: {passed} passed, {failed} failed.");
         return failed == 0 ? 0 : 1;
+    }
+
+    private static void RunGitHubMigrationTests(Action<string, Action> run, string privateKey, string publicKey)
+    {
+        const string lanFeed = "http://192.168.2.76:17845/happycheats/latest.json";
+        const string githubFeed = "https://github.com/flazedude/happycheats/releases/latest/download/latest.json";
+        const string githubPackage = "https://github.com/flazedude/happycheats/releases/download/v1.2.3/HappyCheats-1.2.3-win-x64.zip";
+        var github = Config(publicKey) with { FeedUrl = githubFeed };
+        var legacy = github with { FeedUrl = lanFeed, FallbackFeedUrl = githubFeed };
+        void Save(Fixture fixture, string name, UpdateConfiguration value)
+            => File.WriteAllText(Path.Combine(fixture.Root, name), JsonSerializer.Serialize(value, ReleaseSigning.JsonOptions));
+
+        run("official LAN settings migrate to GitHub without changing the trusted file", () =>
+        {
+            using var fixture = new Fixture();
+            foreach (var fallback in new[] { null, githubFeed })
+            {
+                Save(fixture, "update-settings.json", legacy with { FallbackFeedUrl = fallback });
+                var before = File.ReadAllBytes(Path.Combine(fixture.Root, "update-settings.json"));
+                Save(fixture, "update-defaults.json", github with { PublicKeyPem = publicKey.Replace("\n", "\r\n") + "\n" });
+                Assert(UpdateConfiguration.Load(fixture.Root) == github);
+                Assert(before.SequenceEqual(File.ReadAllBytes(Path.Combine(fixture.Root, "update-settings.json"))));
+            }
+        });
+        run("GitHub migration preserves custom primary and fallback choices", () =>
+        {
+            using var fixture = new Fixture();
+            Save(fixture, "update-defaults.json", github);
+            foreach (var settings in new[] {
+                legacy with { FeedUrl = "http://192.168.2.77:17845/happycheats/latest.json" },
+                legacy with { FeedUrl = lanFeed + "?custom=true" },
+                legacy with { FeedUrl = "https://custom.example/latest.json" },
+                legacy with { FallbackFeedUrl = "https://custom.example/latest.json" },
+                github with { FallbackFeedUrl = lanFeed }, github })
+            {
+                Save(fixture, "update-settings.json", settings);
+                Assert(UpdateConfiguration.Load(fixture.Root) == settings);
+            }
+        });
+        run("GitHub migration requires matching signing identity channel and official defaults", () =>
+        {
+            using var fixture = new Fixture();
+            using var wrong = RSA.Create(2048);
+            Save(fixture, "update-settings.json", legacy);
+            foreach (var defaults in new[] {
+                github with { PublicKeyPem = wrong.ExportSubjectPublicKeyInfoPem() },
+                github with { Channel = "preview" },
+                github with { FeedUrl = "https://github.com/another/repository/releases/latest/download/latest.json" },
+                github with { FallbackFeedUrl = lanFeed } })
+            {
+                Save(fixture, "update-defaults.json", defaults);
+                Assert(UpdateConfiguration.Load(fixture.Root) == legacy);
+            }
+        });
+        run("GitHub migration needs valid bundled defaults", () =>
+        {
+            using var fixture = new Fixture();
+            Save(fixture, "update-settings.json", legacy);
+            Assert(UpdateConfiguration.Load(fixture.Root) == legacy);
+            File.WriteAllText(Path.Combine(fixture.Root, "update-defaults.json"), "{");
+            Assert(UpdateConfiguration.Load(fixture.Root) == legacy);
+        });
+        run("migrated clients verify and download directly from GitHub without LAN requests", () =>
+        {
+            using var fixture = new Fixture();
+            Save(fixture, "update-settings.json", legacy);
+            Save(fixture, "update-defaults.json", github);
+            var package = Package();
+            var manifest = Manifest(package) with { PackageUrl = githubPackage };
+            var feed = ReleaseSigning.SerializeEnvelope(ReleaseSigning.Sign(manifest, privateKey));
+            var requests = new List<string>();
+            using var http = new HttpClient(new AsyncHandler((request, _) => {
+                var url = request.RequestUri!.AbsoluteUri;
+                requests.Add(url);
+                Assert(url == githubFeed || url == githubPackage);
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) {
+                    RequestMessage = request, Content = new ByteArrayContent(url == githubFeed ? feed : package)
+                });
+            }));
+            var client = new UpdateClient(http, UpdateConfiguration.Load(fixture.Root)!);
+            var release = client.CheckAsync("1.0.0").GetAwaiter().GetResult()!;
+            var staged = client.DownloadAndStageAsync(release, fixture.Staging).GetAwaiter().GetResult();
+            Assert(File.Exists(Path.Combine(staged.PackageDirectory, "HappyCheats.exe")));
+            Assert(requests.SequenceEqual(new[] { githubFeed, githubPackage }));
+        });
+        run("GitHub-only failure never retries the retired LAN endpoint", () =>
+        {
+            using var fixture = new Fixture();
+            Save(fixture, "update-settings.json", legacy);
+            Save(fixture, "update-defaults.json", github);
+            var requests = new List<string>();
+            using var http = new HttpClient(new AsyncHandler((request, _) => {
+                requests.Add(request.RequestUri!.AbsoluteUri);
+                throw new HttpRequestException("fixture offline");
+            }));
+            var client = new UpdateClient(http, UpdateConfiguration.Load(fixture.Root)!);
+            Throws<IOException>(() => client.CheckAsync("1.0.0").GetAwaiter().GetResult());
+            Assert(requests.SequenceEqual(new[] { githubFeed }));
+        });
     }
 
     private static void RunFallbackTests(Action<string, Action> run, string privateKey, string publicKey)
