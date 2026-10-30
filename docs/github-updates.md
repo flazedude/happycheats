@@ -46,11 +46,13 @@ git pull --ff-only origin main
 
 If there are unfinished edits or local commits, preserve them and review how they relate to incoming changes. Finish or save the intended work and merge deliberately; do not discard changes, reset the checkout or force-push to make the PCs agree. If a fast-forward fails, inspect the divergence before proceeding. Re-read `AGENTS.md` after updating because the other PC may have changed the shared instructions.
 
-After completing a change, review and commit its source, notes and tests, then push normally. Verify the remote branch contains the intended commit before switching PCs or publishing. The second PC receives the work through its next source sync. Build output, trainer build caches, publisher settings, credentials and signing keys are local and are not synchronized by Git.
+Use a separate `codex/` branch for each change and PC, with shared `main` as the integration branch. Concurrent local chats should use separate checkouts/worktrees when they need isolated files or build outputs. Fetch again before integration and pushing. Merge incoming `origin/main` changes into an already shared task branch; rebase only unpublished local commits. Resolve conflicts while preserving both intended changes and rerun affected checks. A rejected push means fetch and integrate before retrying, not force-push over the other PC.
+
+After completing a change, review and commit its source, notes and tests, then push normally. Verify the remote task branch contains the intended commit before switching PCs. Before publishing, integrate the completed, reviewed release changes into `main` and verify `origin/main` contains the package's release commit. Publish from a clean checkout matching that integrated commit; do not omit other intended integrated changes or include another chat's unfinished work. The second PC receives the work through its next source sync. Build output, trainer build caches, publisher settings, credentials and signing keys are local and are not synchronized by Git.
 
 Both PCs can build and publish when each has its existing build prerequisites, the same established signing key and its own GitHub authentication. A client update from **Updates / 客户端更新** updates the installed application; it does not pull source into a development checkout. Conversely, pulling source does not update an installed client. Use the app's update action or the latest standalone EXE for that.
 
-Only one PC should publish at a time. Immediately before choosing a version and again before publishing, inspect GitHub releases, drafts and tags as well as retained local release records. Choose a higher unused version; an in-progress draft on the other PC is not an available version. If publication was interrupted, resume the original verified stage and source commit rather than rebuilding different bytes on the other PC under the same version.
+Only one PC may publish at a time. Immediately before choosing a version and again before publishing, inspect GitHub releases, drafts and tags as well as known staged/reserved release records on both PCs. Choose a globally unique, monotonically increasing version above published and reserved versions; an in-progress draft on the other PC is not an available version. If publication was interrupted, resume the original verified stage and source commit rather than rebuilding different bytes on the other PC under the same version. Other PCs may continue developing separate changes while publication runs.
 
 The current publisher serializes GitHub draft creation, uploads and finalization with the repository-wide ref `refs/tags/happycheats-publish-lock`. Its tag metadata identifies the version, source commit, random ownership token and creation time; it contains no credentials or signing key. A second publisher stops when the lock is held and can retry after the first finishes. The script releases its own lock on normal exit and never steals another publisher's lock. Both PCs must sync the new publisher scripts before relying on this protection; an older script does not honor it.
 
@@ -85,7 +87,7 @@ The standing workflow in [AGENTS.md](../AGENTS.md) applies to every chat/window 
 
 1. Sync source using the workflow above and inspect GitHub Releases, drafts, tags and retained local release records, including the last LAN feed during migration. Choose a strictly higher unused version than every previously published version and align app/build defaults. Preserve other chats' unfinished work.
 2. Rebuild changed payloads, write English and Chinese notes and finish relevant checks.
-3. Review, commit and push the intended source. Publishing requires a clean checkout matching that commit and verifies source provenance; never commit unrelated unfinished work to satisfy this check.
+3. Review and commit the intended source, integrate the release changes into `main`, then push normally and verify `origin/main` contains the release commit. Publishing requires a clean checkout matching that integrated commit and verifies source provenance; never commit unrelated unfinished work to satisfy this check.
 4. Run in PowerShell 7, substituting the new version and matching notes:
 
    ```powershell
@@ -102,7 +104,7 @@ Use `-SkipPayloads` only when payloads are unchanged or every changed payload wa
 
 ## Artifacts, recovery and verification
 
-Every release produces the complete `dist/HappyCheats.exe`, a versioned `dist/HappyCheats-<version>.exe`, the single-EXE ZIP and the complete directory-format update ZIP. GitHub receives the signed `latest.json`, the exact update ZIP, complete standalone EXE and single-EXE ZIP. The source branch and release tag must identify the package's source commit. The smaller executable inside the unpacked client folder is not a standalone distribution.
+Every release produces the complete `dist/HappyCheats.exe`, a versioned `dist/HappyCheats-<version>.exe`, the single-EXE ZIP and the complete directory-format update ZIP. GitHub receives the signed `latest.json`, the exact update ZIP, complete standalone EXE and single-EXE ZIP. Shared `main` must contain the package's source commit, and the release tag must identify that same commit. The smaller executable inside the unpacked client folder is not a standalone distribution.
 
 Interrupted publishing retains verified staged artifacts under `artifacts/releases/<version>/`. Follow the script's recovery instructions and resume with the original source and targets. Reuse the staged bytes rather than rebuilding a published version. Published archives and assets are immutable. Report exactly which source, hosting or artifact step remains incomplete if a step fails.
 

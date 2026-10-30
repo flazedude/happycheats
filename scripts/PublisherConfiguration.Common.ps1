@@ -24,12 +24,16 @@ function Get-HcSigningPublicIdentity([string]$PrivateKeyPath, [string]$PublicKey
         $hcIdentity = [Convert]::ToBase64String($hcPrivate.ExportSubjectPublicKeyInfo())
         if ($PublicKeyPath) {
             if (!(Test-Path -LiteralPath $PublicKeyPath -PathType Leaf)) { throw 'Missing public key.' }
-            $hcPublic.ImportFromPem([IO.File]::ReadAllText($PublicKeyPath))
+            $hcPublicPem = [IO.File]::ReadAllText($PublicKeyPath)
+            # Build embeds this file verbatim in client settings. Never accept a
+            # private PEM here, even when it has the expected public identity.
+            if ($hcPublicPem -match '-----BEGIN [^-]*PRIVATE KEY-----') { throw 'Public key input contains private material.' }
+            $hcPublic.ImportFromPem($hcPublicPem)
             if ($hcIdentity -cne [Convert]::ToBase64String($hcPublic.ExportSubjectPublicKeyInfo())) { throw 'Key pair differs.' }
         }
         return $hcIdentity
     } catch { throw 'Established signing key is missing, unreadable or does not match its public key. Restore the correct key; no replacement will be generated.' }
-    finally { $hcPrivate.Dispose(); $hcPublic.Dispose() }
+    finally { $hcPrivate.Dispose(); $hcPublic.Dispose(); $hcPublicPem = $null }
 }
 
 function Get-HcPublisherConfiguration {
@@ -38,8 +42,11 @@ function Get-HcPublisherConfiguration {
     if (!$PublisherDirectory) { $PublisherDirectory = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'HappyCheatsPublisher' }
     $hcLocalPath = Join-Path $PublisherDirectory 'publisher.json'
     $hcLegacyPath = Join-Path $Root 'artifacts/lan-updates/server.json'
-    $hcLegacy = if (Test-Path -LiteralPath $hcLegacyPath -PathType Leaf) { Get-Content -LiteralPath $hcLegacyPath -Raw | ConvertFrom-Json } else { $null }
-    if (Test-Path -LiteralPath $hcLocalPath -PathType Leaf) {
+    $hcHasLocal = Test-Path -LiteralPath $hcLocalPath -PathType Leaf
+    # A configured GitHub publisher has no dependency on a retired host's JSON
+    # or paths. Read that file only for legacy key discovery or explicit LAN use.
+    $hcLegacy = if (($RequireLan -or !$hcHasLocal) -and (Test-Path -LiteralPath $hcLegacyPath -PathType Leaf)) { Get-Content -LiteralPath $hcLegacyPath -Raw | ConvertFrom-Json } else { $null }
+    if ($hcHasLocal) {
         $hcSaved = Get-Content -LiteralPath $hcLocalPath -Raw | ConvertFrom-Json
         if ($hcSaved.Repository -ine $Repository) { throw 'Local publisher configuration belongs to another repository. Initialize the intended repository explicitly.' }
     } elseif ($hcLegacy) {

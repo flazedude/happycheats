@@ -140,56 +140,81 @@ try {
     $script:hcApiFixtures[$hcRepoPath] = [pscustomobject]@{ private=$false; archived=$false; permissions=@{push=$true} }
     $hcDraft = [pscustomobject]@{ draft=$true; target_commitish=('a'*40); id=123; tag_name='v0.0.1'; assets=@() }
     $script:hcApiFixtures["$hcRepoPath/releases/tags/v0.0.1"] = $hcDraft
-    $hcActualDraft = Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -SourceCommit ('a'*40)
+    $hcActualDraft = Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -AllowExistingVersion -SourceCommit ('a'*40)
     Assert-HcTest ($hcActualDraft.id -eq 123) 'matching interrupted draft can resume'
+    Assert-HcRejected { Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -SourceCommit ('a'*40) } 'draft reservation cannot be rebuilt without its original stage'
     $hcDraft.draft = $false
-    Assert-HcRejected { Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -SourceCommit ('a'*40) } 'published release overwrite rejected'
+    Assert-HcRejected { Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -AllowExistingVersion -SourceCommit ('a'*40) } 'published release overwrite rejected'
+    Assert-HcRejected { Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -AllowPublishedResume -SourceCommit ('a'*40) } 'published verification requires immutable source tag'
+    $script:hcApiFixtures["$hcRepoPath/git/ref/tags/v0.0.1"] = [pscustomobject]@{object=@{type='commit';sha=('a'*40)}}
+    $script:hcApiFixtures["$hcRepoPath/releases/latest"] = [pscustomobject]@{tag_name='v0.0.9'}
+    $hcVerifiedPublished = Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -AllowPublishedResume -SourceCommit ('a'*40)
+    Assert-HcTest (!$hcVerifiedPublished.draft) 'published exact source may be verified after a newer latest without republishing'
+    Assert-HcRejected { Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -AllowPublishedResume } 'published verification requires exact source commit'
+    $script:hcApiFixtures.Remove("$hcRepoPath/git/ref/tags/v0.0.1")
+    $script:hcApiFixtures.Remove("$hcRepoPath/releases/latest")
     $hcDraft.draft = $true; $hcDraft.target_commitish = 'b'*40
-    Assert-HcRejected { Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -SourceCommit ('a'*40) } 'draft source drift rejected'
+    Assert-HcRejected { Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -AllowExistingVersion -SourceCommit ('a'*40) } 'draft source drift rejected'
     $hcDraft.target_commitish = 'a'*40
     $script:hcApiFixtures[$hcRepoPath].private = $true
-    Assert-HcRejected { Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -SourceCommit ('a'*40) } 'private repository rejected before build'
+    Assert-HcRejected { Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -AllowExistingVersion -SourceCommit ('a'*40) } 'private repository rejected before build'
     $script:hcApiFixtures[$hcRepoPath].private = $false
     $script:hcApiFixtures["$hcRepoPath/releases/latest"] = [pscustomobject]@{tag_name='v0.0.2'}
-    Assert-HcRejected { Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -SourceCommit ('a'*40) } 'older release cannot become latest'
+    Assert-HcRejected { Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -AllowExistingVersion -SourceCommit ('a'*40) } 'older release cannot become latest'
     $script:hcApiFixtures.Remove("$hcRepoPath/releases/latest")
     $script:hcApiFixtures["$hcRepoPath/git/ref/tags/v0.0.1"] = [pscustomobject]@{object=@{type='commit';sha=('b'*40)}}
-    Assert-HcRejected { Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -SourceCommit ('a'*40) } 'conflicting remote tag rejected'
+    Assert-HcRejected { Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -AllowExistingVersion -SourceCommit ('a'*40) } 'conflicting remote tag rejected'
     $script:hcApiFixtures.Remove("$hcRepoPath/git/ref/tags/v0.0.1")
 
     # A draft is invisible at /releases/tags but is visible in list/by-ID responses.
     $script:hcApiFixtures.Remove("$hcRepoPath/releases/tags/v0.0.1")
     $script:hcApiFixtures["$hcRepoPath/releases?per_page=100&page=1"] = @($hcDraft)
     $script:hcApiFixtures["$hcRepoPath/releases/123"] = $hcDraft
-    $hcDiscovered = Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -SourceCommit ('a'*40)
+    $hcDiscovered = Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -AllowExistingVersion -SourceCommit ('a'*40)
     Assert-HcTest ($hcDiscovered.id -eq 123) 'tag 404 discovers existing authenticated draft for retry'
     $hcDraft.assets = @([pscustomobject]@{name='latest.json';state='uploaded'})
     $script:hcApiCalls.Clear()
-    $hcRefreshed = Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -SourceCommit ('a'*40) -ReleaseId 123
+    $hcRefreshed = Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -AllowExistingVersion -SourceCommit ('a'*40) -ReleaseId 123
     Assert-HcTest ($hcRefreshed.assets.Count -eq 1 -and !$script:hcApiCalls.Contains("$hcRepoPath/releases/tags/v0.0.1")) 'post-upload refresh uses stable ID and sees prepared assets'
-    $script:hcApiFixtures["$hcRepoPath/releases?per_page=100&page=1"] = @(1..100 | ForEach-Object { [pscustomobject]@{id=(1000+$_);tag_name="v9.0.$_";draft=$false} })
+    $script:hcApiFixtures["$hcRepoPath/releases?per_page=100&page=1"] = @(1..100 | ForEach-Object { [pscustomobject]@{id=(1000+$_);tag_name="test-fixture-$_";draft=$false} })
     $script:hcApiFixtures["$hcRepoPath/releases?per_page=100&page=2"] = @($hcDraft)
-    $hcPaginated = Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -SourceCommit ('a'*40)
+    $hcPaginated = Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -AllowExistingVersion -SourceCommit ('a'*40)
     Assert-HcTest ($hcPaginated.id -eq 123) 'draft discovery follows later release pages'
+    $script:hcApiFixtures["$hcRepoPath/releases?per_page=100&page=2"] = @($hcDraft, [pscustomobject]@{id=456;tag_name='v0.0.9';draft=$true})
+    Assert-HcRejected { Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -AllowExistingVersion -SourceCommit ('a'*40) } 'higher draft on later page reserves its version even when latest is older'
+    $script:hcApiFixtures["$hcRepoPath/releases?per_page=100&page=2"][1].draft = $false
+    Assert-HcRejected { Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -AllowExistingVersion -SourceCommit ('a'*40) } 'higher nonlatest published release prevents a downgrade'
+    $script:hcApiFixtures["$hcRepoPath/releases?per_page=100&page=2"] = @($hcDraft, [pscustomobject]@{id=456;tag_name='v0.0.1';draft=$true})
+    Assert-HcRejected { Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -AllowExistingVersion -SourceCommit ('a'*40) -ReleaseId 123 } 'duplicate version reservation on any page blocks resume'
+    $script:hcApiFixtures["$hcRepoPath/releases?per_page=100&page=2"] = @($hcDraft)
+    $script:hcApiFixtures["$hcRepoPath/git/matching-refs/tags/"] = @([pscustomobject]@{ref='refs/tags/v0.0.9'}, [pscustomobject]@{ref='refs/tags/happycheats-publish-lock'})
+    Assert-HcRejected { Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -AllowExistingVersion -SourceCommit ('a'*40) } 'higher tag without a release reserves its version'
+    $script:hcApiFixtures["$hcRepoPath/git/matching-refs/tags/"] = @([pscustomobject]@{ref='refs/tags/0.0.1'})
+    Assert-HcRejected { Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -AllowExistingVersion -SourceCommit ('a'*40) } 'alternate tag spelling cannot reuse the same numeric version'
+    $script:hcApiFixtures["$hcRepoPath/git/matching-refs/tags/"] = @([pscustomobject]@{ref='refs/tags/happycheats-publish-lock'})
+    $null = Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -AllowExistingVersion -SourceCommit ('a'*40)
+    Assert-HcTest $true 'global publication lock tag is not a software version reservation'
     $hcDraft.tag_name = 'v0.0.2'
-    Assert-HcRejected { Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -SourceCommit ('a'*40) -ReleaseId 123 } 'refreshed ID cannot silently switch release tags'
+    Assert-HcRejected { Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -AllowExistingVersion -SourceCommit ('a'*40) -ReleaseId 123 } 'refreshed ID cannot silently switch release tags'
     $hcDraft.tag_name = 'v0.0.1'; $hcDraft.draft = $false
-    Assert-HcRejected { Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -SourceCommit ('a'*40) -ReleaseId 123 } 'draft published concurrently is rejected on refresh'
+    Assert-HcRejected { Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -AllowExistingVersion -SourceCommit ('a'*40) -ReleaseId 123 } 'draft published concurrently is rejected on refresh'
     $hcDraft.draft = $true; $hcDraft.target_commitish = 'b'*40
-    Assert-HcRejected { Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -SourceCommit ('a'*40) -ReleaseId 123 } 'refreshed draft source drift rejected'
+    Assert-HcRejected { Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -AllowExistingVersion -SourceCommit ('a'*40) -ReleaseId 123 } 'refreshed draft source drift rejected'
     $script:hcApiFixtures.Remove("$hcRepoPath/releases/123")
-    Assert-HcRejected { Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -SourceCommit ('a'*40) -ReleaseId 123 } 'missing prepared release ID fails explicitly'
+    Assert-HcRejected { Assert-HcGitHubPreflight -Client $null -Repository 'example/happycheats' -Version '0.0.1' -AllowExistingVersion -SourceCommit ('a'*40) -ReleaseId 123 } 'missing prepared release ID fails explicitly'
 
     # Mock Git at the process boundary: push chatter must never enter the returned SHA.
     $script:hcGitDirty = $false; $script:hcGitPushFails = $false; $script:hcPushCount = 0
-    $script:hcGitRemoteCommit = 'a'*40
+    $script:hcGitRemoteCommit = 'a'*40; $script:hcGitBranch = 'main'; $script:hcGitFetchFails = $false; $script:hcGitDiverged = $false
     function git {
         $global:LASTEXITCODE = 0
         switch ($args[2]) {
             'remote' { return 'https://github.com/example/happycheats.git' }
             'status' { if ($script:hcGitDirty) { return '?? unrelated-work.txt' }; return }
-            'rev-parse' { return ('a'*40) }
-            'symbolic-ref' { return 'main' }
+            'rev-parse' { if ($args[3] -ceq 'refs/remotes/origin/main') { return $script:hcGitRemoteCommit }; return ('a'*40) }
+            'symbolic-ref' { return $script:hcGitBranch }
+            'fetch' { if ($script:hcGitFetchFails) { $global:LASTEXITCODE = 1 }; return }
+            'merge-base' { if ($script:hcGitDiverged) { $global:LASTEXITCODE = 1 }; return }
             'push' {
                 $script:hcPushCount++
                 if ($script:hcGitPushFails) { $global:LASTEXITCODE = 1 }
@@ -208,6 +233,16 @@ try {
     Assert-HcRejected { Assert-HcReleaseSource -Root $hcTestRoot -Repository 'example/happycheats' -ExpectedCommit ('b'*40) } 'source HEAD drift blocks publication'
     $script:hcGitRemoteCommit = 'b'*40
     Assert-HcRejected { Assert-HcReleaseSource -Root $hcTestRoot -Repository 'example/happycheats' } 'remote branch must match local source'
+    $script:hcGitBranch = 'codex/new-feature'
+    $hcPreviousPushes = $script:hcPushCount
+    Assert-HcRejected { Assert-HcReleaseSource -Root $hcTestRoot -Repository 'example/happycheats' -Push } 'published task branch must be integrated into current main'
+    Assert-HcTest ($script:hcPushCount -eq $hcPreviousPushes) 'task branch cannot push unintegrated source as a release'
+    $script:hcGitBranch = 'main'; $script:hcGitDiverged = $true
+    Assert-HcRejected { Assert-HcReleaseSource -Root $hcTestRoot -Repository 'example/happycheats' -Push } 'diverged main rejects before push'
+    Assert-HcTest ($script:hcPushCount -eq $hcPreviousPushes) 'main cannot overwrite the other PC changes'
+    $script:hcGitDiverged = $false; $script:hcGitFetchFails = $true
+    Assert-HcRejected { Assert-HcReleaseSource -Root $hcTestRoot -Repository 'example/happycheats' } 'failed remote refresh cannot use stale main'
+    $script:hcGitFetchFails = $false
     $script:hcGitRemoteCommit = 'a'*40; $script:hcGitPushFails = $true
     Assert-HcRejected { Assert-HcReleaseSource -Root $hcTestRoot -Repository 'example/happycheats' -Push 6>$null } 'failed push aborts before release publication'
     $global:LASTEXITCODE = 0

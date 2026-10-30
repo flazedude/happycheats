@@ -28,17 +28,17 @@ try {
     $hcLock = [IO.File]::Open((Join-Path $hcLockDirectory 'publish.lock'), [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::Write, [IO.FileShare]::None)
     $hcClient = New-HcGitHubClient
     $hcExpectedCommit = & git -C $hcRoot rev-parse HEAD
-    $null = Assert-HcGitHubPreflight -Client $hcClient -Repository $GitHubRepository -Version $Version -SourceCommit $hcExpectedCommit
-    $hcSourceCommit = Assert-HcReleaseSource -Root $hcRoot -Repository $GitHubRepository -ExpectedCommit $hcExpectedCommit -Push
     $hcStageExists = Test-Path -LiteralPath (Join-Path $hcStageDirectory 'release.json')
-    $hcFeed = if ($hcConfig.PublicDirectory) { Join-Path $hcConfig.PublicDirectory 'latest.json' } else { $null }
+    $null = Assert-HcGitHubPreflight -Client $hcClient -Repository $GitHubRepository -Version $Version -SourceCommit $hcExpectedCommit -AllowExistingVersion:$hcStageExists -AllowPublishedResume:$hcStageExists
+    $hcSourceCommit = Assert-HcReleaseSource -Root $hcRoot -Repository $GitHubRepository -ExpectedCommit $hcExpectedCommit -Push
+    $hcFeed = if ($PublishLan -and $hcConfig.PublicDirectory) { Join-Path $hcConfig.PublicDirectory 'latest.json' } else { $null }
     if ($hcFeed -and (Test-Path -LiteralPath $hcFeed)) {
         $hcEnvelope = Get-Content -LiteralPath $hcFeed -Raw | ConvertFrom-Json
         $hcLast = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($hcEnvelope.payload)) | ConvertFrom-Json
         if ([Version]$Version -lt [Version]$hcLast.version -or ([Version]$Version -eq [Version]$hcLast.version -and !$hcStageExists)) { throw "Version must be newer than $($hcLast.version). An interrupted staged release may resume unchanged." }
     }
     if (!$hcStageExists) {
-        if ((Test-Path -LiteralPath $hcStageDirectory) -or ($hcConfig.PublicDirectory -and (Test-Path -LiteralPath (Join-Path $hcConfig.PublicDirectory $hcZipName)))) { throw 'This version already has release artifacts. Preserve them and choose a higher version.' }
+        if ((Test-Path -LiteralPath $hcStageDirectory) -or ($PublishLan -and $hcConfig.PublicDirectory -and (Test-Path -LiteralPath (Join-Path $hcConfig.PublicDirectory $hcZipName)))) { throw 'This version already has release artifacts. Preserve them and choose a higher version.' }
         $hcAppProject = [xml](Get-Content -LiteralPath (Join-Path $hcRoot 'src/HappyCheats.App/HappyCheats.App.csproj') -Raw)
         if ($hcAppProject.Project.PropertyGroup.Version -cne $Version) { throw 'App project version must match the requested release.' }
         $hcBuildFeed = if ($PublishLan) { $hcConfig.BaseUrl + '/latest.json' } else { $hcGitHubFeed }
@@ -75,9 +75,14 @@ try {
     $hcStage = Get-HcReleaseStage -Directory $hcStageDirectory -Version $Version -Repository $GitHubRepository
     if ($hcStage.commit -cne $hcSourceCommit -or (Test-HcReleaseIncludesLan $hcStage) -ne [bool]$PublishLan -or ($PublishLan -and $hcStage.lanBaseUrl -cne $hcConfig.BaseUrl)) { throw 'Staged source or publication targets changed. Resume using the original targets, or preserve the release stage and choose a new version.' }
     Assert-HcReleaseStageTrust -Directory $hcStageDirectory -Stage $hcStage -Config $hcConfig
-    # Complete standalone copies are restored from the immutable stage during a retry.
-    foreach ($hcName in @('HappyCheats.exe',"HappyCheats-$Version.exe")) {
-        Copy-Item -LiteralPath (Join-Path $hcStageDirectory "assets/$hcName") -Destination (Join-Path $hcRoot "dist/$hcName") -Force
+    # A retry may run after dist was removed or another version was built. Restore
+    # every required local artifact from the same verified immutable stage.
+    $hcDistDirectory = Join-Path $hcRoot 'dist'
+    New-Item -ItemType Directory -Path $hcDistDirectory -Force | Out-Null
+    foreach ($hcRelative in @('assets/HappyCheats.exe',"assets/HappyCheats-$Version.exe",
+        "assets/HappyCheats-$Version-win-x64-single-exe.zip", "assets/HappyCheats-$Version-win-x64-single-exe.zip.sha256",
+        "assets/$hcZipName.sha256", "github/$hcZipName")) {
+        Copy-Item -LiteralPath (Join-Path $hcStageDirectory $hcRelative) -Destination (Join-Path $hcDistDirectory ([IO.Path]::GetFileName($hcRelative))) -Force
     }
     & (Join-Path $PSScriptRoot 'Publish-GitHubUpdate.ps1') -Version $Version -GitHubRepository $GitHubRepository -ReleaseDirectory $hcStageDirectory -PrepareOnly
     $null = Assert-HcReleaseSource -Root $hcRoot -Repository $GitHubRepository -ExpectedCommit $hcSourceCommit

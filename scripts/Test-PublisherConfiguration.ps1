@@ -27,6 +27,68 @@ function New-HcConfigFeed([string]$Repository = 'flazedude/happycheats') {
     $hcSignature = $hcKey.SignData($hcBytes, [Security.Cryptography.HashAlgorithmName]::SHA256, [Security.Cryptography.RSASignaturePadding]::Pkcs1)
     return (@{ payload=[Convert]::ToBase64String($hcBytes); signature=[Convert]::ToBase64String($hcSignature) } | ConvertTo-Json)
 }
+function Test-HcPublicationRecovery {
+    # Execute the real coordinator in an isolated checkout. Only its external
+    # build/source/network boundaries are replaced; no credentials are requested.
+    $hcFixture = Join-Path $hcTestRoot 'publication-checkout'
+    $hcScripts = Join-Path $hcFixture 'scripts'
+    $hcStagePath = Join-Path $hcFixture 'artifacts/releases/1.2.3'
+    $hcRetiredPublic = Join-Path $hcFixture 'retired-public'
+    foreach ($hcPath in @($hcScripts, $hcRetiredPublic, (Join-Path $hcFixture 'src/HappyCheats.App'))) { New-Item -ItemType Directory -Path $hcPath -Force | Out-Null }
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Publish-Update.ps1') -Destination $hcScripts
+    [IO.File]::WriteAllText((Join-Path $hcFixture 'src/HappyCheats.App/HappyCheats.App.csproj'), '<Project><PropertyGroup><Version>1.2.3</Version></PropertyGroup></Project>')
+    [IO.File]::WriteAllText((Join-Path $hcRetiredPublic 'latest.json'), '{ malformed retired feed')
+    [IO.File]::WriteAllText((Join-Path $hcRetiredPublic 'HappyCheats-1.2.3-win-x64.zip'), 'old LAN archive')
+    foreach ($hcName in @('notes.txt','private-placeholder','public-placeholder')) { [IO.File]::WriteAllText((Join-Path $hcFixture $hcName), 'fixture') }
+    [IO.File]::WriteAllText((Join-Path $hcScripts 'GitHubRelease.Common.ps1'), @'
+function Get-HcPublisherConfiguration {
+    param($Root, $Repository, [switch]$RequireLan)
+    return [pscustomobject]@{ PrivateKeyPath=(Join-Path $Root 'private-placeholder'); PublicKeyPath=(Join-Path $Root 'public-placeholder'); PublicDirectory=(Join-Path $Root 'retired-public'); BaseUrl='http://192.168.2.76:17845/happycheats' }
+}
+function New-HcGitHubClient { return [IO.MemoryStream]::new() }
+function git { return ('a'*40) }
+function Assert-HcGitHubPreflight { param($Client, $Repository, $Version, $SourceCommit, [switch]$AllowExistingVersion, [switch]$AllowPublishedResume) }
+function Assert-HcReleaseSource { param($Root, $Repository, $ExpectedCommit, [switch]$Push); return ('a'*40) }
+function Get-HcReleaseStage { param($Directory, $Version, $Repository); return (Get-Content -LiteralPath (Join-Path $Directory 'release.json') -Raw | ConvertFrom-Json) }
+function Test-HcReleaseIncludesLan { param($Stage); return $Stage.publishLan }
+function Assert-HcReleaseStageTrust {
+    param($Directory, $Stage, $Config)
+    foreach ($item in $Stage.files) {
+        if ((Get-FileHash -LiteralPath (Join-Path $Directory $item.path)).Hash -cne $item.sha256) { throw 'Fixture stage bytes changed.' }
+    }
+    [IO.File]::WriteAllText((Join-Path $Directory 'verified.fixture'), 'verified')
+}
+'@)
+    [IO.File]::WriteAllText((Join-Path $hcScripts 'Build.ps1'), "throw 'Fixture reached build without retired LAN dependency.'")
+    [IO.File]::WriteAllText((Join-Path $hcScripts 'Publish-GitHubUpdate.ps1'), @'
+param($Version, $GitHubRepository, $ReleaseDirectory, [switch]$PrepareOnly)
+if (!(Test-Path -LiteralPath (Join-Path $ReleaseDirectory 'verified.fixture'))) { throw 'Coordinator must verify the stage before publication.' }
+'@)
+    $hcArguments = @{ Version='1.2.3'; NotesEnglish=(Join-Path $hcFixture 'notes.txt'); NotesChinese=(Join-Path $hcFixture 'notes.txt') }
+    $hcReachedBuild = $false
+    try { & (Join-Path $hcScripts 'Publish-Update.ps1') @hcArguments }
+    catch { $hcReachedBuild = $_.Exception.Message -ceq 'Fixture reached build without retired LAN dependency.' }
+    Assert-HcConfigTest $hcReachedBuild 'new GitHub release ignores malformed retired feed and conflicting LAN archive'
+    $hcFiles = @()
+    foreach ($hcRelative in @('assets/HappyCheats.exe','assets/HappyCheats-1.2.3.exe','assets/HappyCheats-1.2.3-win-x64-single-exe.zip',
+        'assets/HappyCheats-1.2.3-win-x64-single-exe.zip.sha256','assets/HappyCheats-1.2.3-win-x64.zip.sha256','github/HappyCheats-1.2.3-win-x64.zip')) {
+        $hcPath = Join-Path $hcStagePath $hcRelative
+        New-Item -ItemType Directory -Path (Split-Path $hcPath) -Force | Out-Null
+        [IO.File]::WriteAllText($hcPath, 'immutable fixture bytes: ' + $hcRelative)
+        $hcFiles += [pscustomobject]@{ path=$hcRelative; sha256=(Get-FileHash -LiteralPath $hcPath).Hash }
+    }
+    @{ commit=('a'*40); publishLan=$false; files=$hcFiles } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $hcStagePath 'release.json') -Encoding utf8NoBOM
+    $hcDist = Join-Path $hcFixture 'dist'
+    Assert-HcConfigTest (!(Test-Path -LiteralPath $hcDist)) 'recovery fixture starts without dist'
+    & (Join-Path $hcScripts 'Publish-Update.ps1') @hcArguments 6>$null | Out-Null
+    foreach ($hcFile in $hcFiles) {
+        $hcRestored = Join-Path $hcDist ([IO.Path]::GetFileName($hcFile.path))
+        Assert-HcConfigTest ((Get-FileHash -LiteralPath $hcRestored).Hash -ceq $hcFile.sha256) 'staged recovery restores each required EXE ZIP and checksum byte-for-byte'
+    }
+    [IO.File]::WriteAllText((Join-Path $hcDist 'HappyCheats.exe'), 'a later local build')
+    & (Join-Path $hcScripts 'Publish-Update.ps1') @hcArguments 6>$null | Out-Null
+    Assert-HcConfigTest ((Get-FileHash -LiteralPath (Join-Path $hcDist 'HappyCheats.exe')).Hash -ceq $hcFiles[0].sha256) 'repeated recovery restores the same staged bytes without rebuilding'
+}
 try {
     New-Item -ItemType Directory -Path (Join-Path $hcRoot 'artifacts/lan-updates') -Force | Out-Null
     [IO.File]::WriteAllText($hcPrivate, $hcKey.ExportPkcs8PrivateKeyPem())
@@ -41,6 +103,10 @@ try {
     Assert-HcConfigRejected { Get-HcPublisherConfiguration -Root $hcRoot -PublisherDirectory $hcLocal -Repository 'someone/else' } 'legacy config cannot be silently reused for another repository'
     Assert-HcConfigRejected { Get-HcSigningPublicIdentity -PrivateKeyPath $hcPrivate -PublicKeyPath $hcOtherPublic } 'mismatched key pair rejected'
     Assert-HcConfigRejected { Get-HcSigningPublicIdentity -PrivateKeyPath $hcPublic } 'public-only key cannot initialize signing'
+    Assert-HcConfigRejected { Get-HcSigningPublicIdentity -PrivateKeyPath $hcPrivate -PublicKeyPath $hcPrivate } 'matching private PEM cannot be embedded as the public verification key'
+    $hcMixedPublic = Join-Path $hcTestRoot 'mixed-public.pem'
+    [IO.File]::WriteAllText($hcMixedPublic, $hcKey.ExportSubjectPublicKeyInfoPem() + "`n" + $hcKey.ExportRSAPrivateKeyPem())
+    Assert-HcConfigRejected { Get-HcSigningPublicIdentity -PrivateKeyPath $hcPrivate -PublicKeyPath $hcMixedPublic } 'public PEM with appended RSA private material rejected'
     Assert-HcConfigRejected { Assert-HcPrivateKeyLocation -Path (Join-Path $hcRoot 'bad-private.pem') -Root $hcRoot } 'private key in checkout rejected'
     Assert-HcConfigRejected { Assert-HcPrivateKeyLocation -Path (Join-Path $hcTestRoot 'served/bad-private.pem') -Root $hcRoot -PublicDirectory (Join-Path $hcTestRoot 'served') } 'private key in served directory rejected'
     $hcFeed = New-HcConfigFeed
@@ -63,6 +129,16 @@ try {
     $hcLegacy.PrivateKeyPath = Join-Path $hcTestRoot 'missing-private.pem'
     $hcLegacy | ConvertTo-Json | Set-Content -LiteralPath $hcLegacyPath -Encoding utf8NoBOM
     Assert-HcConfigTest ((Get-HcPublisherConfiguration -Root $hcRoot -PublisherDirectory $hcLocal).PrivateKeyPath -ceq $hcConfig.PrivateKeyPath) 'preferred config does not depend on obsolete LAN key path'
+    [IO.File]::WriteAllText($hcLegacyPath, '{ malformed retired LAN configuration')
+    $hcWithoutLan = Get-HcPublisherConfiguration -Root $hcRoot -PublisherDirectory $hcLocal
+    Assert-HcConfigTest ($hcWithoutLan.PrivateKeyPath -ceq $hcConfig.PrivateKeyPath -and !$hcWithoutLan.PublicDirectory -and !$hcWithoutLan.BaseUrl) 'normal GitHub publisher ignores malformed LAN config and exposes no retired target'
+    Assert-HcConfigRejected { Get-HcPublisherConfiguration -Root $hcRoot -PublisherDirectory $hcLocal -RequireLan } 'explicit LAN publication still validates the saved host configuration'
+    Assert-HcConfigRejected { Get-HcPublisherConfiguration -Root $hcRoot -PublisherDirectory (Join-Path $hcTestRoot 'unconfigured-publisher') } 'legacy key discovery requires valid legacy configuration when no local publisher exists'
+    $hcLocalSettings = $hcLocalJson | ConvertFrom-Json
+    $hcLocalSettings.PublicKeyPath = $hcLocalSettings.PrivateKeyPath
+    $hcLocalSettings | ConvertTo-Json | Set-Content -LiteralPath $hcInstalled.ConfigurationPath -Encoding utf8NoBOM
+    Assert-HcConfigRejected { Get-HcPublisherConfiguration -Root $hcRoot -PublisherDirectory $hcLocal } 'publisher rejects a private key path in its public key setting before a build'
+    [IO.File]::WriteAllText($hcInstalled.ConfigurationPath, $hcLocalJson)
     $hcNewCheckout = Join-Path $hcTestRoot 'second-checkout'
     New-Item -ItemType Directory -Path $hcNewCheckout | Out-Null
     Assert-HcConfigTest ((Get-HcPublisherConfiguration -Root $hcNewCheckout -PublisherDirectory $hcLocal).Repository -ceq 'flazedude/happycheats') 'new checkout publishes with no LAN configuration'
@@ -74,6 +150,7 @@ try {
     $hcConflictHash = (Get-FileHash -LiteralPath $hcConflictKeyPath).Hash
     Assert-HcConfigRejected { Initialize-HcPublisherConfiguration -Root $hcNewCheckout -Repository 'flazedude/happycheats' -PrivateKeyPath $hcPrivate -EnvelopeJson $hcFeed -PublisherDirectory $hcConflictDirectory } 'conflicting existing private key cannot be overwritten'
     Assert-HcConfigTest ((Get-FileHash -LiteralPath $hcConflictKeyPath).Hash -ceq $hcConflictHash -and !(Test-Path -LiteralPath (Join-Path $hcConflictDirectory 'publisher.json'))) 'conflicting destination preserved without installing config'
+    Test-HcPublicationRecovery
     Write-Host "Publisher configuration offline checks passed: $hcCount. No live keys, credentials, network or release publishing used."
 } finally {
     $hcKey.Dispose(); $hcOtherKey.Dispose()

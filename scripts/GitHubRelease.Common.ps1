@@ -72,12 +72,20 @@ function Assert-HcReleaseSource {
     if ($ExpectedCommit -and $hcCommit -cne $ExpectedCommit) { throw 'Source HEAD changed after the release was prepared. Do not publish a different commit under this version.' }
     $hcBranch = & git -C $Root symbolic-ref --quiet --short HEAD
     if ($LASTEXITCODE -ne 0 -or !$hcBranch) { throw 'Publish from a named branch with the reviewed release commit.' }
-    if ($Push) {
-        & git -C $Root push --porcelain origin ($hcCommit + ':refs/heads/' + $hcBranch) | Out-Host
+    # Fetch main on every check: another PC may have integrated work since this
+    # build began. A published task branch alone is not integrated release source.
+    & git -C $Root fetch --no-tags origin 'refs/heads/main:refs/remotes/origin/main' | Out-Host
+    if ($LASTEXITCODE -ne 0) { throw 'Could not refresh origin/main before publication.' }
+    $hcMainCommit = & git -C $Root rev-parse refs/remotes/origin/main
+    if ($LASTEXITCODE -ne 0 -or $hcMainCommit -cnotmatch '^[0-9a-f]{40}$') { throw 'Cannot determine integrated origin/main source.' }
+    if ($Push -and $hcBranch -ceq 'main') {
+        & git -C $Root merge-base --is-ancestor $hcMainCommit $hcCommit
+        if ($LASTEXITCODE -ne 0) { throw 'Release source omits or diverges from origin/main. Integrate the other PC changes before publishing.' }
+        & git -C $Root push --porcelain origin ($hcCommit + ':refs/heads/main') | Out-Host
         if ($LASTEXITCODE -ne 0) { throw 'Pushing the reviewed release commit failed. No release was published.' }
     }
-    $hcRemoteHead = & git -C $Root ls-remote --exit-code origin ('refs/heads/' + $hcBranch)
-    if ($LASTEXITCODE -ne 0 -or !$hcRemoteHead -or ($hcRemoteHead -split '\s+')[0] -cne $hcCommit) { throw 'GitHub branch HEAD must match the local release commit. Push the reviewed source first.' }
+    $hcRemoteHead = & git -C $Root ls-remote --exit-code origin refs/heads/main
+    if ($LASTEXITCODE -ne 0 -or !$hcRemoteHead -or ($hcRemoteHead -split '\s+')[0] -cne $hcCommit) { throw 'Release source must match the current origin/main commit. Integrate and push reviewed work before publishing; rebuild if main advanced.' }
     return $hcCommit
 }
 
@@ -109,17 +117,43 @@ function Get-HcGitHubRelease {
 }
 
 function Assert-HcGitHubPreflight {
-    param([Net.Http.HttpClient]$Client, [string]$Repository, [string]$Version, [string]$SourceCommit, [long]$ReleaseId)
+    param([Net.Http.HttpClient]$Client, [string]$Repository, [string]$Version, [string]$SourceCommit, [long]$ReleaseId, [switch]$AllowExistingVersion, [switch]$AllowPublishedResume)
     if ($Repository -cnotmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$' -or $Version -cnotmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$') { throw 'Invalid repository or release version.' }
     $hcRepo = Invoke-HcGitHub -Client $Client -Path "/repos/$Repository"
     if ($hcRepo.private -or $hcRepo.archived -or !$hcRepo.permissions.push) { throw 'GitHub releases require a public, writable, unarchived repository. No visibility change is made by this script.' }
     $hcRelease = Get-HcGitHubRelease -Client $Client -Repository $Repository -Version $Version -ReleaseId $ReleaseId
-    if ($hcRelease -and !$hcRelease.draft) { throw "GitHub v$Version is already published; immutable releases cannot be overwritten." }
-    if ($hcRelease -and $SourceCommit -and $hcRelease.target_commitish -cne $SourceCommit) { throw 'Existing draft belongs to a different source commit.' }
+    $hcPublishedResume = $hcRelease -and !$hcRelease.draft -and $AllowPublishedResume
+    if ($hcRelease -and !$hcRelease.draft -and !$hcPublishedResume) { throw "GitHub v$Version is already published; immutable releases cannot be overwritten." }
+    if ($hcRelease -and !$AllowExistingVersion -and !$hcPublishedResume) { throw 'This version is already reserved by a GitHub draft. Resume its original verified stage, or choose a higher unused version.' }
+    if (($hcRelease -or $AllowExistingVersion -or $AllowPublishedResume) -and $SourceCommit -cnotmatch '^[0-9a-f]{40}$') { throw 'Resuming a reserved version requires its exact source commit.' }
+    if ($hcRelease -and $SourceCommit -and $hcRelease.target_commitish -cne $SourceCommit) { throw 'Existing release belongs to a different source commit.' }
+    # /releases/latest is not a maximum: drafts, prereleases and releases marked
+    # nonlatest can reserve higher versions. Inspect every authenticated page.
+    for ($hcPage = 1; ; $hcPage++) {
+        $hcReleases = @(Invoke-HcGitHub -Client $Client -Path "/repos/$Repository/releases?per_page=100&page=$hcPage" | Where-Object { $null -ne $_ })
+        foreach ($hcOther in $hcReleases) {
+            if ($hcOther.tag_name -cmatch '^v?((0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))$') {
+                $hcReservedVersion = [Version]$Matches[1]
+                if (!$hcPublishedResume -and $hcReservedVersion -gt [Version]$Version) { throw "Version must be newer than reserved GitHub release $($hcOther.tag_name), including drafts." }
+                if ($hcReservedVersion -eq [Version]$Version -and (!$hcRelease -or $hcOther.id -ne $hcRelease.id -or $hcOther.tag_name -cne "v$Version")) { throw 'Another GitHub release reserves this version. Preserve its artifacts and choose a higher version.' }
+            }
+        }
+        if ($hcReleases.Count -lt 100) { break }
+    }
+    $hcTags = @(Invoke-HcGitHub -Client $Client -Path "/repos/$Repository/git/matching-refs/tags/" | Where-Object { $null -ne $_ })
+    foreach ($hcReservedTag in $hcTags) {
+        if ($hcReservedTag.ref -cmatch '^refs/tags/v?((0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))$') {
+            $hcReservedVersion = [Version]$Matches[1]
+            if (!$hcPublishedResume -and $hcReservedVersion -gt [Version]$Version) { throw "Version must be newer than reserved GitHub tag $($hcReservedTag.ref)." }
+            if ($hcReservedVersion -eq [Version]$Version -and ((!$AllowExistingVersion -and !$hcPublishedResume) -or $hcReservedTag.ref -cne "refs/tags/v$Version")) { throw 'This version is already reserved by a GitHub tag. Resume its original verified stage, or choose a higher unused version.' }
+        }
+    }
     $hcLatest = Invoke-HcGitHub -Client $Client -Path "/repos/$Repository/releases/latest" -AllowNotFound
-    if ($hcLatest -and $hcLatest.tag_name -match '^v?(\d+\.\d+\.\d+)$' -and [Version]$Version -le [Version]$Matches[1]) { throw "Version must be newer than the latest GitHub release $($hcLatest.tag_name)." }
+    if (!$hcPublishedResume -and $hcLatest -and $hcLatest.tag_name -match '^v?(\d+\.\d+\.\d+)$' -and [Version]$Version -le [Version]$Matches[1]) { throw "Version must be newer than the latest GitHub release $($hcLatest.tag_name)." }
     $hcTag = Invoke-HcGitHub -Client $Client -Path "/repos/$Repository/git/ref/tags/v$Version" -AllowNotFound
+    if ($hcPublishedResume -and !$hcTag) { throw 'Published release is missing its source tag; verification cannot resume safely.' }
     if ($hcTag) {
+        if (!$AllowExistingVersion -and !$hcPublishedResume) { throw 'This version already has a remote tag. A new build must use an unused higher version.' }
         $hcObject = $hcTag.object
         for ($hcDepth = 0; $hcObject.type -eq 'tag' -and $hcDepth -lt 8; $hcDepth++) {
             $hcObject = (Invoke-HcGitHub -Client $Client -Path "/repos/$Repository/git/tags/$($hcObject.sha)").object

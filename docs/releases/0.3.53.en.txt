@@ -1,0 +1,11 @@
+HappyCheats 0.3.53 — shared development and GitHub updates
+
+Combines the changes from both development PCs in one complete release. Official clients use signed GitHub updates directly, including a narrowly scoped migration of the original LAN configuration when its trusted key and channel match. Custom update endpoints and signing identities are preserved. Downloads no longer depend on a publishing PC staying on.
+
+Includes Dawnwalker trainer 0.4.1 for Steam build 25915545 / patch 3. Super damage now accepts zero-base attributes with active evaluated multipliers, requests a 10x evaluated result and verifies it before reporting success. Failed confirmation restores only changes still owned by the trainer. A read-only inspection of a loaded player confirmed zero bases with positive evaluated values; actual damage in combat remains unverified. Phantom Blade Zero 0.1.1's loader startup correction is also included.
+
+Either configured PC can develop and publish through the same repository using its own authentication and a private copy of the original signing key. Separate task branches are integrated into main. Publishing checks the integrated source and reserved versions, and a shared GitHub lock prevents concurrent publication. GitHub-only setup ignores unrelated retired LAN configuration, rejects private-key material in a public-key path and restores complete distributions from verified staged artifacts during recovery.
+
+Both complete formats include all seventeen trainer payloads, the updater and runtimes. Close the affected game and select Install / update to apply a trainer correction; updating the client alone does not replace files inside the game. Shared Ctrl+Del and Menu+RB controls are unchanged.
+
+Validation includes offline update migration/security, release coordination, installer, client, shared-menu and controller tests, the rebuilt Dawnwalker and Phantom Blade payloads, and complete-package checks. Hosted signature/download/hash checks and packaged-client smoke checks are performed during publication. Gameplay and physical-controller behavior remain unverified. No games are launched or saves changed by release verification.
