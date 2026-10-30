@@ -7,6 +7,7 @@ $hcRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $hcStateRoot = Join-Path $hcRoot 'artifacts/lan-updates'
 if (!$ConfigPath) { $ConfigPath = Join-Path $hcStateRoot 'server.json' }
 $hcConfig = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
+$hcConfig = Get-HcLanMirrorVerificationConfiguration $hcConfig
 $hcFeedName = Get-HcLanFeedAsset $hcConfig.BaseUrl
 $null = Get-HcOfficialFeedUrls $GitHubRepository
 $hcLock = $null; $hcKey = $null; $hcClient = $null

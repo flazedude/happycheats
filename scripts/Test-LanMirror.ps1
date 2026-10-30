@@ -44,6 +44,11 @@ try {
     $hcManifest = Read-HcMirrorManifest -Path $hcManifestPath -Key $hcKey -Repository $hcRepository
     Assert-HcMirrorTest ($hcManifest.assets.Count -eq 9 -and $hcManifest.commit -ceq $hcCommit) 'signed metadata binds both feeds all distribution assets and source'
     $hcConfig = [pscustomobject]@{ BaseUrl='http://192.168.2.59:17845/happycheats'; PublicDirectory=(Join-Path $hcTestRoot 'public-59'); PublicKeyPath=$hcPublicPath }
+    $hcTaskConfig=[pscustomobject]@{BaseUrl=$hcConfig.BaseUrl;PublicDirectory=$hcConfig.PublicDirectory;PublicKeyPath=(Join-Path $hcTestRoot 'inaccessible-publisher-profile/public.pem');PrivateKeyPath=(Join-Path $hcTestRoot 'private-never-read.pem');MirrorPublicKeyPath=$hcPublicPath;MirrorPublicKeySha256=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($hcKey.ExportSubjectPublicKeyInfo())).ToLowerInvariant()}
+    $hcEffective=Get-HcLanMirrorVerificationConfiguration $hcTaskConfig
+    Assert-HcMirrorTest ($hcEffective.PublicKeyPath -ceq $hcPublicPath -and $hcTaskConfig.PublicKeyPath -cne $hcPublicPath) 'task verification uses the bound public copy without opening or changing original profile paths'
+    $hcTaskConfig.MirrorPublicKeySha256='0'*64
+    Assert-HcMirrorRejected { Get-HcLanMirrorVerificationConfiguration $hcTaskConfig } 'task public copy identity mismatch fails closed'
     $hcStage = [pscustomobject]@{ schemaVersion=3; version=$hcVersion;repository=$hcRepository;commit=$hcCommit;publishLan=$true;lanBaseUrls=@('http://192.168.2.76:17845/happycheats','http://192.168.2.59:17845/happycheats');feedUrls=$hcFeedUrls }
     $hcUploadFiles = @(foreach ($hcName in (@(Get-HcMirrorAssetNames $hcVersion) + @('mirror.json'))) { [pscustomobject]@{path=('assets/' + $hcName);upload=$true} })
     $hcStage | Add-Member -NotePropertyName files -NotePropertyValue $hcUploadFiles
