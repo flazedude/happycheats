@@ -976,6 +976,7 @@ public sealed class FeatureItem : INotifyPropertyChanged
     private bool _active;
     private bool _unavailable, _connected, _working, _initializationFailed;
     private bool _witcherControlPending;
+    private string? _unavailableReason;
     private string _numberText;
     private string? _confirmedNumber;
     private string? _numberErrorKey;
@@ -1018,6 +1019,8 @@ public sealed class FeatureItem : INotifyPropertyChanged
     public Visibility NumberErrorVisibility => _numberErrorKey == null ? Visibility.Collapsed : Visibility.Visible;
     public string StateLabel => _witcherControlPending && _working
         ? Localization.Choose("Queued", "已排队")
+        : !_working && _connected && _unavailable && _unavailableReason != null
+            ? Localization.Message(_unavailableReason)
         : Localization.Text(_working ? "pleaseWait" : _unavailable ? "sceneUnavailable" : !CanUse ? (_connected ? (_initializationFailed ? "initializationFailed" : "waitingGameplay") : "waitingGame") : Definition.IsToggle ? (_active ? "enabled" : "off") : "ready");
     public string ActionLabel => Localization.Text(Definition.IsToggle ? (_active ? "turnOff" : "turnOn") : "apply");
     public Brush StateBrush => ThemeManager.Brush(_active && CanUse ? "SuccessBrush" : "MutedBrush");
@@ -1060,6 +1063,10 @@ public sealed class FeatureItem : INotifyPropertyChanged
             || status?.Values.TryGetValue("gta_online", out var gtaOnline) == true && gtaOnline == bool.FalseString;
         cleanup |= Definition.Id.StartsWith("gta_", StringComparison.Ordinal) && gtaStory && Definition.IsToggle && _active;
         if (cleanup) _unavailable = false;
+        _unavailableReason = _connected && _unavailable
+            && Definition.Id is "crimson_teleport" or "crimson_auto_teleport" or "crimson_speed"
+            && status!.Values.TryGetValue("reason_" + Definition.Id, out var reason)
+            && !string.IsNullOrWhiteSpace(reason) && reason.Length <= 160 ? reason : null;
         CanUse = available && _connected && gtaStory && (cleanup || status?.Ready == true && !_unavailable);
         var confirmedChoice = status?.Connected == true && Definition.ChoiceValueKey is { } key
             && status.Values.TryGetValue(key, out var selected) ? selected : null;

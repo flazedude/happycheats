@@ -56,6 +56,7 @@ internal static class Program
             if (args.Contains("--crimson"))
             {
                 ValidateCrimsonAutoTeleport(main);
+                ValidateCrimsonUnavailableReasons(main, artifacts);
                 ValidateCrimsonInitializationFailure(main);
                 ValidateCrimsonTeleportReporting(main);
             }
@@ -100,6 +101,7 @@ internal static class Program
             Results.Add(ControllerMenuChecks.Run(root));
             Results.Add(BackgroundUpdateUiChecks.Run(root));
             ValidateCrimsonAutoTeleport(main);
+            ValidateCrimsonUnavailableReasons(main, artifacts);
             ValidateWukongControls(main, artifacts);
             ValidateRdr2Controls(main, artifacts);
             Results.Add(GtaVUiChecks.Run(main, artifacts));
@@ -374,6 +376,131 @@ internal static class Program
             busyField.SetValue(main, originalBusy);
             refresh.Invoke(main, null);
         }
+    }
+
+    private static void ValidateCrimsonUnavailableReasons(MainWindow main, string? artifacts)
+    {
+        main.SetLanguage("en", persist: false);
+        main.SelectGame("crimson-desert");
+        Layout(main);
+        var game = main.Selected!;
+        var originalStatus = game.Status;
+        var busyField = typeof(MainWindow).GetField("_busy", Private)!;
+        var originalBusy = (bool)busyField.GetValue(main)!;
+        var originalWidth = main.Width;
+        var originalHeight = main.Height;
+        var refresh = typeof(MainWindow).GetMethod("RefreshBindings", Private)!;
+        var features = main.Features.Where(item => item.Definition.Id is "crimson_teleport" or "crimson_auto_teleport" or "crimson_speed").ToArray();
+        var overlay = new GameOverlay(_ => Task.CompletedTask, _ => Task.CompletedTask, () => { })
+        {
+            Left = -32000, Top = -32000, Width = 380, Height = 448, ShowActivated = false, ShowInTaskbar = false
+        };
+        var reasons = new[]
+        {
+            ("The controlled client player is not recognized.", "无法识别当前受控角色的客户端对象。"),
+            ("The controlled player is not recognized.", "无法识别当前受控角色。"),
+            ("The player movement component is unavailable.", "角色移动组件不可用。"),
+            ("The map teleport context is unavailable.", "地图传送对象或坐标暂不可用。"),
+            ("Place a custom map marker first.", "请先放置自定义地图标记。"),
+            ("The marker teleport hooks are unavailable.", "地图标记传送绑定不可用。"),
+            ("The movement hook is unavailable.", "角色移动绑定不可用。")
+        };
+        TrainerStatus Unavailable(string reason) => new(true, true, "Connected", "crimson-reason-test",
+            new Dictionary<string, bool>(), features.SelectMany(item => new[]
+            {
+                new KeyValuePair<string, string>("available_" + item.Definition.Id, bool.FalseString),
+                new KeyValuePair<string, string>("reason_" + item.Definition.Id, reason)
+            }).ToDictionary(pair => pair.Key, pair => pair.Value));
+        void Update(TrainerStatus status, bool busy = false)
+        {
+            game.Status = status;
+            busyField.SetValue(main, busy);
+            refresh.Invoke(main, null);
+            Layout(main);
+        }
+        try
+        {
+            foreach (var language in new[] { "en", "zh" })
+            {
+                main.SetLanguage(language, persist: false);
+                foreach (var (english, chinese) in reasons)
+                {
+                    Update(Unavailable(english));
+                    var expected = language == "en" ? english : chinese;
+                    foreach (var feature in features)
+                    {
+                        Check(!feature.CanUse && feature.StateLabel == expected,
+                            "Crimson unavailable reason was lost, untranslated, or enabled a control.");
+                        Check(Descendants<Button>(main).Single(item => ReferenceEquals(item.Tag, feature)).IsEnabled == false
+                            && Descendants<TextBlock>(main).Any(item => ReferenceEquals(item.DataContext, feature) && item.Text == expected),
+                            "Crimson unavailable reason did not reach its disabled bound UI row.");
+                    }
+                    Check(!main.ValuesLine.Contains("reason_", StringComparison.OrdinalIgnoreCase)
+                        && !main.ValuesLine.Contains(expected), "Crimson unavailable reason leaked into raw values.");
+                }
+            }
+            main.SetLanguage("en", persist: false);
+            var unavailable = Unavailable(reasons[0].Item1);
+            Update(unavailable, busy: true);
+            Check(features.All(item => !item.CanUse && item.StateLabel == "Please wait…"),
+                "A Crimson unavailable reason replaced the pending-command status.");
+            Update(unavailable with { Connected = false });
+            Check(features.All(item => !item.CanUse && item.StateLabel != reasons[0].Item1),
+                "A stale Crimson unavailable reason survived disconnect.");
+            Update(unavailable with { Ready = false });
+            Check(features.All(item => !item.CanUse && item.StateLabel == "Waiting for gameplay"),
+                "A stale Crimson unavailable reason survived loss of readiness.");
+            Update(unavailable with { Enabled = new Dictionary<string, bool> { ["crimson_auto_teleport"] = true } });
+            var auto = features.Single(item => item.Definition.Id == "crimson_auto_teleport");
+            Check(auto.CanUse && auto.ActionLabel == "Turn off" && auto.StateLabel == "●  Enabled",
+                "A Crimson unavailable reason prevented active auto-teleport cleanup.");
+            Update(unavailable with { Values = unavailable.Values.ToDictionary(pair => pair.Key,
+                pair => pair.Key.StartsWith("available_", StringComparison.Ordinal) ? bool.TrueString : pair.Value) });
+            Check(features.All(item => item.CanUse && item.StateLabel != reasons[0].Item1),
+                "A stale Crimson unavailable reason survived restored availability.");
+            foreach (var invalidReason in new[] { "", " ", new string('x', 161) })
+            {
+                Update(Unavailable(invalidReason));
+                Check(features.All(item => !item.CanUse && item.StateLabel == "Unavailable in this scene"),
+                    "A missing or unbounded Crimson reason did not use the safe fallback label.");
+            }
+            foreach (var language in new[] { "en", "zh" })
+            {
+                main.SetLanguage(language, persist: false);
+                foreach (var (width, height) in new[] { (1180, 820), (800, 480) })
+                {
+                    main.Width = width; main.Height = height;
+                    Update(unavailable);
+                    var labels = Descendants<TextBlock>(main).Where(item => item.DataContext is FeatureItem feature
+                        && features.Contains(feature) && item.Text == feature.StateLabel).ToArray();
+                    Check(labels.Length == features.Length && labels.All(LabelFits), "Crimson reason is clipped in a main-window row.");
+                    labels[0].BringIntoView(); Layout(main);
+                    if (artifacts != null) Capture(main, Path.Combine(artifacts, $"crimson-reason-main-{width}-{language}.png"));
+                }
+                overlay.Refresh(game, features, false, true, "Synthetic unavailable-reason layout check");
+                if (!overlay.IsVisible) overlay.Show();
+                Layout(overlay);
+                var overlayLabels = Descendants<TextBlock>(overlay).Where(item => item.Text == features[0].StateLabel).ToArray();
+                Check(overlayLabels.Length == features.Length && overlayLabels.All(LabelFits), "Crimson reason is clipped in a shared-menu row.");
+                Check(Descendants<Button>(overlay).Where(item => item.Tag is FeatureItem).All(item => !item.IsEnabled),
+                    "The shared menu enabled a Crimson action while displaying an unavailable reason.");
+                if (artifacts != null) Capture(overlay, Path.Combine(artifacts, $"crimson-reason-menu-{language}.png"));
+            }
+            Results.Add(new { Screen = "crimson-unavailable-reasons", EnglishAndChinese = true,
+                NativeReasonsBound = true, MainAndSharedMenuLayout = true, AvailabilityUnchanged = true, CleanupPreserved = true, NoGameCommands = true });
+        }
+        finally
+        {
+            overlay.Close();
+            main.Width = originalWidth; main.Height = originalHeight;
+            game.Status = originalStatus;
+            busyField.SetValue(main, originalBusy);
+            refresh.Invoke(main, null);
+        }
+        static bool LabelFits(TextBlock label) => label.TextWrapping == TextWrapping.Wrap
+            && label.ActualWidth > 0 && label.ActualHeight > 0
+            && label.DesiredSize.Width <= label.ActualWidth + label.Margin.Left + label.Margin.Right + 1
+            && label.DesiredSize.Height <= label.ActualHeight + label.Margin.Top + label.Margin.Bottom + 1;
     }
 
     private static void ValidateCrimsonInitializationFailure(MainWindow main)

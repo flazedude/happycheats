@@ -139,6 +139,33 @@ int main() {
     componentAddress=component.address(); proxyAddress=proxy.address(); navAddress=nav.address();
     g_syncProxy=Sync; g_originalLoco=Loco; g_originalOuterMove=Outer;
 
+    // Exercise the production resolver for both proven classes. The ChildOnly
+    // profile reproduces Kliff's read-only PE3424 capture, previously rejected.
+    for(const uintptr_t vtableRva:{uintptr_t{0x59056D8},uintptr_t{0x5905BE0}}) {
+        clientBody.owner.Put(0,g_game+vtableRva);
+        Begin(server,client);
+        assert(FeatureAvailable("crimson_speed") && FeatureAvailable("crimson_teleport") && FeatureAvailable("crimson_auto_teleport"));
+        DisableAll();
+        assert(Write(nav.address()+0x1E8,Position{}));
+        assert(!FeatureAvailable("crimson_teleport") && FeatureAvailable("crimson_auto_teleport"));
+        assert(std::string(FeatureUnavailableReason("crimson_teleport"))=="Place a custom map marker first.");
+        std::string result; assert(SetAutoTeleport(true,result)); // No movement tick needed to arm while the map pauses movement.
+        clientBody.owner.Put(0x94,std::uint8_t{0});
+        assert(!FeatureAvailable("crimson_speed") && !FeatureAvailable("crimson_auto_teleport"));
+        assert(std::string(FeatureUnavailableReason("crimson_auto_teleport"))=="The controlled client player is not recognized.");
+        RefreshWarpState(); assert(!g_markerPolicy.Enabled());
+        clientBody.owner.Put(0x94,std::uint8_t{1});
+        Begin(server,client); SixUpdates(); OuterMoveHook(componentAddress,0.125f);
+        assert(syncCalls==6 && g_warpObservation==WarpObservation::ObservedNearMarker);
+    }
+    // Continue the complete correction/cancellation suite with Kliff's class.
+    clientBody.owner.Put(0,g_game+uintptr_t{0x5905BE0});
+    Begin(server,client);
+    clientBody.owner.Put(0,g_game+uintptr_t{0x5ED7E30});
+    assert(!FeatureAvailable("crimson_speed") && !FeatureAvailable("crimson_teleport"));
+    RefreshWarpState(); assert(!g_warpPending.load());
+    clientBody.owner.Put(0,g_game+uintptr_t{0x5905BE0});
+
     Begin(server,client);
     g_outerReady=false; assert(!FeatureAvailable("crimson_teleport") && !FeatureAvailable("crimson_auto_teleport"));
     g_outerReady=true; g_locoReady=false; assert(FeatureAvailable("crimson_teleport")); g_locoReady=true;

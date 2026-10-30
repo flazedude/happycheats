@@ -383,10 +383,11 @@ bool CurrentPlayer(Player& player) {
 }
 bool ResolveClientPlayer(Client& client) {
     // This is the world-map's current client-owner accessor, not either server
-    // character-manager global. The Normal class and current engine local-self
+    // character-manager global. Normal/ChildOnly and the engine local-self
     // predicate are pinned to PE3424; a different class or self-user is rejected.
     return g_clientBindingReady.load() && crimson_logic::ResolveControlledClientAnchor(g_game+crimson_logic::ClientRootRva,
-        g_game+crimson_logic::ClientOwnerVtableRva,Pointer,Read<std::uint8_t>,client.anchor) &&
+        g_game+crimson_logic::ClientOwnerVtableRva,Pointer,Read<std::uint8_t>,client.anchor,
+        g_game+crimson_logic::ClientChildOwnerVtableRva) &&
         ValidatePlayer(client.anchor.owner,client.player);
 }
 bool CurrentClientPlayer(Client& client) {
@@ -841,16 +842,18 @@ bool ValidateClientBindings() {
     const std::array<unsigned char,15> getter{{0x48,0x89,0x5C,0x24,0x08,0x48,0x89,0x54,0x24,0x10,
         0x57,0x48,0x83,0xEC,0x30}};
     const std::array<unsigned char,4> field{{0x48,0x8B,0x79,0x50}};
-    // RTTI and the current constructor establish ClientNormalInGameActor's
-    // primary vtable. Its +178 method supplies an independent local-self check.
+    // RTTI and current constructors establish Normal and ChildOnly primary
+    // vtables. Both +178 slots use the same independent local-self predicate.
     const std::array<unsigned char,39> localControl{{0x48,0x8B,0x05,0x79,0xC9,0xBF,0x06,0x48,0x8B,0x50,0x30,
         0x48,0x8B,0x81,0xA0,0x00,0x00,0x00,0x48,0x39,0x42,0x58,0x75,0x0C,0x80,0xB9,0x94,0x00,0x00,0x00,
         0x00,0x74,0x03,0xB0,0x01,0xC3,0x32,0xC0,0xC3}};
-    uintptr_t localControlTarget{};
+    uintptr_t localControlTarget{},childLocalControlTarget{};
     return Matches(g_game+0xF6445E,caller) && Matches(g_game+0x99C9F0,getter) && Matches(g_game+0x99CA0A,field) &&
         Matches(g_game+crimson_logic::ClientLocalControlRva,localControl) &&
         Pointer(g_game+crimson_logic::ClientOwnerVtableRva+0x178,localControlTarget) &&
-        localControlTarget==g_game+crimson_logic::ClientLocalControlRva;
+        localControlTarget==g_game+crimson_logic::ClientLocalControlRva &&
+        Pointer(g_game+crimson_logic::ClientChildOwnerVtableRva+0x178,childLocalControlTarget) &&
+        childLocalControlTarget==g_game+crimson_logic::ClientLocalControlRva;
 }
 bool ValidateExecutableHash() {
     wchar_t path[32768]{};
@@ -976,23 +979,33 @@ bool LeaseFresh() {
     g_leaseDeadline.store(GetTickCount64()+(kLeaseTicks-age)/10000ULL);
     return true;
 }
-bool FeatureAvailable(const std::string& feature) {
-    if (!g_playerReady.load()) return false;
-    if (feature == "crimson_health" || feature == "crimson_stamina" || feature == "crimson_spirit") return g_commitReady.load();
-    if (feature == "crimson_one_hit") return g_damageReady.load();
+const char* FeatureUnavailableReason(const std::string& feature) {
+    if (!g_playerReady.load()) return "The controlled player is not recognized.";
+    if (feature == "crimson_health" || feature == "crimson_stamina" || feature == "crimson_spirit")
+        return g_commitReady.load() ? nullptr : "The stat hook is unavailable.";
+    if (feature == "crimson_one_hit") return g_damageReady.load() ? nullptr : "The damage hook is unavailable.";
     if (feature == "crimson_speed") {
         Player server{}; Client client{}; uintptr_t component{};
-        return g_locoReady.load() && CurrentPlayer(server) && CurrentClientPlayer(client) && MovementComponent(client.player,component);
+        if(!g_locoReady.load()) return "The movement hook is unavailable.";
+        if(!CurrentPlayer(server)) return "The controlled player is not recognized.";
+        if(!CurrentClientPlayer(client)) return "The controlled client player is not recognized.";
+        return MovementComponent(client.player,component) ? nullptr : "The player movement component is unavailable.";
     }
     if(feature=="crimson_auto_teleport" || feature=="crimson_teleport") {
         WarpContext context{};
-        if(!g_markerReady.load() || !g_outerReady.load() || !WarpSnapshot(context)) return false;
-        if(feature=="crimson_auto_teleport") return true; // Arming must work BEFORE placing a marker.
+        if(!g_markerReady.load() || !g_outerReady.load()) return "The marker teleport hooks are unavailable.";
+        if(!CurrentPlayer(context.player)) return "The controlled player is not recognized.";
+        if(!CurrentClientPlayer(context.client)) return "The controlled client player is not recognized.";
+        if(!MovementComponent(context.client.player,context.component)) return "The player movement component is unavailable.";
+        if(!WarpSnapshot(context)) return "The map teleport context is unavailable.";
+        if(feature=="crimson_auto_teleport") return nullptr; // Arming must work BEFORE placing a marker.
         Position marker{};
-        return Read(context.nav+0x1E8,marker) && crimson_logic::MarkerPosition(marker);
+        if(!Read(context.nav+0x1E8,marker)) return "The map teleport context is unavailable.";
+        return crimson_logic::MarkerPosition(marker) ? nullptr : "Place a custom map marker first.";
     }
-    return false;
+    return "This control is unavailable for the current player or game binding.";
 }
+bool FeatureAvailable(const std::string& feature) { return FeatureUnavailableReason(feature)==nullptr; }
 void Command() {
     std::string text;
     if (!ReadText(g_bridge / L"command.json", text, 16384)) return;
@@ -1006,7 +1019,7 @@ void Command() {
         g_lastCommand = id;
         g_lastSuccess = false;
         if (command.value("schema_version", 0) != 1) { g_lastMessage = "Unsupported command schema."; return; }
-        if (command.value("version",std::string())!="0.2.6") { g_lastMessage="Unsupported protocol version."; return; }
+        if (command.value("version",std::string())!="0.2.7") { g_lastMessage="Unsupported protocol version."; return; }
         const auto now=UnixMilliseconds();
         if (!command.contains("expires_unix_ms") || !command["expires_unix_ms"].is_number_unsigned()) {
             g_lastMessage="Command expiration is required."; return;
@@ -1103,7 +1116,7 @@ void Status() {
     std::string message = g_initMessage;
     if (message.empty()) message = g_playerReady.load() ? "Connected. Gameplay behavior has not yet been validated on this build."
         : "Load into the world with a supported controlled player. All controls are currently off.";
-    Json status = {{"schema_version",1},{"version","0.2.6"},{"process_id",GetCurrentProcessId()},
+    Json status = {{"schema_version",1},{"version","0.2.7"},{"process_id",GetCurrentProcessId()},
         {"pid",GetCurrentProcessId()},{"process_start_unix_ms",g_processStartUnixMs},
         {"heartbeat_unix_ms",UnixMilliseconds()},
         {"session_id",g_session},{"ready",g_commitReady.load() || g_damageReady.load() || g_locoReady.load() || g_outerReady.load()},
@@ -1122,8 +1135,11 @@ void Status() {
     } catch(...) { /* Optional diagnostic JSON must not disable otherwise ready controls. */ }
     for (auto feature : kFeatures) {
         const std::string key = std::string("available_") + feature;
-        const bool supported = FeatureAvailable(feature);
+        const auto reason=FeatureUnavailableReason(feature);
+        const bool supported = reason==nullptr;
         values[key]=supported; status[key]=supported; available[feature]=supported;
+        if(reason && (std::string(feature)=="crimson_speed" || std::string(feature)=="crimson_teleport" ||
+            std::string(feature)=="crimson_auto_teleport")) values[std::string("reason_")+feature]=reason;
     }
     status["values"]=values;
     status["available"]=available;

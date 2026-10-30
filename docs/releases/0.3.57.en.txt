@@ -1,0 +1,9 @@
+HappyCheats 0.3.57
+
+Crimson Desert trainer 0.2.7 fixes the player-recognition regression that disabled Kliff's manual teleport, automatic teleport and movement speed on Steam build 26317560 / PE3424. The trainer now recognizes the verified client class used by Kliff, retaining the local-player, possession, resource, session and movement checks.
+
+Unavailable teleport and speed controls now explain the actual missing requirement in English and Chinese. Manual teleport requires a map destination; simply opening the map is not enough. Auto teleport can be armed before placing a new marker. Close the map if the queued request is waiting for a movement update.
+
+Both complete distributions include the rebuilt trainer. After updating HappyCheats, close Crimson Desert and choose Install / update, then launch the game yourself and Connect trainer.
+
+Validation: read-only inspection of the existing Kliff session confirmed the previously rejected class and valid player/movement chain. Native fixtures and client UI tests cover class acceptance, rejected foreign identities, unavailable reasons and teleport cancellation. Offline release checks and standalone-client smoke validation are separate from gameplay. No teleport was executed in the game; terrain landing, streaming, other protagonists and physical-controller behavior remain unverified.

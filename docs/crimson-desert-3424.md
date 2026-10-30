@@ -41,9 +41,11 @@ owner descriptor `+0x88` with type byte `+1`. Instructions at `0x2CA0847` and
 The vital-chain path at `0x3B13D9` uses owner `+0x68`, actor `+0x20`, marker
 `+0x18`; stat accessor `0x18E1580` uses root `+0x58` and stride `0x90`.
 
-RTTI and constructor `0x8C4AF00` identify the primary
-`ClientNormalInGameActor` vtable at `0x59056D8`. Its virtual slot `+0x178`
-points to `0x5B20D0`, the engine's local-control predicate: owner possessor
+RTTI and constructors identify the primary `ClientNormalInGameActor` vtable
+at `0x59056D8` (constructor store at `0x8C4AF94`) and
+`ClientChildOnlyInGameActor` at `0x5905BE0` (constructor load at `0x8C4F81E`).
+Both virtual slots `+0x178`
+point to `0x5B20D0`, the engine's local-control predicate: owner possessor
 `+0xA0` equals the same service's self-user `+0x58`, and owner byte `+0x94`
 is nonzero. The runtime pins the method's 39 bytes and ASLR-adjusted slot target,
 then reproduces bounded reads rather than calling that virtual function.
@@ -51,10 +53,27 @@ Possession backreference and the complete vital chain must independently match.
 The anchor is reread, and a self-user change invalidates the cached identity,
 enabled controls and pending teleport even when the owner address is reused.
 
-Only this normal client class and current player descriptor tag 1 are accepted.
-The historical tag 9, child classes and Mercenary tag 4 are not established for
-this build. If gameplay presents an unproved class, controls remain unavailable.
-The actual service owner class has not been sampled in a running PE3424 process.
+Trainer 0.2.7 accepts these two exact client classes and descriptor tag 1.
+Other vtables, server classes, historical tag 9 and Mercenary tag 4 remain
+rejected. Both classes retain the same local-self, possession, complete vital
+chain and movement checks; adding ChildOnly does not authorize an arbitrary NPC.
+
+On 30 October 2026 at 22:20 China time, a read-only observation of the user's
+already-running Kliff session confirmed `ClientChildOnlyInGameActor` at
+`0x5905BE0`, tag 1, local flag 1 and local-control slot `0x5B20D0`.
+Service self-user matched owner possessor, its pawn pointed back to this owner,
+and the vital backlink, health key `1000000`, 20-entry stat count, movement
+component, proxy and navigation sender were valid. The owner's identity remained
+stable across rereads. Trainer 0.2.6 incorrectly rejected this class before
+checking those fields, leaving speed and both teleports unavailable while combat
+controls remained available. The observed map destination was zero, so manual
+teleport also correctly requires placing a marker after the identity fix;
+automatic teleport can be armed before one is placed.
+
+The observation opened only a query/read process handle. It did not inject or
+replace a trainer, enable a control, place a marker, move the character, start or
+stop the game, or edit a save. This confirms the availability regression and
+pointer identity, not successful travel or landing.
 
 ## Resource identity
 
@@ -75,12 +94,15 @@ See [resource layout and evidence](crimson-desert-3424-resources.md).
 ## Reproducible checks and limits
 
 `tools/InspectCrimsonDesert/verify_bindings.py` compares the source's PE/hash
-guards and every code-byte guard against a read-only file mapping.
+guards, every code-byte guard and both local-control vtable slots against a
+read-only file mapping.
 It does not prove object ownership, field meanings, live hooking or gameplay.
 The separate native tests exercise hooks only in disposable fixture processes.
 The historical PE2976 live pointer fixture remains labeled and uses its original
-addresses; it is not evidence of a PE3424 live session.
+addresses. Current regression tests separately exercise both PE3424 class values,
+local-self/possession rejection and production teleport availability, queueing,
+movement observation and cancellation in fixture-owned memory.
 
 No game was launched, trainer attached, cheat enabled or save edited during
-this static inspection. DLC gameplay, other protagonists, underwater behavior,
+this inspection. DLC gameplay, other protagonists, underwater behavior,
 terrain landing, streaming and physical-controller operation remain unverified.

@@ -55,6 +55,7 @@ internal static class CrimsonDesertTests
                 ("version", JsonValue.Create("0.2.3")!),
                 ("version", JsonValue.Create("0.2.4")!),
                 ("version", JsonValue.Create("0.2.5")!),
+                ("version", JsonValue.Create("0.2.6")!),
                 ("process_id", JsonValue.Create(Pid + 1)!), ("process_start_unix_ms", JsonValue.Create(Milliseconds(Started) + 1)!),
                 ("session_id", JsonValue.Create("../../bad")!)
             }) {
@@ -99,8 +100,10 @@ internal static class CrimsonDesertTests
             var state = State();
             state["teleport_message"] = "Waiting for the new map marker to be accepted. Terrain height is not checked.";
             state["teleport_pending"] = true;
+            state["values"]!["reason_crimson_auto_teleport"] = "The controlled client player is not recognized.";
             var parsed = Parse(state).Status;
             Check(parsed.Values["crimson_teleport_status"].StartsWith("Waiting for the new map marker", StringComparison.Ordinal));
+            Check(parsed.Values["reason_crimson_auto_teleport"] == "The controlled client player is not recognized.");
             Check(parsed.Values["available_crimson_auto_teleport"] == bool.FalseString);
             Reject(() => Command(parsed, "crimson_auto_teleport", true));
             state["teleport_message"] = new string('x', 513);
@@ -138,7 +141,7 @@ internal static class CrimsonDesertTests
             var current = Parse(State()).Status;
             var command = Command(current, "crimson_health", true);
             Check((string)command["session_id"] == Session && (string)command["request_id"] == Request);
-            Check((string)command["version"] == "0.2.6" && (int)command["schema_version"] == 1);
+            Check((string)command["version"] == "0.2.7" && (int)command["schema_version"] == 1);
             Check((bool)command["enabled"] && (long)command["expires_unix_ms"] == Milliseconds(Now) + 5000);
             Reject(() => CrimsonDesertModule.CreateCommand(current, current with { SessionId = "another-session" }, "crimson_health", true, null, Request, Milliseconds(Now)));
             Reject(() => CrimsonDesertModule.CreateCommand(current, current, "crimson_health", true, null, "bad", Milliseconds(Now)));

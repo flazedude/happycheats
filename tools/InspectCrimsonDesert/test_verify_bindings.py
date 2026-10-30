@@ -33,6 +33,10 @@ class BindingVerifierTests(unittest.TestCase):
         expected, bindings, inputs = source_guards(root)
         self.assertEqual(set(expected), {'machine', 'timestamp', 'image_size', 'sha256'})
         self.assertTrue(bindings)
+        slots = {name: (rva, target) for _, name, rva, target in bindings if isinstance(target, int)}
+        self.assertEqual(slots, {
+            'ClientOwnerVtableRva.local_control_slot': (0x59056D8 + 0x178, 0x5B20D0),
+            'ClientChildOwnerVtableRva.local_control_slot': (0x5905BE0 + 0x178, 0x5B20D0)})
         source_path = root / 'modules/crimson-desert/native/trainer.cpp'
         original = inputs[source_path].decode('utf-8-sig')
         mutations = (
@@ -40,6 +44,7 @@ class BindingVerifierTests(unittest.TestCase):
             original.replace('bool ValidateBaseBindings() {', 'bool ValidateBaseBindings() {\nconst std::array<unsigned char,1> unused{{1}};', 1),
             original.replace('bool ValidateBaseBindings()', 'bool MissingValidator()', 1),
             original.replace('Matches(g_game+', 'Matches(g_game+UnsupportedNamespace::', 1),
+            original.replace('Pointer(g_game+crimson_logic::ClientChildOwnerVtableRva+0x178,childLocalControlTarget)', 'true', 1),
         )
         with tempfile.TemporaryDirectory() as directory:
             copied = Path(directory)

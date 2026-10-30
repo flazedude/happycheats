@@ -60,8 +60,21 @@ def source_guards(root):
             token, subtract = match.groups()
             rva = constants[token] if token in constants else number(token)
             bindings.append((function, name, rva - int(subtract or 0), arrays[name]))
+    # ASLR-adjusted runtime slot checks must also be proved against the file's
+    # preferred image base. Parsing byte guards alone missed these class gates.
+    client_body = validators['ValidateClientBindings']
+    pointer_guards = re.findall(
+        r'Pointer\(g_game\+crimson_logic::(\w+)\+(0x[\da-fA-F]+),\s*(\w+)\)\s*&&\s*'
+        r'\3==g_game\+crimson_logic::(\w+)', client_body)
+    if len(pointer_guards) != 2 or len(re.findall(r'\bPointer\s*\(', client_body)) != len(pointer_guards):
+        raise ValueError('Unparsed client vtable slot guard')
+    if {name for name, _, _, _ in pointer_guards} != {'ClientOwnerVtableRva', 'ClientChildOwnerVtableRva'}:
+        raise ValueError('Required client class slot guard missing')
+    for name, offset, _, target in pointer_guards:
+        bindings.append(('ValidateClientBindings', name + '.local_control_slot',
+                         constants[name] + number(offset), constants[target]))
     # Count the Matches template declaration too; future unparsed call sites fail closed.
-    if len(re.findall(r'\bMatches\s*\(', texts[0])) != len(bindings) + 1:
+    if len(re.findall(r'\bMatches\s*\(', texts[0])) != len(bindings) - len(pointer_guards) + 1:
         raise ValueError('Matches call outside parsed binding validators')
     digest = byte_arrays(functions.get('ValidateExecutableHash', '')).get('expected', b'')
     if len(digest) != 32:
@@ -117,9 +130,13 @@ def verify(exe, root):
     with exe.open('rb') as handle, mmap.mmap(handle.fileno(), 0, access=mmap.ACCESS_READ) as data:
         observed, sections = pe_metadata(data)
         observed['sha256'] = hashlib.sha256(data).hexdigest()
+        pe, = struct.unpack_from('<I', data, 0x3c)
+        preferred_base, = struct.unpack_from('<Q', data, pe + 24 + 24)
         for name, value in expected.items():
             checks.append(dict(name=name, expected=value, observed=observed[name], match=value == observed[name]))
         for function, name, rva, value in bindings:
+            if isinstance(value, int):
+                value = struct.pack('<Q', preferred_base + value)
             item = dict(name=function + '.' + name, rva=hex(rva), expected=value.hex(' '))
             try:
                 offset, section = map_rva(sections, rva, len(value), len(data))

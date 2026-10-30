@@ -1,6 +1,6 @@
 # Crimson Desert (Steam)
 
-Native trainer **0.2.6** targets Steam app **3321460**, build **26317560**, executable **1.0.0.3424**, inspected after the Charting the Unknown update. Compatibility is pinned to SHA-256 `D4855C08998638F07FA8FAE08BD6249261F10C8FEC2215EFFC29CB339E7FA525`; other executables, including the previously supported PE2976, are rejected. Validation for this build is static and synthetic only. No game was launched, live game process inspected, trainer attached or save edited for this update. See the [current compatibility evidence](crimson-desert-3424.md).
+Native trainer **0.2.7** targets Steam app **3321460**, build **26317560**, executable **1.0.0.3424**, inspected after the Charting the Unknown update. Compatibility is pinned to SHA-256 `D4855C08998638F07FA8FAE08BD6249261F10C8FEC2215EFFC29CB339E7FA525`; other executables, including the previously supported PE2976, are rejected. Read-only inspection of an existing Kliff session confirmed the client class mistakenly rejected by 0.2.6. Version 0.2.7 accepts that verified class while retaining local-player safeguards, and shows specific reasons when teleport or speed is unavailable. No game was launched, trainer attached, teleport executed or save edited during this correction. See the [current compatibility evidence](crimson-desert-3424.md).
 
 ## DLC compatibility
 

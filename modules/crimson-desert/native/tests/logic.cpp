@@ -62,7 +62,11 @@ int main() {
     // capture above does not contain the newly required local-self evidence.
     constexpr std::uintptr_t testRoot=0x100000,testService=0x200000,testOwner=0x300000,testUser=0x400000;
     constexpr std::uintptr_t inspectedNormalVtableRva=0x59056D8;
+    // Read-only Kliff capture, 30 October 2026: ChildOnly, tag 1, local flag 1,
+    // self-user/possessor/pawn roundtrip intact, health key 1000000.
+    constexpr std::uintptr_t inspectedKliffVtableRva=0x5905BE0;
     assert(ClientOwnerVtableRva==inspectedNormalVtableRva);
+    assert(ClientChildOwnerVtableRva==inspectedKliffVtableRva);
     std::map<std::uintptr_t,std::uintptr_t> currentPointers{
         {imageBase+ClientRootRva,testRoot},{testRoot+0x30,testService},
         {testService+0x50,testOwner},{testService+0x58,testUser},
@@ -79,14 +83,16 @@ int main() {
         out=found->second; return true;
     };
     auto resolve=[&] { return ResolveControlledClientAnchor(imageBase+ClientRootRva,
-        imageBase+ClientOwnerVtableRva,currentPointer,currentByte,clientAnchor); };
+        imageBase+ClientOwnerVtableRva,currentPointer,currentByte,clientAnchor,imageBase+ClientChildOwnerVtableRva); };
+    assert(resolve() && clientAnchor.owner==testOwner && clientAnchor.selfUser==testUser);
+    currentPointers[testOwner]=imageBase+inspectedKliffVtableRva;
     assert(resolve() && clientAnchor.owner==testOwner && clientAnchor.selfUser==testUser);
     const auto acceptedAnchor=clientAnchor;
-    for(const auto wrongVtable:{imageBase+0x5905BE0,imageBase+0x5ED7E30}) {
+    for(const auto wrongVtable:{imageBase+0x5905BE8,imageBase+0x5ED7E30}) {
         currentPointers[testOwner]=wrongVtable;
-        assert(!resolve()); // Neither Child nor ServerNormal is an allowed class fallback.
+        assert(!resolve()); // Unknown and server classes are never allowed fallbacks.
     }
-    currentPointers[testOwner]=imageBase+inspectedNormalVtableRva;
+    currentPointers[testOwner]=imageBase+inspectedKliffVtableRva;
     currentPointers[testService+0x58]=testUser+0x1000;
     assert(!resolve() && clientAnchor.selfUser==acceptedAnchor.selfUser); // An NPC with another possessor fails.
     currentPointers[testService+0x58]=testUser;
@@ -105,7 +111,7 @@ int main() {
         return true;
     };
     assert(!ResolveControlledClientAnchor(imageBase+ClientRootRva,imageBase+ClientOwnerVtableRva,
-        changingPointer,currentByte,clientAnchor)); // Reject an account transition during one read sequence.
+        changingPointer,currentByte,clientAnchor,imageBase+ClientChildOwnerVtableRva)); // Reject an account transition during one read sequence.
     assert(resolve());
     ClientIdentity clientIdentity{clientAnchor,{testOwner,clientActor,300,400,500}},clientChanged=clientIdentity;
     assert(SameClientIdentity(clientIdentity,clientChanged));
