@@ -514,15 +514,23 @@ internal static class UpdateTests
         run("fresh mirror signatures channels and same-version integrity are required", () =>
         {
             using var wrong = RSA.Create(2048);
+            var trustedFeeds = manifests.Select(Feed).ToArray();
             foreach (var failure in new[] { "signature", "channel", "size", "hash" })
             {
+                // Signing belongs to fixture setup, outside the simulated network deadline.
+                var changed = failure switch {
+                    "channel" => manifests[1] with { Channel = "preview" },
+                    "size" => manifests[1] with { PackageSize = package.Length + 1 },
+                    "hash" => manifests[1] with { Sha256 = new string('0', 64) },
+                    _ => manifests[1] };
+                var rejectedFeed = failure == "signature"
+                    ? ReleaseSigning.SerializeEnvelope(ReleaseSigning.Sign(changed, wrong.ExportPkcs8PrivateKeyPem()))
+                    : Feed(changed);
                 using var fixture = new Fixture(); var requests = new List<string>(); var downloading = false;
                 using var http = new HttpClient(new AsyncHandler((request, _) => {
                     var url = request.RequestUri!.AbsoluteUri; requests.Add(url); var index = Array.IndexOf(sources, url);
                     if (index < 0) throw new HttpRequestException("fixture offline");
-                    var value = manifests[index];
-                    if (index == 1 && downloading) value = failure switch { "channel" => value with { Channel = "preview" }, "size" => value with { PackageSize = package.Length + 1 }, "hash" => value with { Sha256 = new string('0', 64) }, _ => value };
-                    var bytes = index == 1 && downloading && failure == "signature" ? ReleaseSigning.SerializeEnvelope(ReleaseSigning.Sign(value, wrong.ExportPkcs8PrivateKeyPem())) : Feed(value);
+                    var bytes = index == 1 && downloading ? rejectedFeed : trustedFeeds[index];
                     return Task.FromResult(Reply(request, bytes));
                 }));
                 var client = Client(http); var release = client.CheckAsync("1.0.0").GetAwaiter().GetResult()!; downloading = true;
@@ -856,11 +864,12 @@ internal static class UpdateTests
         run("fallback feed still requires the pinned signature", () =>
         {
             using var wrong = RSA.Create(2048);
+            var rejectedFeed = ReleaseSigning.SerializeEnvelope(ReleaseSigning.Sign(mirror, wrong.ExportPkcs8PrivateKeyPem()));
             var requests = 0;
             using var http = new HttpClient(new AsyncHandler((request, _) => {
                 requests++;
                 if (requests == 1) throw new HttpRequestException("fixture offline");
-                return Task.FromResult(Reply(request, new ByteArrayContent(ReleaseSigning.SerializeEnvelope(ReleaseSigning.Sign(mirror, wrong.ExportPkcs8PrivateKeyPem())))));
+                return Task.FromResult(Reply(request, new ByteArrayContent(rejectedFeed)));
             }));
             Fails(() => Client(http).CheckAsync("1.0.0").GetAwaiter().GetResult());
             Assert(requests == 2);
