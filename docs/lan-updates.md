@@ -67,7 +67,7 @@ http://192.168.2.76:17845/happycheats/HappyCheats.exe
 http://192.168.2.59:17845/happycheats/HappyCheats.exe
 ```
 
-The [latest complete EXE on GitHub](https://github.com/flazedude/happycheats/releases/latest/download/HappyCheats.exe) remains available independently. Every release requires new changelog files and a higher unpublished version. Clients check at startup or when **Updates** is opened; download and **Install & restart** remain user actions. After updating the client, use **Install / update** for affected games to apply new trainers.
+The [latest complete EXE on GitHub](https://github.com/flazedude/happycheats/releases/latest/download/HappyCheats.exe) remains available independently. Every release requires new changelog files and a higher unpublished version. From 0.3.55, clients check at startup and every 30 minutes, automatically downloading verified updates in the background. **Updates** shows progress without disabling the cheat window. Once ready, users choose **Restart & install** or **Later**. After updating the client, use **Install / update** for affected games to apply new trainers.
 
 Known official earlier configurations migrate at runtime only when their key and channel match the bundled defaults. Custom configurations are preserved. Older clients without a compatible update route need the latest standalone EXE once. User settings remain in `%LOCALAPPDATA%/HappyCheats/settings.json`.
 
