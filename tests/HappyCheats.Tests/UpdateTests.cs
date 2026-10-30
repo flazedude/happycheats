@@ -400,17 +400,20 @@ internal static class UpdateTests
         {
             using var wrong = RSA.Create(2048);
             using var trusted = RSA.Create(); trusted.ImportFromPem(privateKey);
+            var trustedFeed = Feed(manifests[0]);
             foreach (var failure in new[] { "signature", "channel", "json", "metadata" })
             {
+                // RSA providers may generate keys lazily. Prepare fixture bytes before the
+                // short simulated network deadline so this tests trust rejection, not key-generation speed.
+                var rejectedFeed = failure switch {
+                    "signature" => ReleaseSigning.SerializeEnvelope(ReleaseSigning.Sign(manifests[1], wrong.ExportPkcs8PrivateKeyPem())),
+                    "channel" => Feed(manifests[1] with { Channel = "preview" }),
+                    "metadata" => ReleaseSigning.SerializeEnvelope(SignRaw(manifests[1] with { PackageSize = 0 }, trusted)),
+                    _ => Encoding.UTF8.GetBytes("{") };
                 var requests = new List<string>();
                 using var http = new HttpClient(new AsyncHandler((request, _) => {
                     var url = request.RequestUri!.AbsoluteUri; requests.Add(url);
-                    var bytes = url != second ? Feed(manifests[0]) : failure switch {
-                        "signature" => ReleaseSigning.SerializeEnvelope(ReleaseSigning.Sign(manifests[1], wrong.ExportPkcs8PrivateKeyPem())),
-                        "channel" => Feed(manifests[1] with { Channel = "preview" }),
-                        "metadata" => ReleaseSigning.SerializeEnvelope(SignRaw(manifests[1] with { PackageSize = 0 }, trusted)),
-                        _ => Encoding.UTF8.GetBytes("{") };
-                    return Task.FromResult(Reply(request, bytes));
+                    return Task.FromResult(Reply(request, url == second ? rejectedFeed : trustedFeed));
                 }));
                 Fails(() => Client(http).CheckAsync("1.0.0").GetAwaiter().GetResult());
                 Assert(requests.SequenceEqual(new[] { first, second }));
