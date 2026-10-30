@@ -42,20 +42,20 @@ The historical 0.3.52 bridge served the identical GitHub-signed feed at the orig
 
 **JACK-PC** and **GPD-PC** are equal publishers. Work completed on GPD-PC travels through the shared GitHub repository and releases to JACK-PC, and vice versa. Earlier GPD setup records use the name `JACKGPD`; this documentation does not rename Windows. JACK-PC's configured LAN address is `.76`, and GPD-PC's is `.59`, both on port `17845`. Each host keeps its own local server configuration and mirrors verified shared GitHub releases. Clients check both hosts and GitHub, so neither PC needs the other to be online.
 
-GitHub is the shared source of truth for both checkouts. At the start of work on either PC, read `AGENTS.md`, inspect local changes and fetch the remote branch:
+GitHub is the shared source of truth for both checkouts. At the start of work on either PC, read `AGENTS.md` and use the source-sync helper in PowerShell 7:
 
 ```powershell
-git status --short --branch
-git fetch --prune origin
+.\scripts\Sync-Source.ps1 -Mode Status
+.\scripts\Sync-Source.ps1
 ```
 
-For a clean `main` checkout, bring it up to date before editing:
+The default `Pull` mode fetches and fast-forwards the current branch only when the checkout is clean. `Status` fetches and reports without changing working files. After reviewing and committing a completed change, send its branch:
 
 ```powershell
-git pull --ff-only origin main
+.\scripts\Sync-Source.ps1 -Mode Push
 ```
 
-If there are unfinished edits or local commits, preserve them and review how they relate to incoming changes. Finish or save the intended work and merge deliberately; do not discard changes, reset the checkout or force-push to make the PCs agree. If a fast-forward fails, inspect the divergence before proceeding. Re-read `AGENTS.md` after updating because the other PC may have changed the shared instructions.
+The helper verifies the official repository and same-name `origin` upstream, preserves unfinished work and rejects divergence. It does not commit, stash, resolve conflicts or switch branches. See [source synchronization](source-sync.md) for initial clone/bootstrap commands, `-RepositoryPath`, and receiving a published task branch on the other PC. If the helper stops, preserve local work and review the incoming history before integrating deliberately. Re-read `AGENTS.md` after updating because the other PC may have changed the shared instructions.
 
 Use a separate `codex/` branch for each change and PC, with shared `main` as the integration branch. Concurrent local chats should use separate checkouts/worktrees when they need isolated files or build outputs. Fetch again before integration and pushing. Merge incoming `origin/main` changes into an already shared task branch; rebase only unpublished local commits. Resolve conflicts while preserving both intended changes and rerun affected checks. A rejected push means fetch and integrate before retrying, not force-push over the other PC.
 
