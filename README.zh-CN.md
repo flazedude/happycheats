@@ -122,6 +122,8 @@ HappyCheats **0.3.3** 内置 **SMAPI 4.5.2**，可离线完成《星露谷物语
 
 单文件发行包保留在线更新能力：更新程序替换本地解压出的客户端，再次打开同一个 EXE 时会使用更新后的客户端。EXE 本身仍包含最初打包的版本。正式发行包配置两个局域网源和 GitHub，仅嵌入签名验证公钥。首次分发、配置迁移与后续发布详见 [更新源与发布指南](docs/github-updates.md)。
 
+JACK-PC 与 GPD-PC 通过 GitHub 同步源代码。开始工作前运行 `.\scripts\Sync-Source.ps1` 获取更新；检查并提交已完成的修改后，运行 `.\scripts\Sync-Source.ps1 -Publish` 推送当前分支。脚本会保留未完成的工作，遇到需要合并的情况时停止，不会自动提交或覆盖本地修改。详见 [源代码同步与分支交接](docs/source-sync.md)。
+
 开发构建：`.\scripts\Build.ps1 -Version 0.3.56 -Zip -SingleExe`。已有完整发行目录时，可运行 `.\scripts\Build-SingleExe.ps1 -PackageDirectory .\dist\HappyCheats -Zip` 直接生成单文件 EXE 和 ZIP，版本号从现有客户端读取。仅运行离线测试：`.\scripts\Test.ps1`。星露谷物语模块需要本机安装游戏和 SMAPI 以提供编译引用。完整源代码包含在本项目，原来的两个修改器项目保留。
 
 向用户分发 `dist/HappyCheats-0.3.56-win-x64-single-exe.zip` 或 `dist/HappyCheats.exe` 即可。单文件 ZIP 内只有 `HappyCheats.exe`，SHA-256 校验文件单独提供。`Build.ps1 -Zip -SingleExe` 还会生成完整目录格式的 `HappyCheats-0.3.56-win-x64.zip`，保留现有在线更新包格式。`dist/HappyCheats/` 目录保留供开发使用；目录里面的较小 `HappyCheats.exe` 不能代替外面的完整单文件发行包。
