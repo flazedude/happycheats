@@ -143,8 +143,8 @@ try {
     $hcDownloadDefinition = $hcSyncAst.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -ceq 'Receive-HcMirrorAsset'},$true)
     . ([scriptblock]::Create($hcDownloadDefinition.Extent.Text))
     $hcClient = [pscustomobject]@{ Bytes=[byte[]](4,3,2,1); ResponseLocation=$null }
-    $hcClient | Add-Member -MemberType ScriptMethod -Name GetAsync -Value {
-        param($Address,$Completion)
+    $hcClient | Add-Member -MemberType ScriptMethod -Name SendAsync -Value {
+        param($Request,$Completion,$CancellationToken)
         $hcResponse = [Net.Http.HttpResponseMessage]::new([Net.HttpStatusCode]::OK)
         $hcResponse.Content = [Net.Http.ByteArrayContent]::new([byte[]]$this.Bytes)
         if ($this.ResponseLocation) { $hcResponse.StatusCode=[Net.HttpStatusCode]::Found; $hcResponse.Headers.Location=[Uri]$this.ResponseLocation }
