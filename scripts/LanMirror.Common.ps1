@@ -23,6 +23,19 @@ function Read-HcMirrorPublicKey([string]$Path) {
     catch { $hcKey.Dispose(); throw }
     finally { $hcPem = $null }
 }
+function Get-HcLanMirrorVerificationConfiguration($Config) {
+    if (!$Config.MirrorPublicKeyPath) { return $Config }
+    Assert-HcMirrorSafePath $Config.MirrorPublicKeyPath
+    if ($Config.MirrorPublicKeySha256 -cnotmatch '^[a-f0-9]{64}$') { throw 'Mirror public-key identity binding is missing or invalid. Rerun interactive mirror setup.' }
+    $hcKey=Read-HcMirrorPublicKey $Config.MirrorPublicKeyPath
+    try {
+        $hcIdentity=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($hcKey.ExportSubjectPublicKeyInfo())).ToLowerInvariant()
+        if ($hcIdentity -cne $Config.MirrorPublicKeySha256) { throw 'Mirror public verification copy differs from its established signing identity.' }
+    } finally { $hcKey.Dispose() }
+    # This is an in-memory verification view; saved publisher and LAN key paths
+    # stay unchanged. Installation and feed checks use this same public copy.
+    return [pscustomobject]@{BaseUrl=$Config.BaseUrl;PublicDirectory=$Config.PublicDirectory;PublicKeyPath=$Config.MirrorPublicKeyPath}
+}
 function Read-HcSignedMirrorPayload([string]$Path, [Security.Cryptography.RSA]$Key) {
     Assert-HcMirrorSafePath $Path
     if ((Get-Item -LiteralPath $Path).Length -gt 131072) { throw 'Signed mirror metadata is too large.' }

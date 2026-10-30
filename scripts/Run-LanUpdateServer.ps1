@@ -37,7 +37,10 @@ try {
             }
             while (!$hcServer.WaitForExit(1000)) {
                 if ($hcMirror -and $hcMirror.HasExited) {
-                    ('{0:u} Mirror finished with exit code {1}.' -f [DateTime]::UtcNow,$hcMirror.ExitCode) | Add-Content -LiteralPath (Join-Path $hcStateRoot 'mirror-supervisor.log')
+                    $hcMirror.WaitForExit()
+                    $hcExitCode = $hcMirror.ExitCode
+                    if ($null -eq $hcExitCode) { $hcExitCode = 'unavailable (reattached process; inspect mirror logs)' }
+                    ('{0:u} Mirror finished with exit code {1}.' -f [DateTime]::UtcNow,$hcExitCode) | Add-Content -LiteralPath (Join-Path $hcStateRoot 'mirror-supervisor.log')
                     Stop-HcLanMirrorProcess -Config $hcConfig -StateRoot $hcStateRoot
                     $hcMirror.Dispose(); $hcMirror = $null
                     $hcNextMirror = [DateTime]::UtcNow.AddSeconds((Get-HcLanMirrorIntervalSeconds $hcConfig))
