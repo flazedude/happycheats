@@ -78,6 +78,10 @@ internal static class PhantomBladeUiChecks
             Check(main.Features.All(f => !f.CanUse) && !main.CanDisableAll && module.Values.Count == blockedCount, "busy state permitted dispatch");
             Update(TrainerStatus.Offline()); Number(damage);
             Check(main.Features.All(f => !f.CanUse) && damage.ConfirmedNumberVisibility == Visibility.Collapsed && module.Values.Count == blockedCount, "disconnected state retained confirmation or allowed dispatch");
+            Update(confirmed with { Ready = false, Message = "Phantom Blade Zero player discovery failed." });
+            Check(main.Features.All(f => !f.CanUse && f.StateLabel == "Phantom Blade Zero player discovery failed."), "player detection failure was hidden behind waiting for gameplay");
+            Update(confirmed with { Ready = false, Message = "Phantom Blade Zero player discovery failed." }, working: true);
+            Check(main.Features.All(f => f.StateLabel != "Phantom Blade Zero player discovery failed."), "player diagnostics hid a working operation");
             Update(confirmed with { Ready = false, Enabled = new Dictionary<string, bool> { ["pbz_health"] = true, ["pbz_stamina"] = false } });
             Check(main.CanDisableAll && health.CanUse && main.Features.Where(f => f != health).All(f => !f.CanUse), "active-toggle cleanup disappeared when player was unavailable");
             Feature(health.Definition);
@@ -86,6 +90,17 @@ internal static class PhantomBladeUiChecks
             Check(module.Commands.Last() == "disable_all=" && module.Status.Values["pbz_damage"] == "1", "disable all did not reach the fixture's multiplier restoration");
             Update(confirmed);
 
+            var discoveryReasons = new[] {
+                "Controlled player is unavailable", "Player controller is unavailable", "Player class is unavailable",
+                "Local-player class is unavailable", "Local-player lookup failed", "Local player is unavailable",
+                "Local-player class check failed", "Controller does not belong to a local player",
+                "Local-player controller lookup failed", "Local player does not own this controller",
+                "Controlled-pawn lookup failed", "Controller possession does not match the player",
+                "Player-controller lookup failed", "Player ownership does not match the controller",
+                "Player-class check failed", "Controlled pawn is not the Phantom Blade Zero player class",
+                "Player world is unavailable", "Player-world lookup failed", "Player-controller discovery failed",
+                "More than one locally controlled Phantom Blade Zero player is available"
+            };
             foreach (var language in new[] { "en", "zh" })
             foreach (var theme in new[] { "dark", "light" }) {
                 main.SetLanguage(language, persist: false); main.SetTheme(theme, persist: false);
@@ -94,6 +109,22 @@ internal static class PhantomBladeUiChecks
                 Check(damage.NumberText == "12" && damage.ConfirmedNumberLabel.EndsWith("7", StringComparison.Ordinal), "language/theme refresh lost draft or confirmed value");
                 Check(Localization.ValueLabel("pbz_damage") == (language == "en" ? "Attack multiplier" : "攻击力倍率")
                     && Localization.ValueLabel("pbz_stamina") == (language == "en" ? "Sha-Chi" : "杀气"), "resource labels expose protocol identifiers");
+                Check(Localization.ValueLabel("pbz_discovery") == (language == "en" ? "Player detection details" : "玩家检测详情"), "player diagnostic label exposes its protocol identifier");
+                var translatedReasons = new HashSet<string>(StringComparer.Ordinal);
+                foreach (var reason in discoveryReasons) {
+                    var message = "Phantom Blade Zero player detection: " + reason + ".";
+                    var translated = Localization.Message(message);
+                    Check(language == "en" ? translated == message
+                        : translated.StartsWith("影之刃零玩家检测：", StringComparison.Ordinal) && translated.EndsWith("。", StringComparison.Ordinal)
+                            && !translated.Contains(reason, StringComparison.Ordinal), "player detection stage is not translated: " + reason);
+                    Check(translatedReasons.Add(translated), "different player detection failures share a generic translation");
+                }
+                const string missingPlayerClass = "Phantom Blade Zero player detection: Player class is unavailable.";
+                Update(confirmed with { Ready = false, Message = missingPlayerClass,
+                    Values = new Dictionary<string, string>(confirmed.Values) { ["pbz_discovery"] = "fixture runtime detail" } });
+                Check(main.Features.All(f => !f.CanUse && f.StateLabel == Localization.Message(missingPlayerClass)), "feature rows omit the localized player detection reason");
+                Check(module.Status.Values["pbz_discovery"] == "fixture runtime detail", "localization altered runtime diagnostic details");
+                Update(confirmed);
                 if (language == "zh") {
                     Check(fixture.Name == "影之刃零" && main.Features.All(f => f.Name != f.Definition.Name && f.Description != f.Definition.Description), "Chinese labels or descriptions are missing");
                     Check(damage.Description.Contains("游戏重新计算属性时可能取消倍率。", StringComparison.Ordinal), "Chinese multiplier description omits recalculation limit");

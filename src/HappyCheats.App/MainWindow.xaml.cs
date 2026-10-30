@@ -1019,7 +1019,7 @@ public sealed class FeatureItem : INotifyPropertyChanged
     public Visibility NumberErrorVisibility => _numberErrorKey == null ? Visibility.Collapsed : Visibility.Visible;
     public string StateLabel => _witcherControlPending && _working
         ? Localization.Choose("Queued", "已排队")
-        : !_working && _connected && _unavailable && _unavailableReason != null
+        : !_working && _connected && !CanUse && _unavailableReason != null
             ? Localization.Message(_unavailableReason)
         : Localization.Text(_working ? "pleaseWait" : _unavailable ? "sceneUnavailable" : !CanUse ? (_connected ? (_initializationFailed ? "initializationFailed" : "waitingGameplay") : "waitingGame") : Definition.IsToggle ? (_active ? "enabled" : "off") : "ready");
     public string ActionLabel => Localization.Text(Definition.IsToggle ? (_active ? "turnOff" : "turnOn") : "apply");
@@ -1067,6 +1067,9 @@ public sealed class FeatureItem : INotifyPropertyChanged
             && Definition.Id is "crimson_teleport" or "crimson_auto_teleport" or "crimson_speed"
             && status!.Values.TryGetValue("reason_" + Definition.Id, out var reason)
             && !string.IsNullOrWhiteSpace(reason) && reason.Length <= 160 ? reason : null;
+        if (_connected && !cleanup && status?.Ready == false && Definition.Id.StartsWith("pbz_", StringComparison.Ordinal)
+            && !string.IsNullOrWhiteSpace(status.Message) && status.Message.Length <= 160)
+            _unavailableReason = status.Message;
         CanUse = available && _connected && gtaStory && (cleanup || status?.Ready == true && !_unavailable);
         var confirmedChoice = status?.Connected == true && Definition.ChoiceValueKey is { } key
             && status.Values.TryGetValue(key, out var selected) ? selected : null;

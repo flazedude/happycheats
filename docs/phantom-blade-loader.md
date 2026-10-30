@@ -89,13 +89,16 @@ Trainer 0.1.1 sets `bForceGUObjectArrayForIteration=true` so lookup iteration
 uses the inspected object array immediately, without probing those known
 incompatible hash-table layouts.
 
-This crash analysis and the candidate correction use saved dump data and native
-code inspection. They do not establish successful startup with the correction.
-That requires a separately authorized validation launch before publishing a
-fix as verified.
+This crash analysis and the original candidate correction used saved dump data
+and native code inspection. That evidence alone did not establish successful
+startup with the correction. On 31 October 2026, the user's already-running
+game log recorded `Phantom Blade Zero 0.1.1 loaded` and a fresh trainer heartbeat,
+confirming corrected loader/Lua startup in that session. Player readiness then
+failed in a separate `K2_GetPawn` function lookup; see
+[the detection investigation](phantom-blade-bindings.md#active-game-detection-failure-31-october-2026).
 
 ## Packaging and validation
 
 Both loader profile files are required, hashed members of the Phantom Blade package. Installation preserves foreign or modified profiles and removal follows the shared-loader ownership rules. Offline fixtures check relocated signature results, rejected candidates, the exact verified layout, required payload files and ownership behavior.
 
-This evidence establishes the custom discovery/layout profile. It does not establish successful UE4SS startup, trainer loading, gameplay effects, shared-menu rendering over the game or physical-controller operation.
+The 31 October session establishes successful UE4SS/trainer startup with this profile. It does not establish gameplay effects, readiness of the changed 0.1.2 bindings, shared-menu rendering over the game or physical-controller operation.

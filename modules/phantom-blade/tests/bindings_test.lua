@@ -14,21 +14,20 @@ local function object()
 end
 local paths = {
     player="/Script/ProjectPBZ.PBZCharacter_Player",
+    local_player="/Script/Engine.LocalPlayer",
     basic="/Script/CharacterBasics.BasicAttributeSet",
 }
 local function make_player(class, world)
     local f=class.fixture
-    local pawn, controller, set = object(), object(), object()
+    local pawn, controller, set, local_player = object(), object(), object(), object()
     pawn.base = {Health=50,Health_Max=100,Shachi=20,Shachi_Max=80,Attack=100}
     pawn.values = {}
     for key,value in pairs(pawn.base) do pawn.values[key] = value end
-    pawn.player, pawn.controller, pawn.world = true, controller, world
+    pawn.Controller, pawn.world = controller, world
     pawn.AttributeSetBase=set; set.owner=pawn
-    controller.local_player, controller.pawn = true, pawn
-    function controller:IsLocalController() return self.local_player end
-    function controller:K2_GetPawn() return self.pawn end
-    function pawn:IsPlayerControlled() return self.player end
-    function pawn:GetController() return self.controller end
+    controller.Player, controller.Pawn = local_player, pawn
+    local_player.PlayerController=controller
+    function local_player:IsA(wanted) return wanted==f.local_class and self.correct_class~=false end
     function pawn:IsA(wanted) return wanted == class and self.correct_class ~= false end
     function pawn:GetWorld() return self.world end
     function set:IsA(wanted) return wanted==f.basic and self.correct_class~=false end
@@ -69,22 +68,23 @@ end
 local function fixture()
     local f = {writes={},missing={},read_errors={},base_errors={},scans=0,finds={},now=1000,
         data_reads=0,missing_data={},invalid_data={},unmapped_object={},unmapped_property={}}
-    f.class, f.basic, f.world = object(), object(), object()
+    f.class, f.local_class, f.basic, f.world = object(), object(), object(), object()
     f.class.fixture=f
     f.pawn, f.controller = make_player(f.class, f.world)
     f.controllers, f.attrs = {f.controller}, f.pawn.values
-    f.objects = {[paths.player]=f.class,[paths.basic]=f.basic}
+    f.objects = {[paths.player]=f.class,[paths.local_player]=f.local_class,[paths.basic]=f.basic}
     local env = setmetatable({
         os={time=function() return f.now end},
         StaticFindObject=function(path)
-            assert(path==paths.player or path==paths.basic,"No native MakeAttribute/helper fallback is supported")
+            assert(path==paths.player or path==paths.local_player or path==paths.basic,"No native MakeAttribute/helper fallback is supported")
             f.finds[path] = (f.finds[path] or 0) + 1
+            if f.find_error then error(f.find_error) end
             if not f.missing[path] then return f.objects[path] end
         end,
         FindAllOf=function(class)
             f.scans = f.scans + 1
             assert(class=="PlayerController", "Unexpected broad object scan")
-            if f.scan_error then error("fixture player discovery failed") end
+            if f.scan_error then error(type(f.scan_error)=="string" and f.scan_error or "fixture player discovery failed") end
             return f.controllers
         end,
     },{__index=_G})
@@ -133,10 +133,12 @@ end
 
 test("unowned, wrong-class, invalid and ambiguous pawns cannot receive writes",function()
     for _,change in ipairs({
-        function(f) f.controller.local_player=false end,
-        function(f) f.controller.pawn=nil end,
-        function(f) f.pawn.player=false end,
-        function(f) f.pawn.controller=object() end,
+        function(f) f.controller.Player=nil end,
+        function(f) f.controller.Player.valid=false end,
+        function(f) f.controller.Player.correct_class=false end,
+        function(f) f.controller.Player.PlayerController=object() end,
+        function(f) f.controller.Pawn=nil end,
+        function(f) f.pawn.Controller=object() end,
         function(f) f.pawn.correct_class=false end,
         function(f) f.pawn.valid=false end,
         function(f) f.pawn.world=nil end,
@@ -150,20 +152,121 @@ test("unowned, wrong-class, invalid and ambiguous pawns cannot receive writes",f
         equal(#f.writes,0)
     end
     local f=fixture(); local foreign,controller=make_player(f.class,f.world)
-    controller.local_player=false; f.controllers={controller,f.controller}
+    controller.Player.correct_class=false; f.controllers={controller,f.controller}
     ready(f); equal(f.trainer:apply("pbz_health",true),true)
     equal(foreign.values.Health,50,"Foreign pawn unchanged"); equal(f.attrs.Health,100)
 end)
 
-test("player discovery is bounded and cached ownership still revalidates",function()
+test("cached ownership revalidates and irrelevant controllers do not reject a local player",function()
     local f=fixture(); ready(f); local scans=f.scans
     for _=1,20 do f.trainer:refresh(); f.trainer:tick(true) end
     equal(f.scans,scans,"Valid cached possession avoids repeated global scans")
-    f.controller.local_player=false; equal(f.trainer:refresh(),false)
+    f.controller.Player.correct_class=false; equal(f.trainer:refresh(),false)
     equal(f.trainer:apply("pbz_health",true),false); equal(#f.writes,0)
     f=fixture(); f.controllers={}
-    for i=1,17 do local _,controller=make_player(f.class,f.world); f.controllers[i]=controller end
-    equal(f.trainer:refresh(),false,"Discovery refuses over-limit controller lists")
+    for i=1,32 do
+        local _,controller=make_player(f.class,f.world)
+        controller.Player.correct_class=false; f.controllers[i]=controller
+    end
+    f.controllers[33]=f.controller
+    ready(f); equal(f.trainer:apply("pbz_health",true),true)
+    equal(f.attrs.Health,100)
+    for i=1,32 do equal(f.controllers[i].Pawn.values.Health,50,"Remote player is untouched") end
+end)
+
+test("reflected ownership works without redundant native getter calls",function()
+    local f=fixture(); ready(f)
+    local function forbidden() error("Redundant native getter must not be called") end
+    f.controller.IsLocalController=forbidden; f.controller.K2_GetPawn=forbidden
+    f.pawn.IsPlayerControlled=forbidden; f.pawn.GetController=forbidden
+    ready(f); equal(f.trainer:apply("pbz_stamina",true),true)
+    equal(f.attrs.Shachi,80)
+end)
+
+test("cached reflected possession is checked before every refill",function()
+    for _,change in ipairs({
+        function(f) f.controller.Player=nil end,
+        function(f) f.controller.Player.PlayerController=object() end,
+        function(f) f.controller.Pawn=object() end,
+        function(f) f.pawn.Controller=object() end,
+    }) do
+        local f=fixture(); ready(f); equal(f.trainer:apply("pbz_stamina",true),true)
+        f.attrs.Shachi=3; local count=#f.writes
+        change(f); f.trainer:tick()
+        equal(f.trainer.ready,false); equal(f.trainer:enabled().pbz_stamina,false)
+        equal(f.attrs.Shachi,3); equal(#f.writes,count,"Changed ownership cannot receive a cached refill")
+    end
+end)
+
+local function fail_property(object,name)
+    object[name]=nil
+    setmetatable(object,{__index=function(_,key)
+        if key==name then error("fixture "..name.." property read failed") end
+    end})
+end
+
+test("failed player detection names its stage and preserves it while throttled",function()
+    for _,case in ipairs({
+        {function(f) f.missing[paths.player]=true end,"Player class is unavailable"},
+        {function(f) f.missing[paths.local_player]=true end,"Local-player class is unavailable"},
+        {function(f) f.find_error="fixture class lookup failed" end,"Player class is unavailable"},
+        {function(f) f.controllers=nil end,"Player controller is unavailable"},
+        {function(f) f.controllers={} end,"Player controller is unavailable"},
+        {function(f) f.scan_error=true end,"Player-controller discovery failed"},
+        {function(f) fail_property(f.controller,"Pawn") end,"Controlled-pawn lookup failed"},
+        {function(f) f.controller.Pawn=nil end,"Controlled player is unavailable"},
+        {function(f) fail_property(f.controller,"Player") end,"Local-player lookup failed"},
+        {function(f) f.controller.Player=nil end,"Local player is unavailable"},
+        {function(f) f.controller.Player.correct_class=false end,"Controller does not belong to a local player"},
+        {function(f) f.controller.Player.IsA=function() error("fixture local class check") end end,"Local-player class check failed"},
+        {function(f) fail_property(f.controller.Player,"PlayerController") end,"Local-player controller lookup failed"},
+        {function(f) f.controller.Player.PlayerController=object() end,"Local player does not own this controller"},
+        {function(f) fail_property(f.pawn,"Controller") end,"Player-controller lookup failed"},
+        {function(f) f.pawn.Controller=object() end,"Player ownership does not match the controller"},
+        {function(f) f.pawn.IsA=function() error("fixture class check") end end,"Player-class check failed"},
+        {function(f) f.pawn.correct_class=false end,"Controlled pawn is not the Phantom Blade Zero player class"},
+        {function(f) f.pawn.GetWorld=function() error("fixture world lookup") end end,"Player-world lookup failed"},
+        {function(f) f.pawn.world=nil end,"Player world is unavailable"},
+        {function(f) local _,second=make_player(f.class,f.world); f.controllers[2]=second end,"More than one locally controlled"},
+    }) do
+        local f=fixture(); case[1](f)
+        local available,message,values=f.trainer:refresh()
+        equal(available,false)
+        equal(message:find("Phantom Blade Zero player detection: ",1,true),1)
+        equal(message:find(case[2],1,true)~=nil,true,message)
+        equal(message:sub(-1),"."); equal(#message<=160,true,"Status remains a short sentence")
+        equal(message:find("fixture",1,true),nil,"Runtime errors cannot become status text")
+        local scans=f.scans
+        local again,repeated,repeated_values=f.trainer:refresh()
+        equal(again,false); equal(repeated,message,"Throttled discovery retains the exact failed stage")
+        equal(repeated_values.pbz_discovery,values.pbz_discovery,"Throttling retains the detailed diagnostic")
+        equal(f.scans,scans); equal(#f.writes,0)
+    end
+end)
+
+test("cached ownership failure explains the pause and later detection recovers",function()
+    local f=fixture(); ready(f)
+    f.controller.Player.correct_class=false
+    local available,message=f.trainer:refresh()
+    equal(available,false); equal(message:find("Controller does not belong to a local player",1,true)~=nil,true)
+    f.controller.Player.correct_class=true; f.now=f.now+1
+    ready(f)
+    equal(f.trainer.discovery_reason,nil,"Successful detection clears stale failure details")
+    equal(f.trainer.discovery_detail,nil)
+    equal(#f.writes,0)
+end)
+
+test("player-detection API errors are bounded printable diagnostics",function()
+    local f=fixture(); f.scan_error="failed\n\t\0"..string.rep("x",1000)
+    local _,message,values=f.trainer:refresh()
+    equal(message,"Phantom Blade Zero player detection: Player-controller discovery failed.")
+    equal(values.pbz_discovery:find("[%z\1-\31\127]"),nil,"Diagnostics cannot inject control characters")
+    equal(#values.pbz_discovery<=160,true,"Runtime details are bounded separately from status")
+    equal(values.pbz_discovery:sub(-3),"...")
+    f=fixture(); f.pawn.GetWorld=function() error(setmetatable({},{__tostring=function() error("unprintable") end})) end
+    local _,unprintable,details=f.trainer:refresh()
+    equal(unprintable,"Phantom Blade Zero player detection: Player-world lookup failed.")
+    equal(details.pbz_discovery,"unprintable error")
     equal(#f.writes,0)
 end)
 
@@ -180,7 +283,7 @@ end)
 test("player transition rejects stale mutation and clears old toggles",function()
     local f=fixture(); ready(f); equal(f.trainer:apply("pbz_stamina",true),true)
     local previous,old=f.trainer:session_key(),f.pawn
-    old.player=false; f.now=f.now+1
+    old.Controller=nil; f.now=f.now+1
     f.pawn,f.controller=make_player(f.class,f.world); f.controllers={f.controller}; f.attrs=f.pawn.values
     local count=#f.writes
     equal(f.trainer:apply("pbz_stamina",true),false,"Old-session request cannot follow new pawn")
@@ -347,7 +450,7 @@ end)
 test("session cleanup targets original pawn and never replacement pawn",function()
     local f=fixture(); ready(f); equal(f.trainer:apply("pbz_damage",false,3),true)
     local old=f.pawn
-    old.player=false; f.now=f.now+1
+    old.Controller=nil; f.now=f.now+1
     f.pawn,f.controller=make_player(f.class,object()); f.controllers={f.controller}; f.attrs=f.pawn.values
     f.pawn.base.Attack=75; f.attrs.Attack=75
     local count=#f.writes
@@ -360,7 +463,7 @@ end)
 test("cleanup remains available after gameplay readiness is lost",function()
     local f=fixture(); ready(f); equal(f.trainer:apply("pbz_damage",false,3),true)
     equal(f.trainer:apply("pbz_health",true),true)
-    f.controllers={}; f.controller.local_player=false; f.trainer:tick()
+    f.controllers={}; f.controller.Player.correct_class=false; f.trainer:tick()
     equal(f.trainer:enabled().pbz_health,false); equal(f.attrs.Attack,100)
     equal(f.trainer:apply("pbz_health",false),true)
     equal(f.trainer:apply("pbz_damage",false,1),true)

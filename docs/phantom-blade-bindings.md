@@ -19,12 +19,15 @@ game material and research scratch files remain under ignored
 ## Player and reflected attributes
 
 The generated class constructor at RVA `0x0651ED90` registers
-`/Script/ProjectPBZ.PBZCharacter_Player`. The runtime identifies a local
-`PlayerController`, its `K2_GetPawn`, the exact player-class relationship, and
-reciprocal `pawn.GetController` ownership. `IsLocalController` and
-`IsPlayerControlled` must both return true. The world, controller and pawn
+`/Script/ProjectPBZ.PBZCharacter_Player`. Trainer 0.1.2 identifies a
+`PlayerController` whose reflected `Player` is an `/Script/Engine.LocalPlayer`
+and whose `Player.PlayerController` points back to that controller. Its `Pawn`
+must have the exact player-class relationship and a reciprocal `pawn.Controller`
+link. This replaces the repeated reflected `IsLocalController`, `K2_GetPawn`,
+`IsPlayerControlled` and `GetController` calls. The world, controller and pawn
 addresses form a session identity. Stable ownership uses cached objects;
-rediscovery is bounded to 16 controller candidates and throttled after failure.
+rediscovery is throttled after failure. Unrelated controllers do not impose a
+count limit; multiple matching local players are still rejected.
 
 The generated constructor at RVA `0x05DD24C0` registers
 `/Script/CharacterBasics.BasicAttributeSet` (native size `0xE38`).
@@ -183,6 +186,42 @@ cheat effects. Local evidence is retained in
 `artifacts/phantom-blade/live/binding-metadata.json`,
 `binding-live-player.json`, and `binding-player-ancestry-metadata.json`.
 
+## Active-game detection failure, 31 October 2026
+
+Trainer 0.1.1 loaded successfully and published a fresh heartbeat, but reported
+that a save must be loaded while the user was already playing. Read-only process
+inspection found one live `BP_Renewal_Hun_C` player and one controller, reciprocal
+`Controller.Pawn` / `Pawn.Controller` links, the expected player ancestry, and
+an owned `AttributeSetBase`. `Controller.Player` was `PBZLocalPlayer`, deriving
+from `/Script/Engine.LocalPlayer`; its reflected `PlayerController` property
+at inspection offset `0x30` pointed back to the same controller. Sampled health
+was about 829/850, Sha-Chi 400/400, and attack 100 in `PBZ_Xigu_WP`.
+
+A bounded read-only scan near the trainer's Lua state retained a complete
+traceback: `bindings.lua:17: Array failed invariants check, ArrayNum exceeds
+ArrayMax`, in the `index` metamethod, called by installed `bindings.lua:52`.
+That line looks up `K2_GetPawn`; the error occurs before invoking the function.
+The catch discarded it and reported the generic load-save message. This pins
+the failing lookup path; the traceback does not identify the internal property
+or function lookup operation that threw.
+
+Trainer 0.1.2 reads the verified reflected properties instead of looking up the
+four redundant game getter functions. The pinned `LuaUObject.cpp`
+`handle_unreal_property_value` uses `GetFunctionByNameInChain` only when no
+reflected property is found; `Pawn`, `Controller`, `Player` and
+`PlayerController` have inspected property metadata. Remaining `IsA`,
+`GetWorld`, `GetOuter`, and validity/address methods are UE4SS wrapper methods.
+The arbitrary rejection of controller lists longer than 16 is removed;
+unrelated candidates do not invalidate one matching local player.
+
+These inspections used query/read process access only, with no engine calls,
+injection, memory writes or save edits. Local evidence is retained under
+`artifacts/phantom-live/` (`snapshot.json`, `readiness-traceback.json`). Tests
+exercise unavailable/throwing old getter methods, direct-property failures,
+remote or ambiguous players, many irrelevant controllers, session transitions
+and ownership changes before refill. The changed Lua path requires a restart
+before its live readiness can be established.
+
 ## Validation boundary
 
 Static inspection establishes the executable identity, engine string, native
@@ -192,8 +231,9 @@ availability, write/readback handling and restoration behavior against mocks.
 The read-only live check additionally confirms the loaded schemas, player
 ownership and sampled resource values described above.
 
-These checks do not establish loader compatibility with Unreal 5.7.4,
-successful live reflected reads/writes, actual combat effects, controller operation,
-or rendering over the running game. Those require separate live evidence.
+The observed 0.1.1 heartbeat establishes loader startup on this executable.
+Trainer 0.1.2 readiness, successful live reflected reads/writes, actual combat
+effects, controller operation and rendering over the running game remain
+unverified. Those require separate live evidence after updating and restarting.
 The default state has all controls off and multiplier 1. No progression or
 save-editing command is implemented by this profile.

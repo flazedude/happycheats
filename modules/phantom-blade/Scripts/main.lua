@@ -1,4 +1,4 @@
--- HappyCheats Phantom Blade Zero 0.1.1. UObject access stays on the game thread.
+-- HappyCheats Phantom Blade Zero 0.1.2. UObject access stays on the game thread.
 local source = debug.getinfo(1,"S").source:gsub("^@",""):gsub("\\","/")
 local scripts = assert(source:match("^(.*)/[^/]+$"))
 local bridge = scripts .. "/../bridge/"
@@ -8,7 +8,7 @@ local boot = tostring(os.time()) .. "-" .. tostring({}):gsub("[^%w]","")
 local serial, identity, session = 0, nil, boot .. "-0"
 local seen = {}
 local last_command, last_success, last_message = "", false, ""
-local status = {schema_version=1, version="0.1.1", session_id=session, ready=false,
+local status = {schema_version=1, version="0.1.2", session_id=session, ready=false,
     message="Phantom Blade Zero trainer starting; waiting for the game thread.", enabled={}, values={}, available={}}
 local published_at, published_controls, reported_connection
 local function publish()
@@ -122,4 +122,4 @@ for _, shortcut in ipairs({{Key.F1,"pbz_health"}, {Key.F2,"pbz_stamina"}, {Key.F
         if not queued then hotkey_pending = false; print("[HappyCheats] Hotkey scheduling failed: " .. tostring(reason) .. "\n") end
     end)
 end
-print("[HappyCheats] Phantom Blade Zero 0.1.1 loaded. All toggles start off.\n")
+print("[HappyCheats] Phantom Blade Zero 0.1.2 loaded. All toggles start off.\n")

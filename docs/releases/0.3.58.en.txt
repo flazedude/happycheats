@@ -1,0 +1,9 @@
+HappyCheats 0.3.58 — Phantom Blade Zero player detection
+
+Phantom Blade Zero trainer 0.1.2 replaces the game-function lookup that left every control disabled while a save was already loaded. Read-only inspection found a retained Lua traceback: looking up K2_GetPawn failed with "ArrayNum exceeds ArrayMax" before the function was called. The trainer now reads the verified local-player, controller and pawn properties directly, removing four redundant reflected getter calls and the arbitrary 16-controller limit.
+
+Local-player identity, reciprocal possession, player class, current world/session, owned attributes, resource bounds and write confirmation remain enforced. Failed detection now shows a specific English/Chinese reason in the client and shared menu instead of a generic waiting-for-gameplay label. Technical error details are bounded and kept separately. Health, Sha-Chi and 1–20x attack-power controls retain their existing behavior and start disabled.
+
+After updating HappyCheats, close Phantom Blade Zero and choose Install / update, then start the game yourself and load your save. The current running game keeps its old scripts until restarted. Both complete distributions contain the rebuilt trainer and all seventeen games, including Crimson Desert 0.2.7. Ctrl+Del and hold Menu for 350 ms then tap RB still toggle the shared menu.
+
+Validation includes read-only inspection of the existing game session and retained traceback, offline Lua/player/session/restoration checks, installer/payload hashes, and client/shared-menu/controller regressions. No game was launched, cheat activated, memory written or save edited during diagnosis. The revised Lua path still requires live confirmation after restart; actual gameplay effects, physical-controller input and exclusive fullscreen remain unverified.

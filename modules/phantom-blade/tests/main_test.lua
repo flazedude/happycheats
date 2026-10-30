@@ -129,7 +129,7 @@ equal(timers,1); equal(#jobs,0)
 for _,key in ipairs({1,2,10}) do equal(type(keys[key]),"function","Game-focus hotkeys registered") end
 local key_count=0; for _ in pairs(keys) do key_count=key_count+1 end
 equal(key_count,3,"No native menu or numeric-action hotkey")
-tick(); equal(latest.ready,true); equal(latest.version,"0.1.1"); equal(state.disables,1)
+tick(); equal(latest.ready,true); equal(latest.version,"0.1.2"); equal(state.disables,1)
 equal(refreshes,1,"One idle tick resolves native context only once")
 local published=publications
 tick(); tick(); tick(); equal(publications,published,"Stable polls coalesce status writes")
