@@ -1,5 +1,9 @@
 # Crimson Desert offline inspection
 
+For the current PE3424 / Steam build 26317560 profile, use the source-guard
+verifier below and the [current evidence](../../docs/crimson-desert-3424.md).
+The PE2976 findings retained here are historical, with their original addresses.
+
 `inspect_binary.py` opens the game executable read-only, parses PE section headers,
 hashes its bytes, and scans named byte patterns from a supplied C++ header. It
 does not open a game process or modify game files. Wildcards are `?` or `??`.
@@ -19,7 +23,7 @@ runtime dependency. Match counts include the full disk image; counts are not
 proof of feature behavior in a running game. Results retain at most the first
 256 locations for very broad patterns, while `match_count` records the total.
 
-## Inspected installation, 26 September 2026
+## Historical installation, 26 September 2026 (PE2976)
 
 - Steam application 3321460, build 25477059.
 - File/product version 1.0.0.2976; 384,521,624 bytes.
@@ -85,3 +89,27 @@ has zero matches in the installed image. The legacy marker-copy signature has
 five matches and the legacy entity signature has zero. None is a safe current
 binding solely on those patterns. Static checks do not validate actual gameplay,
 map-marker teleport safety, saves, or network behavior. The game was not started.
+
+## Verify the trainer's current bindings
+
+`verify_bindings.py` reads the native source guards directly, then compares the
+executable's PE machine, timestamp, image size, SHA-256 and every `Matches` byte
+guard in its binding validators. It does not require an upstream research header.
+
+```powershell
+python .\tools\InspectCrimsonDesert\verify_bindings.py `
+  'D:\Games\Steam\steamapps\common\Crimson Desert\bin64\CrimsonDesert.exe' `
+  --output .\artifacts\crimson-research\binding-verification.json
+python -m unittest discover -s .\tools\InspectCrimsonDesert -p test_verify_bindings.py
+```
+
+The source root defaults to this checkout; `--source-root <checkout>` compares
+another checkout's guards. JSON is always printed, and `--output` optionally saves
+it. Exit codes are **0** for all matches, **1** for mismatches or unmappable guarded
+RVAs, and **2** for malformed files, unsupported source syntax or other inspection
+errors. A guarded range must fit exactly one raw-backed section. Unparsed guards,
+ambiguous mappings and files changed during inspection cannot pass.
+
+This is read-only inspection of the game file, not signature discovery or proof
+of field semantics, runtime hook installation, DLC behavior or gameplay. The
+report records source hashes so the checked guards can be identified later.

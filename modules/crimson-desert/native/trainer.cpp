@@ -27,15 +27,15 @@
 
 namespace {
 using Json = nlohmann::json;
-constexpr uintptr_t kManagerRva = 0x6D696B8;
-constexpr uintptr_t kCommitRva = 0xC7EFDE0;
-constexpr uintptr_t kDamageRva = 0x17AE080;
-constexpr uintptr_t kLocoRva = 0x369FFC0;
-constexpr uintptr_t kOuterMoveRva = 0x36A9770;
-constexpr uintptr_t kMarkerSenderRva = 0xB85340;
-constexpr uintptr_t kMarkerUiReturnRva = 0xDC3574;
-constexpr uintptr_t kOriginRva = 0x6D56500;
-constexpr uintptr_t kSyncProxyRva = 0x3990AB0;
+constexpr uintptr_t kManagerRva = 0x71AEF78;
+constexpr uintptr_t kCommitRva = 0xB8E0190;
+constexpr uintptr_t kDamageRva = 0x18E1930;
+constexpr uintptr_t kLocoRva = 0x396DCD0;
+constexpr uintptr_t kOuterMoveRva = 0x3977060;
+constexpr uintptr_t kMarkerSenderRva = 0xC97330;
+constexpr uintptr_t kMarkerUiReturnRva = 0xF6449E;
+constexpr uintptr_t kOriginRva = 0x719ACB0;
+constexpr uintptr_t kSyncProxyRva = 0x3C62A10;
 constexpr uintptr_t kPointerFloor = 0x10000;
 constexpr std::uint64_t kLeaseTicks = 5ULL * 10000000ULL;
 const std::array<const char*, 8> kFeatures{{"crimson_health", "crimson_stamina", "crimson_one_hit",
@@ -54,7 +54,7 @@ std::atomic<bool> g_clientBindingReady{},g_clientReady{};
 std::atomic<ULONGLONG> g_leaseDeadline{};
 std::atomic<uintptr_t> g_owner{};
 std::atomic<uintptr_t> g_actor{},g_marker{},g_root{},g_stats{};
-std::atomic<uintptr_t> g_clientRoot{},g_clientService{},g_clientOwner{},g_clientActor{},g_clientMarker{},g_clientVitalRoot{},g_clientStats{};
+std::atomic<uintptr_t> g_clientRoot{},g_clientService{},g_clientOwner{},g_clientSelfUser{},g_clientActor{},g_clientMarker{},g_clientVitalRoot{},g_clientStats{};
 std::uint64_t g_processStartUnixMs{};
 std::string g_lastCommand;
 bool g_lastSuccess = true;
@@ -330,6 +330,9 @@ template<class T> bool Write(uintptr_t address, const T& value) {
 bool Pointer(uintptr_t address, uintptr_t& value) {
     return Read(address, value) && value >= kPointerFloor && value <= 0x00007FFFFFFFFFFFULL;
 }
+bool StatusKey(std::uint16_t reference,std::uint32_t& key) {
+    return crimson_logic::ResolveStatusKey(g_game+crimson_logic::StatusRegistryRva,reference,Pointer,Read<std::uint32_t>,key);
+}
 void DisableAll() {
     g_health.store(false); g_stamina.store(false); g_spirit.store(false); g_oneHit.store(false);
     g_speedEnabled.store(false); g_speed.store(1.0f);
@@ -343,13 +346,15 @@ void DisableAll() {
 bool ValidatePlayer(uintptr_t owner, Player& player) {
     uintptr_t descriptor{}, possessor{}, pawn{}, actor{}, marker{}, root{}, stats{}, backlink{};
     std::uint8_t tag{};
-    std::int32_t type{};
+    std::uint16_t type{};
+    std::uint32_t key{},statCount{};
     if (!owner || !Pointer(owner + 0x88, descriptor) || !Read(descriptor + 1, tag) ||
         !Pointer(owner + 0xA0, possessor) ||
         !Pointer(possessor + 0xD0, pawn) || !crimson_logic::IsControlled(owner,pawn,tag) ||
         !Pointer(owner + 0x68, actor) || !Pointer(actor + 0x20, marker) ||
         !Pointer(marker + 0x18, root) || !Pointer(root, backlink) || backlink != marker ||
-        !Pointer(root + 0x58, stats) || !Read(stats, type) || type != 0) return false;
+        !Pointer(root + 0x58, stats) || !Read(root+0x60,statCount) || !statCount || statCount>0xFFFF ||
+        !Read(stats, type) || !StatusKey(type,key) || key!=crimson_logic::HealthKey) return false;
     player = {owner, actor, marker, root, stats};
     return true;
 }
@@ -378,14 +383,16 @@ bool CurrentPlayer(Player& player) {
 }
 bool ResolveClientPlayer(Client& client) {
     // This is the world-map's current client-owner accessor, not either server
-    // character-manager global. Its +50 field and client vtable are pinned to PE2976.
-    return g_clientBindingReady.load() && crimson_logic::ResolveClientAnchor(g_game+crimson_logic::ClientRootRva,
-        g_game+crimson_logic::ClientOwnerVtableRva,Pointer,client.anchor) && ValidatePlayer(client.anchor.owner,client.player);
+    // character-manager global. The Normal class and current engine local-self
+    // predicate are pinned to PE3424; a different class or self-user is rejected.
+    return g_clientBindingReady.load() && crimson_logic::ResolveControlledClientAnchor(g_game+crimson_logic::ClientRootRva,
+        g_game+crimson_logic::ClientOwnerVtableRva,Pointer,Read<std::uint8_t>,client.anchor) &&
+        ValidatePlayer(client.anchor.owner,client.player);
 }
 bool CurrentClientPlayer(Client& client) {
     if(!g_leaseValid.load(std::memory_order_acquire) || GetTickCount64()>=g_leaseDeadline.load()) return false;
     const auto owner=g_clientOwner.load(std::memory_order_acquire);
-    const Client expected{{g_clientRoot.load(),g_clientService.load(),owner},
+    const Client expected{{g_clientRoot.load(),g_clientService.load(),owner,g_clientSelfUser.load()},
         {owner,g_clientActor.load(),g_clientMarker.load(),g_clientVitalRoot.load(),g_clientStats.load()}};
     return ResolveClientPlayer(client) && g_clientOwner.load(std::memory_order_acquire)==owner &&
         crimson_logic::SameClientIdentity(expected,client);
@@ -398,12 +405,12 @@ IdentityPublication RefreshIdentityCache(bool lease,bool playerReady,const Playe
     // Only the worker publishes these caches. A stable identity must not pass
     // through owner==0: a concurrent commit would otherwise miss its refill.
     const Player cached{g_owner.load(),g_actor.load(),g_marker.load(),g_root.load(),g_stats.load()};
-    const Client cachedClient{{g_clientRoot.load(),g_clientService.load(),g_clientOwner.load()},
+    const Client cachedClient{{g_clientRoot.load(),g_clientService.load(),g_clientOwner.load(),g_clientSelfUser.load()},
         {g_clientOwner.load(),g_clientActor.load(),g_clientMarker.load(),g_clientVitalRoot.load(),g_clientStats.load()}};
     const bool publishPlayer=playerReady ? !crimson_logic::SameIdentity(cached,player) :
         cached.owner || cached.actor || cached.marker || cached.root || cached.stats;
     const bool publishClient=clientReady ? !crimson_logic::SameClientIdentity(cachedClient,client) :
-        cachedClient.anchor.root || cachedClient.anchor.service || cachedClient.anchor.owner ||
+        cachedClient.anchor.root || cachedClient.anchor.service || cachedClient.anchor.owner || cachedClient.anchor.selfUser ||
         cachedClient.player.actor || cachedClient.player.marker || cachedClient.player.root || cachedClient.player.stats;
     const bool playerChanged=publishPlayer || g_playerReady.load()!=playerReady;
     const bool clientChanged=publishClient || g_clientReady.load()!=clientReady;
@@ -421,6 +428,7 @@ IdentityPublication RefreshIdentityCache(bool lease,bool playerReady,const Playe
         g_clientOwner.store(0,std::memory_order_release);
         g_clientRoot.store(clientReady ? client.anchor.root : 0);
         g_clientService.store(clientReady ? client.anchor.service : 0);
+        g_clientSelfUser.store(clientReady ? client.anchor.selfUser : 0);
         g_clientActor.store(clientReady ? client.player.actor : 0);
         g_clientMarker.store(clientReady ? client.player.marker : 0);
         g_clientVitalRoot.store(clientReady ? client.player.root : 0);
@@ -433,7 +441,7 @@ IdentityPublication RefreshIdentityCache(bool lease,bool playerReady,const Playe
     return {publishPlayer,publishClient};
 }
 bool MovementComponent(const Player& player, uintptr_t& component) {
-    // Three PE2976 CLIENT caller paths prove owner+68 -> actor+40 -> object+140 -> component.
+    // Inspected PE3424 CLIENT caller paths establish owner+68 -> actor+40 -> object+140 -> component.
     // A server owner has a different control component at actor+40 and must never enter this chain.
     // The component's proxy is +2C0 on this build; no arbitrary pointer scans are used.
     uintptr_t proxy{};
@@ -543,17 +551,21 @@ bool ManualTeleport(std::string& message) {
     message=queued ? "Experimental marker teleport queued; terrain height and landing are unverified." : g_warpMessage;
     return queued;
 }
-bool IsTrackedStat(const Player& player, uintptr_t entry, std::int32_t& type) {
-    if (!crimson_logic::StatAddress(player.stats,entry)) return false;
-    return Read(entry, type) && (type == 0 || type == 22 || type == 25 || type == 23 || type == 26);
+bool IsTrackedStat(const Player& player, uintptr_t entry, std::uint32_t& key) {
+    std::uint32_t count{};
+    if (!Read(player.root+0x60,count) || !crimson_logic::StatAddress(player.stats,entry,count)) return false;
+    std::uint16_t reference{};
+    return Read(entry, reference) && StatusKey(reference,key) && crimson_logic::StatEnabled(key,true,true,true);
 }
-void PinStat(const Player& player, uintptr_t entry) {
+void PinStat(const Player& player, uintptr_t entry,std::uint32_t expectedKey) {
     std::uint64_t base{}, cap{};
     if (!Read(entry + 0x18, base) || !Read(entry + 0x30, cap)) return;
     std::uint64_t full{}, normalized{};
     if (!crimson_logic::Fill(base,cap,full,normalized)) return;
     Player fresh{};
-    if (!ValidatePlayer(player.owner, fresh) || !crimson_logic::SameIdentity(player,fresh)) return;
+    std::uint32_t freshKey{};
+    if (!ValidatePlayer(player.owner, fresh) || !crimson_logic::SameIdentity(player,fresh) ||
+        !IsTrackedStat(fresh,entry,freshKey) || freshKey!=expectedKey) return;
     // Both representations must agree; the next native commit reconstructs current from base + normalized.
     if (Write(entry + 0x20, normalized)) Write(entry + 8, full);
 }
@@ -676,8 +688,8 @@ void WarpAfterOuterMove(uintptr_t component,const WarpObservationTicket& ticket)
             CancelWarpLocked("Marker teleport canceled: movement context or floating origin became invalid."); return;
         }
         current=fresh;
-        // PE2976's native setter subtracts this origin, stores XYZ at proxy+90,
-        // and calls 3990AB0. Preserve transform W, rotation and unproven fields.
+        // PE3424's native setter subtracts this origin, stores XYZ at proxy+90,
+        // and calls 3C62A10. Preserve transform W, rotation and unproven fields.
         if(!Write(current.proxy+0x90,destination)) {
             CancelWarpLocked("Marker teleport canceled: position write failed; no deferred retry."); return;
         }
@@ -719,22 +731,25 @@ std::int64_t CommitHook(void* entry, std::int64_t opaqueArg2, std::int64_t targe
     const auto result = g_originalCommit(entry, opaqueArg2, target, flag);
     if (!g_health.load() && !g_stamina.load() && !g_spirit.load()) return result;
     Player player{};
-    std::int32_t type{};
+    std::uint32_t key{};
     const auto address = reinterpret_cast<uintptr_t>(entry);
-    if (!CurrentPlayer(player) || !IsTrackedStat(player, address, type)) return result;
-    const bool enabled = crimson_logic::StatEnabled(type,g_health.load(),g_stamina.load(),g_spirit.load());
-    if (enabled) PinStat(player, address);
+    if (!CurrentPlayer(player) || !IsTrackedStat(player, address, key)) return result;
+    const bool enabled = crimson_logic::StatEnabled(key,g_health.load(),g_stamina.load(),g_spirit.load());
+    if (enabled) PinStat(player, address,key);
     return result;
 }
 std::int64_t DamageHook(void* target, std::uint16_t status, std::int64_t time, std::int64_t delta,
     uintptr_t source, char a6, char a7, char a8, char a9, char a10, void* out) {
-    if (g_oneHit.load() && status == 0 && delta < 0) {
+    if (g_oneHit.load() && delta < 0) {
         Player player{};
+        std::uint32_t key{};
         uintptr_t attacker{};
-        if (CurrentPlayer(player) && reinterpret_cast<uintptr_t>(target) != player.root &&
+        // The damage argument is the same WORD StatusInfo reference. The
+        // engine compares it with its registered HP reference, not literal 0.
+        if (StatusKey(status,key) && key==crimson_logic::HealthKey && CurrentPlayer(player) && reinterpret_cast<uintptr_t>(target) != player.root &&
             Pointer(source + 0x68, attacker) && attacker == player.actor) {
             // Scale only an outgoing player HP hit. NPC-vs-NPC hits, heals and other stats pass unchanged.
-            delta = crimson_logic::ScaleOutgoing(delta,status,true,player,reinterpret_cast<uintptr_t>(target),attacker);
+            delta = crimson_logic::ScaleOutgoing(delta,key,true,player,reinterpret_cast<uintptr_t>(target),attacker);
         }
     }
     return g_originalDamage(target, status, time, delta, source, a6, a7, a8, a9, a10, out);
@@ -746,7 +761,7 @@ void LocoHook(uintptr_t component,float dt,float* velocity,std::uint64_t a4,std:
     Client client{};
     uintptr_t controlled{};
     float* inputForOriginal=velocity;
-    // The native callee reads only XYZ, as checked against PE2976. Copy exactly
+    // The native callee reads only XYZ, as checked against PE3424. Copy exactly
     // 12 bytes; the original scratch vector may end at a readable-page boundary.
     if (g_speedEnabled.load() && CurrentPlayer(server) && CurrentClientPlayer(client) && MovementComponent(client.player,controlled) &&
         ReadBytes(reinterpret_cast<uintptr_t>(velocity),input,3*sizeof(float)) &&
@@ -761,7 +776,7 @@ void LocoHook(uintptr_t component,float dt,float* velocity,std::uint64_t a4,std:
     g_originalLoco(component,dt,inputForOriginal,a4,a5,a6,a7);
 }
 void OuterMoveHook(uintptr_t component,float dt) {
-    // PE2976 performs contact rollback after nested Loco calls. Consume only
+    // PE3424 performs contact rollback after nested Loco calls. Consume only
     // after its complete outer update, and never count recursive callbacks.
     static thread_local unsigned depth{};
     struct DepthGuard { unsigned& value; explicit DepthGuard(unsigned& v):value(v) { ++value; } ~DepthGuard() { --value; } } guard(depth);
@@ -798,34 +813,44 @@ bool ValidateBaseBindings() {
     const std::array<unsigned char,17> commit{{0x66,0x44,0x89,0x4C,0x24,0x20,0x48,0x89,0x54,0x24,0x10,0x53,0x55,0x56,0x57,0x41,0x56}};
     const std::array<unsigned char,15> damage{{0x48,0x89,0x5C,0x24,0x08,0x48,0x89,0x6C,0x24,0x10,0x48,0x89,0x74,0x24,0x18}};
     const std::array<unsigned char,15> loco{{0x48,0x8B,0xC4,0x48,0x89,0x58,0x10,0x44,0x88,0x48,0x20,0x48,0x89,0x48,0x08}};
-    return Matches(g_game+kCommitRva, commit) && Matches(g_game+kDamageRva, damage) && Matches(g_game+kLocoRva,loco);
+    const std::array<unsigned char,37> statusLookup{{0x8B,0xFA,0x48,0x8B,0x1D,0x8C,0x2A,0xDD,0x06,0x3B,0x53,0x08,0x0F,0x83,
+        0x37,0x01,0x00,0x00,0x8B,0xF7,0x48,0x8B,0x43,0x58,0x48,0x8B,0x04,0xF8,0x48,0x85,0xC0,0x0F,0x85,0x2E,0x01,0x00,0x00}};
+    const std::array<unsigned char,7> statusKeyField{{0x8B,0x44,0x24,0x78,0x89,0x47,0x08}};
+    const std::array<unsigned char,18> statusReference{{0x49,0x8B,0x7C,0x24,0x58,0x46,0x0F,0xB7,0x34,0x3F,0x41,0x8B,0xD6,0xE8,0xCE,0x64,0xAF,0xFE}};
+    return Matches(g_game+kCommitRva, commit) && Matches(g_game+kDamageRva, damage) && Matches(g_game+kLocoRva,loco) &&
+        Matches(g_game+0x3DCF93,statusLookup) && Matches(g_game+0x171C7D9,statusKeyField) && Matches(g_game+0x18E6AA0,statusReference);
 }
 bool ValidateMarkerBindings() {
     const std::array<unsigned char,14> sender{{0x48,0x89,0x5C,0x24,0x08,0x48,0x89,0x74,0x24,0x18,0x89,0x54,0x24,0x10}};
     const std::array<unsigned char,18> sync{{0x48,0x89,0x5C,0x24,0x08,0x57,0x48,0x83,0xEC,0x30,0x48,0x8B,0xF9,0x48,0x83,0x79,0x38,0xFF}};
-    const std::array<unsigned char,8> caller{{0xE8,0xCC,0x1D,0xDC,0xFF,0x83,0xE3,0xFE}};
+    const std::array<unsigned char,8> caller{{0xE8,0x92,0x2E,0xD3,0xFF,0x83,0xE3,0xFE}};
     return Matches(g_game+kMarkerSenderRva,sender) && Matches(g_game+kSyncProxyRva,sync) &&
         Matches(g_game+kMarkerUiReturnRva-5,caller);
 }
 bool ValidateOuterMovementBinding() {
-    // PE2976 full outer locomotion update, including the saved-start rollback.
+    // PE3424 full outer locomotion update, including the saved-start rollback.
     // Direct caller passes component in RCX and float dt in XMM1.
-    const std::array<unsigned char,33> entry{{0x48,0x8B,0xC4,0x48,0x89,0x58,0x10,
-        0x48,0x89,0x70,0x18,0x55,0x57,0x41,0x54,0x41,0x56,0x41,0x57,
-        0x48,0x8D,0xA8,0x08,0xFF,0xFF,0xFF,0x48,0x81,0xEC,0xD0,0x01,0x00,0x00}};
-    const std::array<unsigned char,20> caller{{0xC5,0xFA,0x59,0xCF,0x48,0x8B,0xCE,
-        0xE8,0xC0,0xB2,0xE2,0x02,0x4C,0x8D,0x9C,0x24,0x80,0x01,0x00,0x00}};
-    return Matches(g_game+kOuterMoveRva,entry) && Matches(g_game+0x87E4A4,caller);
+    const std::array<unsigned char,29> entry{{0x48,0x8B,0xC4,0x55,0x53,0x56,0x57,0x41,0x54,0x41,0x55,0x41,0x56,0x41,0x57,0x48,0x8D,0xA8,0x08,0xF9,0xFF,0xFF,0x48,0x81,0xEC,0xB8,0x07,0x00,0x00}};
+    const std::array<unsigned char,20> caller{{0xC5,0xFA,0x59,0xCF,0x48,0x8B,0xCE,0xE8,0x20,0x25,0x01,0x03,0x4C,0x8D,0x9C,0x24,0x80,0x01,0x00,0x00}};
+    return Matches(g_game+kOuterMoveRva,entry) && Matches(g_game+0x964B34,caller);
 }
 bool ValidateClientBindings() {
     // World-map code loads [global], then [root+30], then calls the accessor
     // whose [service+50] is the current client owner. Check both ends in memory.
-    const std::array<unsigned char,16> caller{{0x48,0x8B,0x0D,0x55,0x5C,0xFA,0x05,
-        0x48,0x8B,0x49,0x30,0xE8,0x9C,0x0F,0xAF,0xFF}};
+    const std::array<unsigned char,16> caller{{0x48,0x8B,0x0D,0xEB,0xA5,0x24,0x06,0x48,0x8B,0x49,0x30,0xE8,0x82,0x85,0xA3,0xFF}};
     const std::array<unsigned char,15> getter{{0x48,0x89,0x5C,0x24,0x08,0x48,0x89,0x54,0x24,0x10,
         0x57,0x48,0x83,0xEC,0x30}};
     const std::array<unsigned char,4> field{{0x48,0x8B,0x79,0x50}};
-    return Matches(g_game+0xDC3534,caller) && Matches(g_game+0x8B44E0,getter) && Matches(g_game+0x8B44FA,field);
+    // RTTI and the current constructor establish ClientNormalInGameActor's
+    // primary vtable. Its +178 method supplies an independent local-self check.
+    const std::array<unsigned char,39> localControl{{0x48,0x8B,0x05,0x79,0xC9,0xBF,0x06,0x48,0x8B,0x50,0x30,
+        0x48,0x8B,0x81,0xA0,0x00,0x00,0x00,0x48,0x39,0x42,0x58,0x75,0x0C,0x80,0xB9,0x94,0x00,0x00,0x00,
+        0x00,0x74,0x03,0xB0,0x01,0xC3,0x32,0xC0,0xC3}};
+    uintptr_t localControlTarget{};
+    return Matches(g_game+0xF6445E,caller) && Matches(g_game+0x99C9F0,getter) && Matches(g_game+0x99CA0A,field) &&
+        Matches(g_game+crimson_logic::ClientLocalControlRva,localControl) &&
+        Pointer(g_game+crimson_logic::ClientOwnerVtableRva+0x178,localControlTarget) &&
+        localControlTarget==g_game+crimson_logic::ClientLocalControlRva;
 }
 bool ValidateExecutableHash() {
     wchar_t path[32768]{};
@@ -853,9 +878,7 @@ bool ValidateExecutableHash() {
     if (!input.eof()) return false;
     std::array<unsigned char,32> digest{};
     if (BCryptFinishHash(handles.hash,digest.data(),static_cast<ULONG>(digest.size()),0)<0) return false;
-    constexpr std::array<unsigned char,32> expected{{0x57,0xDA,0x44,0x0D,0x72,0xF4,0xDB,0x97,
-        0x4F,0x25,0xFE,0xF0,0x47,0xCF,0x84,0xC4,0xDA,0xDD,0x99,0x9A,0x88,0xCB,0x2A,0x3C,
-        0x5A,0xF4,0xC9,0xBD,0x67,0xFD,0xE1,0xE7}};
+    constexpr std::array<unsigned char,32> expected{{0xD4,0x85,0x5C,0x08,0x99,0x86,0x38,0xF0,0x7F,0xA8,0xFA,0xE0,0x8B,0xD6,0x24,0x92,0x61,0xF1,0x0C,0x8F,0xEC,0x22,0x15,0xEF,0xFC,0x29,0xCB,0x33,0x9E,0x7F,0xA5,0x25}};
     return digest==expected;
 }
 void InstallHooks() {
@@ -983,7 +1006,7 @@ void Command() {
         g_lastCommand = id;
         g_lastSuccess = false;
         if (command.value("schema_version", 0) != 1) { g_lastMessage = "Unsupported command schema."; return; }
-        if (command.value("version",std::string())!="0.2.5") { g_lastMessage="Unsupported protocol version."; return; }
+        if (command.value("version",std::string())!="0.2.6") { g_lastMessage="Unsupported protocol version."; return; }
         const auto now=UnixMilliseconds();
         if (!command.contains("expires_unix_ms") || !command["expires_unix_ms"].is_number_unsigned()) {
             g_lastMessage="Command expiration is required."; return;
@@ -1080,7 +1103,7 @@ void Status() {
     std::string message = g_initMessage;
     if (message.empty()) message = g_playerReady.load() ? "Connected. Gameplay behavior has not yet been validated on this build."
         : "Load into the world with a supported controlled player. All controls are currently off.";
-    Json status = {{"schema_version",1},{"version","0.2.5"},{"process_id",GetCurrentProcessId()},
+    Json status = {{"schema_version",1},{"version","0.2.6"},{"process_id",GetCurrentProcessId()},
         {"pid",GetCurrentProcessId()},{"process_start_unix_ms",g_processStartUnixMs},
         {"heartbeat_unix_ms",UnixMilliseconds()},
         {"session_id",g_session},{"ready",g_commitReady.load() || g_damageReady.load() || g_locoReady.load() || g_outerReady.load()},

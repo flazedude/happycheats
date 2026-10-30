@@ -19,7 +19,9 @@ struct Body {
         descriptor.Put(1,std::uint8_t{1}); owner.Put(0xA0,possessor.address());
         possessor.Put(0xD0,owner.address()); actor.Put(0x20,marker.address());
         marker.Put(0x18,root.address()); root.Put(0,marker.address());
-        root.Put(0x58,stats.address()); stats.Put(0,std::int32_t{0});
+        root.Put(0x58,stats.address()); stats.Put(0,std::uint16_t{0});
+        root.Put(0x60,std::uint32_t{20});
+        stats.Put(2,std::uint16_t{0xBEEF});
         return {owner.address(),actor.address(),marker.address(),root.address(),stats.address()};
     }
 };
@@ -29,7 +31,7 @@ unsigned syncCalls{},outerCalls{},locoCalls{};
 float observedDt{};
 float observedVelocity[3]{};
 bool recurse{},insideRecursion{},immediateCorrection{};
-enum class Action { None,CorrectLater,NearMotion,FarMotion,Clear,Disable,ExpireLease,SwapClient,Replace,Rebase };
+enum class Action { None,CorrectLater,NearMotion,FarMotion,Clear,Disable,ExpireLease,SwapClient,SwapSelfUser,Replace,Rebase };
 Action action{};
 std::vector<Position> writes;
 void Sync(uintptr_t proxy) {
@@ -69,6 +71,7 @@ void Outer(uintptr_t component,float dt) {
     case Action::Disable: DisableAll(); break;
     case Action::ExpireLease: g_leaseDeadline=0; break;
     case Action::SwapClient: g_clientOwner=0; break;
+    case Action::SwapSelfUser: assert(Write(g_clientService.load()+0x58,uintptr_t{})); break;
     case Action::Replace: {
         const Position replacement{400,0,500}; assert(Write(navAddress+0x1E8,replacement));
         std::string message; assert(ManualTeleport(message)); break;
@@ -83,7 +86,7 @@ void Outer(uintptr_t component,float dt) {
 }
 void Cache(const Player& server,const Client& client) {
     g_actor=server.actor; g_marker=server.marker; g_root=server.root; g_stats=server.stats; g_owner=server.owner;
-    g_clientRoot=client.anchor.root; g_clientService=client.anchor.service;
+    g_clientRoot=client.anchor.root; g_clientService=client.anchor.service; g_clientSelfUser=client.anchor.selfUser;
     g_clientActor=client.player.actor; g_clientMarker=client.player.marker;
     g_clientVitalRoot=client.player.root; g_clientStats=client.player.stats; g_clientOwner=client.player.owner;
     g_leaseValid=true; g_leaseDeadline=GetTickCount64()+60000;
@@ -92,6 +95,7 @@ void Cache(const Player& server,const Client& client) {
 }
 void Begin(const Player& server,const Client& client) {
     DisableAll(); Cache(server,client);
+    assert(Write(client.anchor.service+0x58,client.anchor.selfUser));
     syncCalls=0; outerCalls=0; locoCalls=0; writes.clear();
     recurse=false; immediateCorrection=false; action=Action::None;
     assert(Write(g_game+kOriginRva,Position{}) && Write(proxyAddress+0x90,start) && Write(navAddress+0x1E8,marker));
@@ -112,16 +116,22 @@ void SixUpdates() {
 
 int main() {
     using namespace fixture;
-    auto image=static_cast<unsigned char*>(VirtualAlloc(nullptr,0x6D6A000,MEM_RESERVE,PAGE_NOACCESS));
+    // Reserve the inspected image range: DLC globals extend beyond the old fixture's range.
+    auto image=static_cast<unsigned char*>(VirtualAlloc(nullptr,crimson_build::ExpectedImageSize,MEM_RESERVE,PAGE_NOACCESS));
     assert(image); g_game=reinterpret_cast<uintptr_t>(image);
-    for(const uintptr_t rva:{kOriginRva,crimson_logic::ClientRootRva})
+    for(const uintptr_t rva:{kOriginRva,crimson_logic::ClientRootRva,crimson_logic::StatusRegistryRva})
         assert(VirtualAlloc(image+(rva&~uintptr_t{0xFFF}),4096,MEM_COMMIT,PAGE_READWRITE));
+    Block statusRegistry,statusTable,healthRow;
+    statusRegistry.Put(8,std::uint32_t{1}); statusRegistry.Put(0x58,statusTable.address());
+    statusTable.Put(0,healthRow.address()); healthRow.Put(8,std::uint32_t{1000000});
+    assert(Write(g_game+crimson_logic::StatusRegistryRva,statusRegistry.address()));
     Body serverBody,clientBody;
     const Player server=serverBody.Build(),player=clientBody.Build();
     Block root,service,object,component,proxy,nav,npc;
-    const Client client{{root.address(),service.address(),player.owner},player};
+    const Client client{{root.address(),service.address(),player.owner,clientBody.possessor.address()},player};
     assert(Write(g_game+crimson_logic::ClientRootRva,root.address()));
     root.Put(0x30,service.address()); service.Put(0x50,player.owner);
+    service.Put(0x58,clientBody.possessor.address()); clientBody.owner.Put(0x94,std::uint8_t{1});
     clientBody.owner.Put(0,g_game+crimson_logic::ClientOwnerVtableRva);
     clientBody.actor.Put(0x40,object.address()); object.Put(0x140,component.address());
     component.Put(0x2C0,proxy.address()); proxy.Put(0x38,uintptr_t{1234});
@@ -156,7 +166,7 @@ int main() {
     assert(syncCalls==6 && g_warpObservation==WarpObservation::ObservedNearMarker);
     assert(crimson_logic::SamePosition(g_warpObserved,destination));
 
-    for(const auto cancel:{Action::Clear,Action::Disable,Action::ExpireLease,Action::SwapClient}) {
+    for(const auto cancel:{Action::Clear,Action::Disable,Action::ExpireLease,Action::SwapClient,Action::SwapSelfUser}) {
         Begin(server,client); SixUpdates(); action=cancel; OuterMoveHook(componentAddress,0.125f);
         RefreshWarpState();
         assert(syncCalls==6 && !g_warpPending.load() && g_warpObservation==WarpObservation::Canceled);

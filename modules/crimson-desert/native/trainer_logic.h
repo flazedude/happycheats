@@ -6,10 +6,13 @@
 
 namespace crimson_logic {
 constexpr std::uint64_t MaxStat = 1000000000000ULL;
-inline constexpr std::uintptr_t ClientRootRva=0x6D69190;
-inline constexpr std::uintptr_t ClientOwnerVtableRva=0x5585C40;
+inline constexpr std::uintptr_t ClientRootRva=0x71AEA50;
+inline constexpr std::uintptr_t ClientOwnerVtableRva=0x59056D8;
+inline constexpr std::uintptr_t ClientLocalControlRva=0x5B20D0;
+inline constexpr std::uintptr_t StatusRegistryRva=0x71AFA28;
+inline constexpr std::uint32_t HealthKey=1000000,StaminaKey=1000026,SpiritKey=1000027;
 struct Identity { std::uintptr_t owner{}, actor{}, marker{}, root{}, stats{}; };
-struct ClientAnchor { std::uintptr_t root{},service{},owner{}; };
+struct ClientAnchor { std::uintptr_t root{},service{},owner{},selfUser{}; };
 struct ClientIdentity { ClientAnchor anchor{}; Identity player{}; };
 template<class PointerReader> bool ResolveClientAnchor(std::uintptr_t globalAddress,std::uintptr_t expectedVtable,
                                                      PointerReader pointer,ClientAnchor& anchor) {
@@ -21,13 +24,38 @@ template<class PointerReader> bool ResolveClientAnchor(std::uintptr_t globalAddr
     anchor=candidate;
     return true;
 }
+
+template<class PointerReader,class ByteReader> bool ResolveControlledClientAnchor(
+    std::uintptr_t globalAddress,std::uintptr_t expectedVtable,PointerReader pointer,ByteReader byte,
+    ClientAnchor& anchor) {
+    ClientAnchor candidate{};
+    std::uintptr_t possessor{},pawn{};
+    std::uint8_t local{};
+    // PE3424 ClientActor virtual +178 is the engine's local-control predicate:
+    // owner+A0 equals this service's self-user (+58), and owner+94 is nonzero.
+    // The primary Normal vtable and the possession backlink must also agree.
+    if(!ResolveClientAnchor(globalAddress,expectedVtable,pointer,candidate) ||
+        !pointer(candidate.service+0x58,candidate.selfUser) ||
+        !pointer(candidate.owner+0xA0,possessor) || possessor!=candidate.selfUser ||
+        !byte(candidate.owner+0x94,local) || !local ||
+        !pointer(possessor+0xD0,pawn) || pawn!=candidate.owner) return false;
+    ClientAnchor fresh{};
+    std::uintptr_t selfUserAgain{};
+    if(!ResolveClientAnchor(globalAddress,expectedVtable,pointer,fresh) ||
+        fresh.root!=candidate.root || fresh.service!=candidate.service || fresh.owner!=candidate.owner ||
+        !pointer(candidate.service+0x58,selfUserAgain) || selfUserAgain!=candidate.selfUser) return false;
+    anchor=candidate;
+    return true;
+}
 template<class PointerReader> bool ResolveMovementComponent(std::uintptr_t clientActor,PointerReader pointer,
                                                            std::uintptr_t& component,std::uintptr_t& proxy) {
     std::uintptr_t object{};
     return clientActor && pointer(clientActor+0x40,object) && pointer(object+0x140,component) && pointer(component+0x2C0,proxy);
 }
 inline bool IsControlled(std::uintptr_t owner, std::uintptr_t pawn, std::uint8_t tag) {
-    return owner != 0 && owner == pawn && (tag == 1 || tag == 9);
+    // Only tag 1 has current-build player-class evidence. Historical tag 9 is
+    // deliberately rejected until independently established for this profile.
+    return owner != 0 && owner == pawn && tag == 1;
 }
 inline bool SameIdentity(const Identity& first, const Identity& second) {
     return first.owner && first.actor && first.marker && first.root && first.stats &&
@@ -35,9 +63,10 @@ inline bool SameIdentity(const Identity& first, const Identity& second) {
         first.root == second.root && first.stats == second.stats;
 }
 inline bool SameClientIdentity(const ClientIdentity& first,const ClientIdentity& second) {
-    return first.anchor.root && first.anchor.service && first.anchor.owner==first.player.owner &&
+    return first.anchor.root && first.anchor.service && first.anchor.selfUser && first.anchor.owner==first.player.owner &&
         second.anchor.owner==second.player.owner && first.anchor.root==second.anchor.root &&
-        first.anchor.service==second.anchor.service && SameIdentity(first.player,second.player);
+        first.anchor.service==second.anchor.service && first.anchor.selfUser==second.anchor.selfUser &&
+        SameIdentity(first.player,second.player);
 }
 inline bool Fill(std::uint64_t base, std::uint64_t cap, std::uint64_t& current, std::uint64_t& normalized) {
     const auto full = (std::max)(base, cap);
@@ -46,15 +75,33 @@ inline bool Fill(std::uint64_t base, std::uint64_t cap, std::uint64_t& current, 
     normalized = full - base;
     return true;
 }
-inline bool StatAddress(std::uintptr_t start, std::uintptr_t entry) {
-    return start && entry >= start && (entry-start) % 0x90 == 0 && (entry-start)/0x90 < 32;
+inline bool StatAddress(std::uintptr_t start, std::uintptr_t entry,std::uint32_t count) {
+    return count && count<=0xFFFF && start && entry >= start && (entry-start) % 0x90 == 0 &&
+        (entry-start)/0x90 < (std::min)(count,std::uint32_t{32});
 }
-inline bool StatEnabled(std::int32_t type, bool health, bool stamina, bool spirit) {
-    return (type==0 && health) || ((type==22 || type==25) && stamina) || ((type==23 || type==26) && spirit);
+template<class PointerReader,class DwordReader> bool ResolveStatusKey(std::uintptr_t globalAddress,
+    std::uint16_t reference,PointerReader pointer,DwordReader dword,std::uint32_t& key) {
+    std::uintptr_t registry{},table{},row{},again{};
+    std::uint32_t count{},candidate{},valueAgain{};
+    // Current engine getter 0x3DCF80 bounds a WORD table reference by +08,
+    // then reads its loaded row from +58. Deserializer stores the stable key
+    // at row+08. A missing cache row is rejected; never invoke the lazy loader.
+    if(reference==0xFFFF || !pointer(globalAddress,registry) || !dword(registry+8,count) ||
+        !count || count>0xFFFF || reference>=count || !pointer(registry+0x58,table) ||
+        !pointer(table+sizeof(std::uintptr_t)*reference,row) || !dword(row+8,candidate) ||
+        !pointer(globalAddress,again) || again!=registry || !dword(registry+8,valueAgain) || valueAgain!=count ||
+        !pointer(registry+0x58,again) || again!=table ||
+        !pointer(table+sizeof(std::uintptr_t)*reference,again) || again!=row ||
+        !dword(row+8,valueAgain) || valueAgain!=candidate) return false;
+    key=candidate;
+    return true;
 }
-inline std::int64_t ScaleOutgoing(std::int64_t delta, std::uint16_t status, bool enabled,
+inline bool StatEnabled(std::uint32_t key, bool health, bool stamina, bool spirit) {
+    return (key==HealthKey && health) || (key==StaminaKey && stamina) || (key==SpiritKey && spirit);
+}
+inline std::int64_t ScaleOutgoing(std::int64_t delta, std::uint32_t statusKey, bool enabled,
                                   const Identity& player, std::uintptr_t target, std::uintptr_t attacker) {
-    if (!enabled || status != 0 || delta >= 0 || !player.actor || !player.root ||
+    if (!enabled || statusKey != HealthKey || delta >= 0 || !player.actor || !player.root ||
         target == player.root || attacker != player.actor) return delta;
     constexpr auto limit = (std::numeric_limits<std::int64_t>::min)()/4;
     return delta < limit/10000 ? limit : delta*10000;

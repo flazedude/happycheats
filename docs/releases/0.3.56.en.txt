@@ -1,0 +1,11 @@
+HappyCheats 0.3.56
+
+Crimson Desert trainer 0.2.6 targets the downloaded Charting the Unknown update: Steam build 26317560, executable 1.0.0.3424. Exact executable, hook and layout guards were updated; different builds are rejected. Close the game and choose Install / update before connecting the new trainer.
+
+Resource refills now verify the game's status metadata by identity instead of trusting old numeric aliases. The current data identifies the old 25/26 aliases as equipment entries; they are no longer assumed to be stamina or spirit. Status references are read at their actual 16-bit width. Health, stamina and spirit remain separate from breath and equipment data.
+
+Movement and marker controls require the normal client actor class, current self-user, local-control flag, possession backreference and vital chain. Changed identities disable controls and cancel pending teleport. Only player type tag 1 is accepted for this build; other protagonists and classes remain unverified and may be unavailable. Teleport retains its post-movement ordering and later position observation; it does not find safe ground or validate streaming.
+
+Validation: read-only executable and base/DLC resource inspection, exact binding checks, synthetic native hook/relocation/identity/resource/teleport tests, client and shared menu/controller regression checks, and complete package verification. The game stayed closed: no live process inspection, injection, cheat activation or save edits. Actual gameplay, DLC underwater behavior, physical controllers and exclusive fullscreen remain unverified. Unlimited item usage remains unavailable.
+
+Both complete distributions include all seventeen trainers and the rebuilt Crimson Desert payload. Ctrl+Del and hold Menu for 350 ms then tap RB still toggle the shared menu. Signed updates retain JACK-PC LAN, GPD-PC LAN and GitHub with the existing signing identity.
