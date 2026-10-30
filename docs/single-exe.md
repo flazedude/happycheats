@@ -10,7 +10,7 @@ Settings remain at `%LOCALAPPDATA%/HappyCheats/settings.json`, so language, Libr
 
 ## Updates
 
-Release **0.3.52** checks the signed GitHub feed directly; downloads no longer depend on the publishing PC remaining on. LAN hosting is retired. The complete EXE and update ZIP include all seventeen games, Dawnwalker trainer **0.4.1** and Phantom Blade Zero trainer **0.1.1**. Official preserved LAN settings migrate only when their signing key and channel match the bundled defaults; custom configurations are preserved. See [GitHub setup and migration](github-updates.md) and [release notes](releases/0.3.52.en.txt).
+Release **0.3.52** checks the signed GitHub feed directly; downloads no longer depend on the publishing PC remaining on. LAN publishing is no longer required; the legacy server may stay online. The complete EXE and update ZIP include all seventeen games, Dawnwalker trainer **0.4.1** and Phantom Blade Zero trainer **0.1.1**. Official preserved LAN settings migrate only when their signing key and channel match the bundled defaults; custom configurations are preserved. See [GitHub setup and migration](github-updates.md) and [release notes](releases/0.3.52.en.txt).
 
 Local build **0.3.51** introduced Dawnwalker trainer **0.4.1**, correcting damage activation for zero-base/positive-evaluated attributes and verifying the requested multiplier before reporting success. The previously unpublished correction is included in **0.3.52**. Actual combat remains unverified. See [build notes](releases/0.3.51.en.txt).
 

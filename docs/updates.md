@@ -1,8 +1,8 @@
 # Server updates and release publishing
 
-From **0.3.52**, normal releases publish only to public GitHub Releases and official clients check GitHub directly. LAN hosting and publishing are deprecated; updates no longer require the publisher's PC to remain on. Use `scripts/Publish-Update.ps1` and follow [setup, migration and publishing](github-updates.md). The generic signing commands below are historical setup and diagnostic references; they do not replace the current workflow.
+From **0.3.52**, normal releases publish only to public GitHub Releases and official clients check GitHub directly. LAN publication is no longer required; updates no longer require the publisher's PC to remain on. The existing LAN server may stay online. Use `scripts/Publish-Update.ps1` and follow [setup, migration and publishing](github-updates.md). The generic signing commands below are historical setup and diagnostic references; they do not replace the current workflow.
 
-The [legacy LAN guide](lan-updates.md) is retained for recovery. The LAN server was stopped and its startup task disabled on 30 October 2026. Do not start or publish to LAN without a new explicit user request.
+The [legacy LAN guide](lan-updates.md) covers the existing compatibility server, which remains running with its startup task enabled at the user's request. Its one-time migration bridge serves the identical signed GitHub 0.3.52 feed and points package downloads to GitHub. After installing that version, official clients check GitHub directly; ongoing LAN publication is unnecessary.
 
 HappyCheats can check a static HTTPS feed, show English or Chinese release notes and newly supported games, and install a signed Windows x64 release after the user chooses to update. A release contains the launcher, game modules, trainer payloads and a separate updater. An ordinary HTTPS website or object-storage bucket is enough; a database and application server are unnecessary.
 
