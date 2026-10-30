@@ -12,9 +12,9 @@ foreach ($hcTest in @('tests\HappyCheats.Tests', 'tools\InspectChineseParents\Te
     & dotnet run --project (Join-Path $hcRoot $hcTest) -c Release --no-launch-profile
     if ($LASTEXITCODE -ne 0) { throw "Test suite failed: $hcTest" }
 }
-# Exercise the real modal Updates path: its busy owner must keep the library themed.
+# Exercise modeless Updates: downloads and progress must leave trainer controls usable.
 & dotnet run --project (Join-Path $hcRoot 'tests\HappyCheats.App.Tests') -c Release --no-launch-profile -- --data-root $hcRoot
-if ($LASTEXITCODE -ne 0) { throw 'WPF modal-update regression suite failed.' }
+if ($LASTEXITCODE -ne 0) { throw 'WPF modeless-update regression suite failed.' }
 & (Join-Path $PSScriptRoot 'Test-Astroneer.ps1')
 & (Join-Path $PSScriptRoot 'Test-Dawnwalker.ps1')
 & (Join-Path $PSScriptRoot 'Test-CrimsonDesert.ps1')

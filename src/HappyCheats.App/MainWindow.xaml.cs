@@ -36,12 +36,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool _isolatedUpdates;
     private static readonly HttpClient UpdateHttp = new() { Timeout = TimeSpan.FromMinutes(30) };
     private readonly CancellationTokenSource _updateLifetime = new();
-    private CancellationTokenSource? _startupUpdateCheck;
+    private readonly DispatcherTimer _updateTimer = new() { Interval = TimeSpan.FromMinutes(30) };
+    private BackgroundUpdateSession? _updates;
     private UpdateConfiguration? _updateConfiguration;
     private string? _updateConfigurationError;
     private ReleaseManifest? _availableRelease;
     private UpdateWindow? _updateWindow;
     private bool _updateHandoff;
+    private bool _installingUpdate;
     private bool _busy, _polling, _initialized;
     private bool _witcherControlPending;
     private int _pollNumber;
@@ -72,6 +74,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public bool CanManage => !_busy;
     public string ClientVersionLabel => "HappyCheats  /  " + UpdateLauncher.CurrentVersion;
     public Visibility UpdateBadgeVisibility => _availableRelease == null ? Visibility.Collapsed : Visibility.Visible;
+    public string UpdateBadgeLabel => _updates?.Staged != null ? Localization.Choose("RESTART", "重启安装")
+        : _updates?.State == BackgroundUpdateState.Downloading ? Localization.Choose("DOWNLOADING", "下载中") : Labels["newUpdate"];
     public bool CanLaunch => !_busy && _selected?.Installation?.IsInstalled == true
         && (_selected.Id != "elden-ring" || _selected.Installation is { Compatible: true, IsRunning: false });
     public bool CanInstall => !_busy && _selected?.Installation is { IsInstalled: true, Compatible: true };
@@ -162,8 +166,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         Library.SelectedIndex = 0;
         _pollTimer.Tick += async (_, _) => await PollAsync();
         _controllerTimer.Tick += async (_, _) => await PollControllerAsync();
-        Closing += (_, e) => { if (_updateWindow?.IsWorking == true && !_updateHandoff) { e.Cancel = true; _updateWindow.Activate(); } };
-        Closed += (_, _) => { ThemeManager.Changed -= ThemeChanged; _pollTimer.Stop(); _controllerTimer.Stop(); _civ6KeyboardHook?.Dispose(); _gameOverlay?.Close(); _updateLifetime.Cancel(); _updateWindow?.CancelPending(); foreach (var game in Games) if (game.Module is EldenRingModule module) module.Stop(); };
+        Closing += (_, e) => { if (_installingUpdate && !_updateHandoff) { e.Cancel = true; _updateWindow?.Activate(); } };
+        Closed += (_, _) => { ThemeManager.Changed -= ThemeChanged; _pollTimer.Stop(); _controllerTimer.Stop(); _updateTimer.Stop(); _civ6KeyboardHook?.Dispose(); _gameOverlay?.Close(); _updateLifetime.Cancel(); _updates?.Dispose(); foreach (var game in Games) if (game.Module is EldenRingModule module) module.Stop(); };
     }
 
     public async Task InitializeAsync(bool preview = false)
@@ -173,6 +177,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _isolatedUpdates |= preview;
         try { _updateConfiguration = UpdateConfiguration.Load(AppContext.BaseDirectory); }
         catch (Exception error) { _updateConfigurationError = error.Message; }
+        EnsureUpdateSession();
         if (preview) { SetMessage("Preview: launch a game to connect its trainer."); return; }
         _busy = true;
         RefreshBindings();
@@ -207,50 +212,89 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                     $"无法启用《文明 VI / VII》游戏内快捷键（{error.Message}）。功能键仍可在 HappyCheats 窗口中使用。"));
             }
         }
-        if (!_isolatedUpdates && _updateConfiguration != null) _ = CheckUpdatesInBackgroundAsync();
-    }
-
-    private async Task CheckUpdatesInBackgroundAsync()
-    {
-        _startupUpdateCheck = CancellationTokenSource.CreateLinkedTokenSource(_updateLifetime.Token);
-        _startupUpdateCheck.CancelAfter(TimeSpan.FromSeconds(30));
-        try
+        if (_updates != null)
         {
-            var release = await new UpdateClient(UpdateHttp, _updateConfiguration!).CheckAsync(UpdateLauncher.CurrentVersion, _startupUpdateCheck.Token);
-            if (!_startupUpdateCheck.IsCancellationRequested) UpdateReleaseChanged(release);
+            _updateTimer.Tick += async (_, _) => await _updates.CheckAndDownloadAsync();
+            _updateTimer.Start();
+            _ = _updates.CheckAndDownloadAsync();
         }
-        catch { /* A failed background check stays quiet; the Updates dialog offers retry and details. */ }
     }
 
-    private void UpdateReleaseChanged(ReleaseManifest? release)
+    private void EnsureUpdateSession()
     {
-        _availableRelease = release;
-        Notify(nameof(UpdateBadgeVisibility));
+        if (_updates != null || _isolatedUpdates || _updateConfiguration == null || !UpdateLauncher.CanInstall) return;
+        AttachUpdateSession(new BackgroundUpdateSession(new UpdateClient(UpdateHttp, _updateConfiguration),
+            UpdateLauncher.CurrentVersion, UpdateLauncher.StagingRoot));
     }
 
-    private async void UpdatesClicked(object sender, RoutedEventArgs e)
+    private void AttachUpdateSession(BackgroundUpdateSession session)
     {
-        if (_busy) return;
-        _controlEpoch++;
+        _updates = session;
+        _updates.PropertyChanged += (_, _) =>
+        {
+            _availableRelease = _updates.Release;
+            Notify(nameof(UpdateBadgeVisibility));
+            Notify(nameof(UpdateBadgeLabel));
+        };
+        _updates.ReadyToInstall += (_, _) =>
+        {
+            if (!_updateLifetime.IsCancellationRequested) ShowUpdates(activate: false);
+        };
+    }
+
+    private void UpdatesClicked(object sender, RoutedEventArgs e) => ShowUpdates(activate: true);
+
+    private void ShowUpdates(bool activate)
+    {
+        if (_updateHandoff || _updateLifetime.IsCancellationRequested) return;
+        EnsureUpdateSession();
+        if (_updateWindow != null)
+        {
+            if (_updateWindow.WindowState == WindowState.Minimized && (activate || _updates?.Staged != null))
+            {
+                _updateWindow.ShowActivated = activate;
+                _updateWindow.WindowState = WindowState.Normal;
+            }
+            if (activate)
+            {
+                _updateWindow.Activate();
+            }
+            return;
+        }
+        var window = new UpdateWindow(_updates, _updateConfiguration, _updateConfigurationError,
+            _isolatedUpdates, InstallUpdateAsync) { Owner = this, ShowActivated = activate && ShowActivated };
+        _updateWindow = window;
+        window.Closed += (_, _) => { if (_updateWindow == window) _updateWindow = null; };
+        window.Show();
+        if (_updates?.State == BackgroundUpdateState.Ready) _ = _updates.CheckAndDownloadAsync();
+    }
+
+    private async Task InstallUpdateAsync()
+    {
+        if (_updates?.Staged == null || _installingUpdate) return;
+        if (_busy) throw new InvalidOperationException(Localization.Choose(
+            "Wait for the current trainer action to finish, then try again.", "请等待当前修改器操作完成后重试。"));
+        var staged = _updates.BeginInstall();
+        var launchAttempted = false;
+        _installingUpdate = true;
         _busy = true;
+        _controlEpoch++;
         _pollTimer.Stop();
         _controllerTimer.Stop();
         _gameOverlay?.Hide();
         _controller.Poll(false);
-        _startupUpdateCheck?.Cancel();
         RefreshBindings();
         try
         {
-            // Let an already-running read finish before the updater can hand off the client.
             while (_polling) await Task.Delay(40, _updateLifetime.Token);
-            _updateWindow = new UpdateWindow(UpdateHttp, _updateConfiguration, _availableRelease,
-                _updateConfigurationError, _isolatedUpdates, PrepareUpdateInstallAsync, UpdateReleaseChanged) { Owner = this };
-            _updateWindow.ShowDialog();
+            await PrepareUpdateInstallAsync();
+            launchAttempted = true;
+            BeginUpdateHandoff(staged);
         }
-        catch (OperationCanceledException) { }
+        catch (Exception error) { _updates.InstallFailed(error, discardStaged: launchAttempted); }
         finally
         {
-            _updateWindow = null;
+            _installingUpdate = false;
             if (!_updateHandoff && !_updateLifetime.IsCancellationRequested)
             {
                 _busy = false;
@@ -288,6 +332,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     internal void BeginUpdateHandoff(StagedUpdate update)
     {
         UpdateLauncher.Start(update);
+        _updates?.PreserveForHandoff();
         _updateHandoff = true;
         Application.Current.Shutdown();
     }
@@ -295,7 +340,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public Window OpenUpdatesPreview()
     {
         _isolatedUpdates = true;
-        _startupUpdateCheck?.Cancel();
+        _updateTimer.Stop();
+        _updates?.Dispose();
         var preview = UpdateWindow.CreatePreview(UpdateHttp);
         preview.Owner = this;
         preview.ShowActivated = ShowActivated;
@@ -322,6 +368,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (persist) { _paths["__language"] = Localization.Language; SaveSettings(); }
         Labels.Refresh();
         foreach (var game in Games) game.Changed();
+        _updateWindow?.RefreshLanguage();
         RefreshBindings();
         CollectionViewSource.GetDefaultView(Games).Refresh();
     }
@@ -500,7 +547,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void ToggleGameOverlay()
     {
-        if (_selected == null || _captureMode || _updateHandoff || _updateWindow != null) return;
+        if (_selected == null || _captureMode || _updateHandoff || _installingUpdate) return;
         if (_overlayRequested) { DismissGameOverlay(); return; }
         if (_gameWindow == IntPtr.Zero)
         {
@@ -553,7 +600,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     internal bool IsControllerMenuScope(IntPtr foregroundWindow)
     {
         if (_captureMode || _selected == null || _gameWindow == IntPtr.Zero || foregroundWindow == IntPtr.Zero
-            || _updateHandoff || _updateWindow != null) return false;
+            || _updateHandoff || _installingUpdate) return false;
         var overlayHandle = _gameOverlay == null ? IntPtr.Zero : new WindowInteropHelper(_gameOverlay).Handle;
         return foregroundWindow == _gameWindow || foregroundWindow == overlayHandle
             || foregroundWindow == new WindowInteropHelper(this).Handle;
@@ -572,7 +619,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _gameOverlay?.Follow(_gameWindow, _overlayRequested && menuScope);
         var action = _controller.Poll(_controllerEnabled && menuScope,
             _controllerEnabled && _selected?.Id is "onimusha" or "dawnwalker"
-            && (_selected.Status.Ready || isDawnwalker) && !_busy && !_updateHandoff && _updateWindow == null && focused);
+            && (_selected.Status.Ready || isDawnwalker) && !_busy && !_updateHandoff && !_installingUpdate && focused);
         var label = !_controllerEnabled ? "Shortcuts disabled" : _controller.Connected ? $"Controller {_controller.Slot + 1} connected" : "Connect an Xbox controller";
         if (_controllerLabel != label) { _controllerLabel = label; Notify(nameof(ControllerLabel)); }
         if (action != null) await DispatchControllerActionAsync(action);
@@ -580,7 +627,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     internal async Task DispatchControllerActionAsync(string action)
     {
-        if (!_controllerEnabled || _captureMode || _selected == null || _updateHandoff || _updateWindow != null) return;
+        if (!_controllerEnabled || _captureMode || _selected == null || _updateHandoff || _installingUpdate) return;
         // Closing the menu must stay available while a command is waiting on the game.
         if (action == "game_menu")
         {
@@ -774,7 +821,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             _ => 0
         };
         var editingMenu = _gameOverlay?.IsActive == true && Keyboard.FocusedElement is TextBox or ComboBox;
-        return new(processId, _selected.Status.SessionId, _busy || _updateWindow != null || editingMenu, _selected.Id == "elden-ring");
+        return new(processId, _selected.Status.SessionId, _busy || _installingUpdate || editingMenu, _selected.Id == "elden-ring");
     }
 
     private async Task DispatchCivilizationShortcutAsync(Civ6HotkeyRequest request)
@@ -786,7 +833,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     internal async Task ApplyCivilizationShortcutAsync(string shortcut)
     {
-        if (_busy || _updateHandoff || _updateWindow != null || _updateLifetime.IsCancellationRequested
+        if (_busy || _updateHandoff || _installingUpdate || _updateLifetime.IsCancellationRequested
             || _selected?.Id is not ("civilization-vi" or "civilization-vii" or "elden-ring") || !_selected.Status.Connected) return;
         if (shortcut == "F12")
         {

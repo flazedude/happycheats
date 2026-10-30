@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Net.Http;
 using System.Windows.Controls;
 using HappyCheats.App;
 using HappyCheats.Core;
@@ -76,6 +77,12 @@ internal static class Civ6HotkeyChecks
         var originalBusy = busy.GetValue(main);
         var handoff = typeof(MainWindow).GetField("_updateHandoff", BindingFlags.NonPublic | BindingFlags.Instance)!;
         var originalHandoff = handoff.GetValue(main);
+        var updateWindow = typeof(MainWindow).GetField("_updateWindow", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var originalUpdateWindow = updateWindow.GetValue(main);
+        var installing = typeof(MainWindow).GetField("_installingUpdate", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var originalInstalling = installing.GetValue(main);
+        using var http = new HttpClient();
+        var update = UpdateWindow.CreatePreview(http);
         Check(typeof(MainWindow).GetField("_civ6KeyboardHook", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(main) == null,
             "capture/preview mode installed a global keyboard hook");
         var module = new FixtureModule(main.Games.Single(game => game.Id == "civilization-vi").Module.Definition);
@@ -93,6 +100,15 @@ internal static class Civ6HotkeyChecks
             Check(main.Features.Count(f => f.HotkeyVisibility == System.Windows.Visibility.Visible) == 15, "expected 15 visible key labels");
             Apply("F1"); Apply("F1");
             Check(module.Commands.SequenceEqual(new[] { "civ6_movement=True", "civ6_movement=False" }), "toggle keys did not use confirmed current state");
+            updateWindow.SetValue(main, update);
+            Apply("F1");
+            Check(module.Commands.Count == 3 && module.Commands.Last() == "civ6_movement=True",
+                "opening Updates blocked a cheat hotkey");
+            installing.SetValue(main, true);
+            Apply("F1"); Apply("F12");
+            Check(module.Commands.Count == 3, "preparing update installation allowed a cheat hotkey");
+            installing.SetValue(main, originalInstalling);
+            updateWindow.SetValue(main, originalUpdateWindow);
             var gold = main.Features.Single(f => f.Definition.Id == "civ6_gold");
             gold.NumberText = "12345";
             Apply("Shift+F1");
@@ -124,6 +140,9 @@ internal static class Civ6HotkeyChecks
         {
             busy.SetValue(main, originalBusy);
             handoff.SetValue(main, originalHandoff);
+            installing.SetValue(main, originalInstalling);
+            updateWindow.SetValue(main, originalUpdateWindow);
+            update.Close();
             library.SelectedItem = original;
             main.Games.Remove(fixture);
             refresh.Invoke(main, null);

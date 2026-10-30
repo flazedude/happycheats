@@ -38,7 +38,7 @@ internal static class Program
         EventManager.RegisterClassHandler(typeof(UpdateWindow), FrameworkElement.LoadedEvent,
             new RoutedEventHandler((sender, _) =>
             {
-                // ShowDialog still runs its normal modal lifecycle; hide only the native surface.
+                // Exercise the actual window lifecycle; hide only the native surface.
                 // This avoids displaying a test window when WindowLayout fits it to the monitor.
                 if (sender is UpdateWindow window) ShowWindow(new WindowInteropHelper(window).Handle, 0);
             }));
@@ -63,6 +63,7 @@ internal static class Program
             else if (args.Contains("--civ7")) Results.Add(Civ7UiChecks.Run(main, artifacts));
             else if (args.Contains("--elden-ring")) Results.Add(EldenRingUiChecks.Run(main, artifacts));
             else if (args.Contains("--phantom-blade")) Results.Add(PhantomBladeUiChecks.Run(main, artifacts));
+            else if (args.Contains("--background-updates")) Results.Add(BackgroundUpdateUiChecks.Run(root));
             else
             {
             Results.Add(LibrarySortChecks.Run(main, root, artifacts, Check));
@@ -87,9 +88,9 @@ internal static class Program
                     OpenUpdatesAndInspect(main, library, theme, name, size.Width, size.Height,
                         repeat == 0 ? artifacts : null, before);
                     Layout(main);
-                    Check(main.CanManage && library.IsEnabled, $"{name}: closing Updates did not restore library controls.");
-                    Check(ReferenceEquals(library.SelectedItem, selected) && main.Selected?.Id == "stardew", $"{name}: selection changed across modal Updates.");
-                    Check(typeof(MainWindow).GetField("_updateWindow", Private)!.GetValue(main) == null, $"{name}: modal updater reference was not cleared.");
+                    Check(main.CanManage && library.IsEnabled, $"{name}: closing Updates disabled library controls.");
+                    Check(ReferenceEquals(library.SelectedItem, selected) && main.Selected?.Id == "stardew", $"{name}: selection changed across modeless Updates.");
+                    Check(typeof(MainWindow).GetField("_updateWindow", Private)!.GetValue(main) == null, $"{name}: closed updater reference was not cleared.");
                     ValidateScrolling(library, name);
                     Check(((ScrollViewer)main.FindName("DetailScroll")).PanningMode == PanningMode.VerticalOnly, $"{name}: detail touch panning changed.");
                 }
@@ -97,6 +98,7 @@ internal static class Program
             Results.Add(GameOverlayChecks.Run(main, root, artifacts));
             Results.Add(GameMenuLifecycleChecks.Run(root));
             Results.Add(ControllerMenuChecks.Run(root));
+            Results.Add(BackgroundUpdateUiChecks.Run(root));
             ValidateCrimsonAutoTeleport(main);
             ValidateWukongControls(main, artifacts);
             ValidateRdr2Controls(main, artifacts);
@@ -591,61 +593,76 @@ internal static class Program
     private static void OpenUpdatesAndInspect(MainWindow main, ListBox library, string theme, string name,
         int width, int height, string? artifacts, LibrarySnapshot before)
     {
-        bool inspected = false;
-        Exception? callbackError = null;
-        // UpdatesClicked reaches ShowDialog synchronously in this isolated, non-polling preview.
-        // Its nested dispatcher executes this callback only after the actual updater is open.
+        var field = typeof(MainWindow).GetField("_updateWindow", Private)!;
+        var click = typeof(MainWindow).GetMethod("UpdatesClicked", Private)!;
+        var returned = false;
+        // If a modal loop is reintroduced, close it from that loop instead of hanging the suite.
         var operation = main.Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(() =>
         {
-            UpdateWindow? update = null;
-            try
-            {
-                update = typeof(MainWindow).GetField("_updateWindow", Private)!.GetValue(main) as UpdateWindow;
-                Check(update != null && update.IsLoaded, $"{name}: the real modal Updates window did not open.");
-                if (update == null) return;
-                update.ShowInTaskbar = false;
-                update.Width = Math.Min(740, width - 240);
-                update.Height = Math.Min(720, height - 45);
-                Layout(update); Layout(main);
-                Check(!main.CanManage && !library.IsEnabled, $"{name}: Updates did not enter the owner busy/disabled state.");
-                Check(update.Owner == main && !update.CanCheck && !update.CanAct, $"{name}: modal preview isolation was lost.");
-                var during = InspectLibrary(library);
-                var chrome = Descendants<Border>(library).FirstOrDefault();
-                Check(chrome != null, $"{name}: library template chrome was missing.");
-                if (chrome != null)
-                {
-                    Check(Color(chrome.Background) == Color(library.Background),
-                        $"{name}: disabled library chrome overrides its background ({Color(chrome.Background)} vs {Color(library.Background)}).");
-                }
-                foreach (var border in Descendants<Border>(library).Where(Arranged))
-                {
-                    if (theme == "dark" && border.Background is SolidColorBrush fill && fill.Color.A > 240)
-                        Check((fill.Color.R + fill.Color.G + fill.Color.B) / (3d * 255) < .72,
-                            $"{name}: disabled dark library paints a light/white border ({fill.Color}, {border.ActualWidth:0}x{border.ActualHeight:0}).");
-                }
-                var names = Descendants<TextBlock>(library).Where(t => Arranged(t) && t.DataContext is GameItem game && t.Text == game.Name).ToArray();
-                Check(names.Length > 0, $"{name}: game names disappeared while disabled.");
-                foreach (var label in names)
-                    Check(Color(label.Foreground) == Color((Brush)main.FindResource("InkBrush")), $"{name}: game name uses an OS/default disabled foreground.");
-                Check(before.GameNames.SequenceEqual(during.GameNames), $"{name}: visible library game labels changed while disabled.");
-                Check(library.Items.Count == main.Games.Count, $"{name}: library games were lost while disabled.");
-                if (artifacts != null)
-                {
-                    Capture(main, Path.Combine(artifacts, name + "-owner.png"));
-                    Capture(update, Path.Combine(artifacts, name + "-updates.png"));
-                    CaptureComposite(main, update, Path.Combine(artifacts, name + "-modal.png"));
-                }
-                Results.Add(new { Screen = name, BusyStateObserved = !main.CanManage, LibraryDisabled = !library.IsEnabled,
-                    Before = before, During = during, DialogTitle = update.WindowTitle });
-                inspected = true;
-            }
-            catch (Exception error) { callbackError = error; }
-            finally { update?.Close(); }
+            if (returned) return;
+            Check(false, $"{name}: Updates entered a modal dispatcher loop.");
+            (field.GetValue(main) as UpdateWindow)?.Close();
         }));
-        typeof(MainWindow).GetMethod("UpdatesClicked", Private)!.Invoke(main, new object[] { main, new RoutedEventArgs(ButtonBase.ClickEvent) });
-        if (!inspected) operation.Abort();
-        Check(inspected, $"{name}: modal inspection callback was not completed.");
-        if (callbackError != null) throw new InvalidOperationException($"{name}: modal inspection failed.", callbackError);
+        click.Invoke(main, new object[] { main, new RoutedEventArgs(ButtonBase.ClickEvent) });
+        returned = true;
+        operation.Abort();
+        var update = field.GetValue(main) as UpdateWindow;
+        try
+        {
+            Check(update != null, $"{name}: the real modeless Updates window did not open.");
+            if (update == null) return;
+            update.ShowInTaskbar = false;
+            update.Width = Math.Min(740, width - 240);
+            update.Height = Math.Min(720, height - 45);
+            Layout(update); Layout(main);
+            Check(update.IsLoaded, $"{name}: the modeless Updates window did not load.");
+            Check(main.CanManage && library.IsEnabled && IsWindowEnabled(new WindowInteropHelper(main).Handle),
+                $"{name}: Updates disabled the cheat window or library.");
+            Check(update.Owner == main && !update.CanCheck && !update.CanAct, $"{name}: preview isolation was lost.");
+            click.Invoke(main, new object[] { main, new RoutedEventArgs(ButtonBase.ClickEvent) });
+            Check(ReferenceEquals(update, field.GetValue(main)) && main.OwnedWindows.OfType<UpdateWindow>().Count() == 1,
+                $"{name}: repeated clicks created another Updates window.");
+            var during = InspectLibrary(library);
+            var chrome = Descendants<Border>(library).FirstOrDefault();
+            Check(chrome != null, $"{name}: library template chrome was missing.");
+            if (chrome != null)
+            {
+                Check(Color(chrome.Background) == Color(library.Background),
+                    $"{name}: library chrome overrides its background ({Color(chrome.Background)} vs {Color(library.Background)}).");
+            }
+            foreach (var border in Descendants<Border>(library).Where(Arranged))
+            {
+                if (theme == "dark" && border.Background is SolidColorBrush fill && fill.Color.A > 240)
+                    Check((fill.Color.R + fill.Color.G + fill.Color.B) / (3d * 255) < .72,
+                        $"{name}: dark library paints a light/white border ({fill.Color}, {border.ActualWidth:0}x{border.ActualHeight:0}).");
+            }
+            var names = Descendants<TextBlock>(library).Where(t => Arranged(t) && t.DataContext is GameItem game && t.Text == game.Name).ToArray();
+            Check(names.Length > 0, $"{name}: game names disappeared while Updates was open.");
+            foreach (var label in names)
+                Check(Color(label.Foreground) == Color((Brush)main.FindResource("InkBrush")), $"{name}: game name uses an OS/default foreground.");
+            Check(before.GameNames.SequenceEqual(during.GameNames), $"{name}: visible library game labels changed while Updates was open.");
+            Check(library.Items.Count == main.Games.Count, $"{name}: library games were lost while Updates was open.");
+            var selected = (GameItem)library.SelectedItem;
+            var other = main.Games.First(game => game.Id != selected.Id);
+            main.SelectGame(other.Id);
+            Layout(main);
+            Check(ReferenceEquals(main.Selected, other) && ReferenceEquals(update, field.GetValue(main)),
+                $"{name}: the user could not change game pages while Updates was open.");
+            main.SelectGame(selected.Id);
+            library.ScrollIntoView(selected);
+            Layout(main);
+            ValidateScrolling(library, name + "-updates-open");
+            if (artifacts != null)
+            {
+                Capture(main, Path.Combine(artifacts, name + "-owner.png"));
+                Capture(update, Path.Combine(artifacts, name + "-updates.png"));
+                CaptureComposite(main, update, Path.Combine(artifacts, name + "-modeless.png"));
+            }
+            Results.Add(new { Screen = name, OwnerEnabled = main.CanManage, LibraryEnabled = library.IsEnabled,
+                Modeless = true, RepeatedClickReusedWindow = true, GameSelectionWhileOpen = true,
+                Before = before, During = during, WindowTitle = update.WindowTitle });
+        }
+        finally { update?.Close(); }
     }
 
     private static void ValidateScrolling(ListBox library, string name)
@@ -710,18 +727,18 @@ internal static class Program
         bitmap.Render(visual); return bitmap;
     }
     private static void Capture(Window window, string path) => Save(Render(window), path);
-    private static void CaptureComposite(Window owner, Window modal, string path)
+    private static void CaptureComposite(Window owner, Window update, string path)
     {
-        var background = Render(owner); var dialog = Render(modal); var drawing = new DrawingVisual();
-        var left = background.PixelWidth - dialog.PixelWidth - 10; var top = Math.Max(0, (background.PixelHeight - dialog.PixelHeight) / 2d);
+        var background = Render(owner); var dialog = Render(update); var drawing = new DrawingVisual();
+        var left = background.PixelWidth + 24;
+        var width = left + dialog.PixelWidth;
+        var height = Math.Max(background.PixelHeight, dialog.PixelHeight);
         using (var context = drawing.RenderOpen())
         {
             context.DrawImage(background, new Rect(0, 0, background.PixelWidth, background.PixelHeight));
-            context.DrawRectangle(new SolidColorBrush(System.Windows.Media.Color.FromArgb(90, 0, 0, 0)), null,
-                new Rect(left - 3, top - 3, dialog.PixelWidth + 6, dialog.PixelHeight + 6));
-            context.DrawImage(dialog, new Rect(left, top, dialog.PixelWidth, dialog.PixelHeight));
+            context.DrawImage(dialog, new Rect(left, 0, dialog.PixelWidth, dialog.PixelHeight));
         }
-        var composite = new RenderTargetBitmap(background.PixelWidth, background.PixelHeight, 96, 96, PixelFormats.Pbgra32);
+        var composite = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
         composite.Render(drawing); Save(composite, path);
     }
     private static void Save(BitmapSource bitmap, string path)
@@ -731,4 +748,5 @@ internal static class Program
     }
     private sealed record LibrarySnapshot(string Background, string Foreground, string[] BorderFills, string[] GameNames);
     [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr window, int command);
+    [DllImport("user32.dll")] private static extern bool IsWindowEnabled(IntPtr window);
 }

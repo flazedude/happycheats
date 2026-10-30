@@ -10,7 +10,7 @@ internal static class Program
         if (args.Contains("--witcher3")) return Witcher3Tests.RunAll() == 0 ? 0 : 1;
         if (args.Contains("--witcher3-installer")) return Witcher3InstallerTests.RunAll();
         if (args.Contains("--elden-ring")) return EldenRingTests.RunAll();
-        if (args.Contains("--updates")) return UpdateTests.RunAll() | UpdateInstallerTests.RunAll();
+        if (args.Contains("--updates")) return UpdateTests.RunAll() | BackgroundUpdateTests.RunAll() | UpdateInstallerTests.RunAll();
         var legacy = OnimushaTrainer.BackendTests.Main();
         var controllers = HappyCheats.App.ControllerTests.Main();
         var onimusha = OnimushaModuleTests.RunAll();
@@ -32,6 +32,7 @@ internal static class Program
         var stardew = StardewTests.RunAll();
         var smapi = SmapiInstallerTests.RunAll();
         var updates = UpdateTests.RunAll();
+        var backgroundUpdates = BackgroundUpdateTests.RunAll();
         var updateInstaller = UpdateInstallerTests.RunAll();
         var witcher3 = Witcher3Tests.RunAll();
         var witcher3Installer = Witcher3InstallerTests.RunAll();
@@ -82,7 +83,7 @@ internal static class Program
             foreach (var module in modules) Assert(module.Definition.Features.Select(f => f.Id).Distinct().Count() == module.Definition.Features.Count);
         });
         Console.WriteLine($"HappyCheats tests: {passed} passed, {failed} failed.");
-        return eldenRing != 0 || witcher3 != 0 || witcher3Installer != 0 || legacy != 0 || controllers != 0 || onimusha != 0 || astroneer != 0 || dawnwalker != 0 || wukong != 0 || phantomBlade != 0 || rdr2 != 0 || gta != 0 || gtaRuntime != 0 || hospital != 0 || hotel != 0 || civ6Setup != 0 || civ6Module != 0 || civ7Setup != 0 || civ7Module != 0 || crimson != 0 || stardew != 0 || smapi != 0 || updates != 0 || updateInstaller != 0 || failed > 0 ? 1 : 0;
+        return eldenRing != 0 || witcher3 != 0 || witcher3Installer != 0 || legacy != 0 || controllers != 0 || onimusha != 0 || astroneer != 0 || dawnwalker != 0 || wukong != 0 || phantomBlade != 0 || rdr2 != 0 || gta != 0 || gtaRuntime != 0 || hospital != 0 || hotel != 0 || civ6Setup != 0 || civ6Module != 0 || civ7Setup != 0 || civ7Module != 0 || crimson != 0 || stardew != 0 || smapi != 0 || updates != 0 || backgroundUpdates != 0 || updateInstaller != 0 || failed > 0 ? 1 : 0;
     }
     private static void Assert(bool condition) { if (!condition) throw new Exception("Assertion failed."); }
     private static void Fails(Action action) { try { action(); } catch { return; } throw new Exception("Expected operation rejection."); }

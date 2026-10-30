@@ -137,8 +137,15 @@ internal static class ControllerMenuChecks
                 Set(main, "_updateHandoff", false);
                 Set(main, "_updateWindow", update);
                 Dispatch(main, "game_menu");
+                Check((bool)Get(main, "_overlayRequested")! && MenuScope(main, hostHandle),
+                    id + " blocked the shared menu while the Updates window was open");
+                Dispatch(main, "game_menu");
+                Check(!(bool)Get(main, "_overlayRequested")!, id + " could not close the shared menu while Updates was open");
+                Set(main, "_installingUpdate", true);
+                Dispatch(main, "game_menu");
                 Check(!(bool)Get(main, "_overlayRequested")! && !MenuScope(main, hostHandle),
-                    id + " allowed a menu over the updater");
+                    id + " allowed a menu while preparing update installation");
+                Set(main, "_installingUpdate", false);
                 Set(main, "_updateWindow", null);
                 Check(module.Calls == 0, id + " performed a game operation during controller menu checks");
             }
@@ -150,12 +157,14 @@ internal static class ControllerMenuChecks
             Check(fixtures.All(fixture => fixture.Calls == 0), "checks reached a game, trainer, installation or discovery action");
             return new { Screen = "controller-shared-menu", Assertions = assertions, CatalogGames = catalog.Length,
                 EnglishAndChinese = true, FutureModule = true, SharedMenuNotTrainerCommand = true,
-                OfflineAndBusyToggle = true, DisabledControllerBlocked = true, ForegroundScope = true, UpdaterAndMissingWindowBlocked = true,
+                OfflineAndBusyToggle = true, DisabledControllerBlocked = true, ForegroundScope = true,
+                ModelessUpdatesAllowMenu = true, InstallationAndMissingWindowBlocked = true,
                 NoGameOrNetworkActions = true };
         }
         finally
         {
             Set(main, "_updateWindow", null);
+            Set(main, "_installingUpdate", false);
             main.Close();
             host.Close();
             update.Close();

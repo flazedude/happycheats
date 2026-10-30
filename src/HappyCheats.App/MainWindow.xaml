@@ -150,7 +150,7 @@
         <Border Grid.Row="4" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0" Padding="2,10,0,0">
           <StackPanel>
             <Button Click="UpdatesClicked" IsEnabled="{Binding CanManage}" Style="{StaticResource QuietButton}" HorizontalContentAlignment="Stretch" Padding="11,9">
-              <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="{Binding Labels[updates]}" FontSize="11"/><Border Grid.Column="1" Background="{DynamicResource SelectionBrush}" CornerRadius="4" Padding="5,1" Margin="8,0,0,0" Visibility="{Binding UpdateBadgeVisibility}"><TextBlock Text="{Binding Labels[newUpdate]}" FontSize="8" Foreground="{DynamicResource SelectionInkBrush}"/></Border></Grid>
+              <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="{Binding Labels[updates]}" FontSize="11"/><Border Grid.Column="1" Background="{DynamicResource SelectionBrush}" CornerRadius="4" Padding="5,1" Margin="8,0,0,0" Visibility="{Binding UpdateBadgeVisibility}"><TextBlock Text="{Binding UpdateBadgeLabel}" FontSize="8" Foreground="{DynamicResource SelectionInkBrush}"/></Border></Grid>
             </Button>
             <TextBlock Text="{Binding ClientVersionLabel}" Foreground="{DynamicResource MutedBrush}" FontSize="10" Margin="11,9,0,0"/>
           </StackPanel>

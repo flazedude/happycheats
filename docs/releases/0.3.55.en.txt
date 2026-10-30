@@ -1,0 +1,9 @@
+HappyCheats 0.3.55
+
+Updates now download automatically in the background after startup and during periodic checks while HappyCheats is open. Signed releases still pass signature, channel, size, SHA-256 and package checks before becoming ready to install.
+
+Open Updates to view live progress and release notes while continuing to use the cheat window and existing shortcuts. Closing and reopening Updates keeps the same download and verified package. Once ready, a non-blocking prompt offers Restart & install or Later; installation still requires your choice and supported games to be closed.
+
+The app checks JACK-PC LAN, GPD-PC LAN and GitHub for the newest trusted release, then prefers matching LAN package bytes. All seventeen bundled trainers are retained unchanged.
+
+Validation: offline signed-feed/download, cancellation, retry and installer regression checks; WPF modeless-window, progress/reopen, restart-prompt, running-game guard and shared keyboard/controller regression checks. No live gameplay, physical-controller or exclusive-fullscreen validation is claimed. Exiting HappyCheats cancels unfinished downloads; choosing Later retains the ready package for the current app session.

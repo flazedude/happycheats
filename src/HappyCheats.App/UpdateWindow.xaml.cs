@@ -1,6 +1,5 @@
 using System.ComponentModel;
 using System.Globalization;
-using System.IO;
 using System.Net.Http;
 using System.Windows;
 using HappyCheats.Core.Updates;
@@ -9,57 +8,50 @@ namespace HappyCheats.App;
 
 public partial class UpdateWindow : Window, INotifyPropertyChanged
 {
-    private enum UpdateState { Ready, Checking, Available, Latest, Downloading, Staged, Installing, Cancelled, Failed, Unconfigured, Disabled }
-    private readonly UpdateClient? _client;
+    private readonly BackgroundUpdateSession? _session;
     private readonly UpdateConfiguration? _configuration;
-    private readonly Func<Task> _prepareInstall;
-    private readonly Action<ReleaseManifest?> _releaseChanged;
+    private readonly Func<Task> _install;
     private readonly bool _isolated;
     private readonly bool _preview;
-    private CancellationTokenSource? _operation;
-    private ReleaseManifest? _release;
-    private StagedUpdate? _staged;
-    private UpdateState _state;
-    private string? _error;
-    private bool _closeRequested, _handoff, _userCancelled, _releaseVerified;
-    private long _bytesReceived, _totalBytes;
+    private readonly string? _configurationError;
+    private string? _actionError;
+    private ReleaseManifest? _release => _session?.Release;
+    private StagedUpdate? _staged => _session?.Staged;
+    private BackgroundUpdateState _state => _session?.State ?? BackgroundUpdateState.Ready;
+    private long _bytesReceived => _session?.BytesReceived ?? 0;
+    private long _totalBytes => _session?.TotalBytes ?? 0;
+    private string? _error => _actionError ?? _session?.Error?.Message ?? _configurationError;
 
-    public UpdateWindow(HttpClient http, UpdateConfiguration? configuration, ReleaseManifest? release,
-        string? configurationError, bool isolated, Func<Task> prepareInstall, Action<ReleaseManifest?> releaseChanged,
-        bool preview = false)
+    public UpdateWindow(BackgroundUpdateSession? session, UpdateConfiguration? configuration,
+        string? configurationError, bool isolated, Func<Task> install, bool preview = false)
     {
-        _client = configuration == null ? null : new UpdateClient(http, configuration);
+        _session = session;
         _configuration = configuration;
-        _release = release;
+        _configurationError = configurationError;
         _isolated = isolated;
         _preview = preview;
-        _prepareInstall = prepareInstall;
-        _releaseChanged = releaseChanged;
-        _error = configurationError;
-        // Cached release notes may be shown, but every dialog verifies the feed with its own client
-        // before enabling download. This also gives the user fresh notes if a release has changed.
-        _state = preview ? UpdateState.Available : isolated ? UpdateState.Disabled : configuration == null ? UpdateState.Unconfigured : UpdateState.Ready;
+        _install = install;
         InitializeComponent();
         ThemeManager.Attach(this);
         if (!preview) WindowLayout.Attach(this);
         DataContext = this;
-        Loaded += async (_, _) => { if (_state == UpdateState.Ready) await CheckAsync(); };
-        Closing += WindowClosing;
-        Closed += (_, _) => { CancelPending(); DiscardStagedUpdate(); };
+        if (_session != null) _session.PropertyChanged += SessionChanged;
+        Closing += (_, e) => { if (_state == BackgroundUpdateState.Installing) e.Cancel = true; };
+        Closed += (_, _) => { if (_session != null) _session.PropertyChanged -= SessionChanged; };
     }
 
-    public static UpdateWindow CreatePreview(HttpClient http) => new(http, null, null, null, true, () => Task.CompletedTask, _ => { }, preview: true);
-    public bool IsWorking => _state is UpdateState.Checking or UpdateState.Downloading or UpdateState.Installing;
+    public static UpdateWindow CreatePreview(HttpClient http) => new(null, null, null, true, () => Task.CompletedTask, preview: true);
+    public bool IsWorking => _session?.IsWorking == true;
     public string WindowTitle => Localization.Choose("HappyCheats updates", "HappyCheats 客户端更新");
     public string CurrentVersionLabel => Localization.Choose("Installed version  ", "当前版本  ") + UpdateLauncher.CurrentVersion;
     public string ChannelLabel => (_preview ? "stable" : _configuration?.Channel ?? "stable").ToUpperInvariant();
-    public string CheckLabel => Localization.Choose(_state == UpdateState.Failed ? "Retry check" : "Check again", _state == UpdateState.Failed ? "重新检查" : "检查更新");
-    public string CloseLabel => Localization.Choose(IsWorking ? "Cancel" : "Close", IsWorking ? "取消" : "关闭");
-    public bool CanClose => _state != UpdateState.Installing;
-    public bool CanCheck => !IsWorking && !_isolated && _configuration != null;
-    public bool CanAct => !IsWorking && !_isolated && _releaseVerified && _release != null && UpdateLauncher.CanInstall;
-    public Visibility PrimaryVisibility => _release != null || _preview ? Visibility.Visible : Visibility.Collapsed;
-    public string PrimaryLabel => _staged != null ? Localization.Choose("Install & restart", "安装并重启") : Localization.Choose("Download update", "下载更新");
+    public string CheckLabel => Localization.Choose(_state == BackgroundUpdateState.Failed ? "Retry update" : "Check again", _state == BackgroundUpdateState.Failed ? "重试更新" : "检查更新");
+    public string CloseLabel => _staged != null ? Localization.Choose("Later", "稍后") : Localization.Choose("Close", "关闭");
+    public bool CanClose => _state != BackgroundUpdateState.Installing;
+    public bool CanCheck => !IsWorking && _staged == null && !_isolated && _session != null;
+    public bool CanAct => !IsWorking && !_isolated && _staged != null && UpdateLauncher.CanInstall;
+    public Visibility PrimaryVisibility => _staged != null || _preview ? Visibility.Visible : Visibility.Collapsed;
+    public string PrimaryLabel => Localization.Choose("Restart & install", "重启并安装");
     public Visibility ReleaseVisibility => _release != null || _preview ? Visibility.Visible : Visibility.Collapsed;
     public Visibility NewGamesVisibility => NewGames.Count != 0 ? Visibility.Visible : Visibility.Collapsed;
     public IReadOnlyList<string> NewGames => _preview
@@ -75,34 +67,24 @@ public partial class UpdateWindow : Window, INotifyPropertyChanged
             : Localization.Choose(_release!.ChangelogEnglish, _release.ChangelogChinese);
     public string ReleaseMetadata => _preview ? Localization.Choose("PREVIEW RELEASE  ·  2026-09-13  ·  128.0 MB", "预览版本  ·  2026-09-13  ·  128.0 MB")
         : _release == null ? "" : "v" + _release.Version + "  ·  " + _release.PublishedAt.ToLocalTime().ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) + "  ·  " + FormatBytes(_release.PackageSize);
-    public string StateTitle => _preview ? Localization.Choose("A new release is ready", "新版本已准备就绪") : _state switch
+    public string StateTitle => _preview ? Localization.Choose("A new release is ready", "新版本已准备就绪") : _isolated ? Localization.Choose("Preview / development session", "预览 / 开发模式") : _session == null ? Localization.Choose("Automatic updates are unavailable", "无法自动更新") : _state switch
     {
-        UpdateState.Checking => Localization.Choose("Checking for updates…", "正在检查更新…"),
-        UpdateState.Available => Localization.Choose($"Version {_release?.Version} is available", $"发现新版本 {_release?.Version}"),
-        UpdateState.Latest => Localization.Choose("You're up to date", "当前已是最新版本"),
-        UpdateState.Downloading => Localization.Choose("Downloading your update…", "正在下载更新…"),
-        UpdateState.Staged => Localization.Choose("Ready to install", "可以安装了"),
-        UpdateState.Installing => Localization.Choose("Preparing to restart…", "正在准备重启…"),
-        UpdateState.Cancelled => Localization.Choose("Update cancelled", "更新已取消"),
-        UpdateState.Failed => Localization.Choose("Update couldn't finish", "暂时无法完成更新"),
-        UpdateState.Unconfigured => Localization.Choose("Updates aren't connected yet", "尚未连接更新服务"),
-        UpdateState.Disabled => Localization.Choose("Preview / development session", "预览 / 开发模式"),
+        BackgroundUpdateState.Checking => Localization.Choose("Checking for updates…", "正在检查更新…"),
+        BackgroundUpdateState.Latest => Localization.Choose("You're up to date", "当前已是最新版本"),
+        BackgroundUpdateState.Downloading => Localization.Choose("Downloading your update…", "正在下载更新…"),
+        BackgroundUpdateState.Staged => Localization.Choose("Update ready — restart to install", "更新已就绪，请重启安装"),
+        BackgroundUpdateState.Installing => Localization.Choose("Preparing to restart…", "正在准备重启…"),
+        BackgroundUpdateState.Failed => Localization.Choose("Update couldn't finish", "暂时无法完成更新"),
         _ => Localization.Choose("Get the latest HappyCheats", "获取最新版 HappyCheats")
     };
-    public string StateDescription => _preview ? Localization.Choose("Preview only · Sample release content", "仅供预览 · 以下为示例更新内容") : _state switch
+    public string StateDescription => _preview ? Localization.Choose("Preview only · Sample release content", "仅供预览 · 以下为示例更新内容") : _isolated ? Localization.Choose("Update checks and installation are disabled in preview sessions and when using a custom data root.", "预览模式及自定义数据目录模式下，不会检查或安装客户端更新。") : _session == null ? Localization.Choose("Use a complete published client with update-server settings and its updater.", "请使用带有更新服务器配置和更新程序的完整发布客户端。") : _state switch
     {
-        UpdateState.Checking => _configuration?.FallbackFeedUrl != null
-            ? Localization.Choose("Checking your preferred update server, then the backup if it is unavailable.", "正在优先检查更新服务器，不可用时将自动使用备用服务器。")
-            : Localization.Choose("Getting the latest release information from your update server.", "正在从更新服务器获取最新版本信息。"),
-        UpdateState.Available => Localization.Choose("Read the release notes, then download when you're ready.", "阅读更新说明后，可随时开始下载。"),
-        UpdateState.Latest => Localization.Choose("Your client has the latest release for this channel.", "当前客户端已是此更新通道的最新版本。"),
-        UpdateState.Downloading => Localization.Choose("The download will be verified before installation. You can cancel at any time.", "下载完成后将验证安装包。您可以随时取消下载。"),
-        UpdateState.Staged => Localization.Choose("Download verified. Close your games, then choose Install & restart.", "下载已验证。请关闭游戏，然后选择“安装并重启”。"),
-        UpdateState.Installing => Localization.Choose("Checking that your games are closed before restarting HappyCheats.", "正在确认游戏已关闭，随后将重启 HappyCheats。"),
-        UpdateState.Cancelled => Localization.Choose("You can check again or restart the download when you're ready.", "您可以重新检查更新，或在准备好后再次下载。"),
-        UpdateState.Failed => Localization.Choose("See the details below, then retry. Your installed client is still available.", "请查看下方详情后重试。当前客户端仍可继续使用。"),
-        UpdateState.Unconfigured => Localization.Choose("This client needs a release with update-server settings. Contact the HappyCheats publisher for a configured client.", "此客户端尚未配置更新服务器。请联系 HappyCheats 发布者获取已配置的客户端。"),
-        UpdateState.Disabled => Localization.Choose("Update checks and installation are disabled in preview sessions and when using a custom data root.", "预览模式及自定义数据目录模式下，不会检查或安装客户端更新。"),
+        BackgroundUpdateState.Checking => Localization.Choose("Checking configured update sources for the newest trusted release.", "正在检查已配置的更新源，查找最新的可信版本。"),
+        BackgroundUpdateState.Latest => Localization.Choose("Your client has the latest release for this channel.", "当前客户端已是此更新通道的最新版本。"),
+        BackgroundUpdateState.Downloading => Localization.Choose("Keep using your cheats. You can close this window; the download will continue in the background.", "您可继续使用修改器。关闭此窗口后，更新仍会在后台下载。"),
+        BackgroundUpdateState.Staged => Localization.Choose("Your update has downloaded and been verified. Close supported games, then restart to install, or choose Later to keep using HappyCheats.", "更新已下载并通过验证。请关闭支持的游戏后重启安装，或选择“稍后”继续使用 HappyCheats。"),
+        BackgroundUpdateState.Installing => Localization.Choose("Checking that your games are closed before restarting HappyCheats.", "正在确认游戏已关闭，随后将重启 HappyCheats。"),
+        BackgroundUpdateState.Failed => Localization.Choose("See the details below, then retry. Your installed client is still available.", "请查看下方详情后重试。当前客户端仍可继续使用。"),
         _ => Localization.Choose("Check for new trainers, improvements and release notes.", "检查新修改器、客户端改进与更新日志。")
     };
     public string InstallNote => _isolated
@@ -113,152 +95,44 @@ public partial class UpdateWindow : Window, INotifyPropertyChanged
                 "本操作将更新 HappyCheats 及随附的修改器。重启后，请为各游戏选择“安装 / 更新”以应用新版修改器。安装客户端更新前，请关闭支持的游戏。");
     public Visibility ErrorVisibility => string.IsNullOrWhiteSpace(_error) ? Visibility.Collapsed : Visibility.Visible;
     public string ErrorLabel => Localization.Choose("Details", "详细信息");
-    public string ErrorDetails => _error ?? "";
+    public string ErrorDetails => _error switch
+    {
+        "The fallback update source does not have this exact release. Check for updates again." => Localization.Choose(_error, "备用服务器上的版本已变化，请重新检查更新。"),
+        "The update source timed out." => Localization.Choose(_error, "更新服务器响应超时，请检查网络后重试。"),
+        "The update took too long to finish. Check your connection and retry." => Localization.Choose(_error, "更新耗时过长，请检查网络后重试。"),
+        { } message when message.StartsWith("The update source could not be reached. ", StringComparison.Ordinal) => Localization.Choose(message, "无法连接更新服务器，请检查网络后重试。"),
+        _ => _error ?? ""
+    };
     public Visibility ProgressVisibility => IsWorking ? Visibility.Visible : Visibility.Collapsed;
-    public bool IndeterminateProgress => _state != UpdateState.Downloading || _totalBytes <= 0 || _bytesReceived >= _totalBytes;
+    public bool IndeterminateProgress => _state != BackgroundUpdateState.Downloading || _totalBytes <= 0 || _bytesReceived >= _totalBytes;
     public double ProgressPercent => _totalBytes > 0 ? Math.Clamp(_bytesReceived * 100d / _totalBytes, 0, 100) : 0;
-    public string ProgressLabel => _state == UpdateState.Checking ? Localization.Choose("Checking release", "正在检查版本")
-        : _state == UpdateState.Installing ? Localization.Choose("Preparing installation", "正在准备安装")
+    public string ProgressLabel => _state == BackgroundUpdateState.Checking ? Localization.Choose("Checking release", "正在检查版本")
+        : _state == BackgroundUpdateState.Installing ? Localization.Choose("Preparing installation", "正在准备安装")
         : _totalBytes > 0 && _bytesReceived >= _totalBytes ? Localization.Choose("Verifying package", "正在验证安装包") : Localization.Choose("Downloading", "正在下载");
-    public string ProgressAmount => _state != UpdateState.Downloading ? "" : FormatBytes(_bytesReceived) + (_totalBytes > 0 ? " / " + FormatBytes(_totalBytes) : "");
+    public string ProgressAmount => _state != BackgroundUpdateState.Downloading ? "" : FormatBytes(_bytesReceived) + (_totalBytes > 0 ? " / " + FormatBytes(_totalBytes) : "");
 
-    private async void CheckClicked(object sender, RoutedEventArgs e) => await CheckAsync();
-    private async Task CheckAsync()
+    private async void CheckClicked(object sender, RoutedEventArgs e)
     {
         if (!CanCheck) return;
-        _releaseVerified = false;
-        BeginOperation(UpdateState.Checking);
-        _operation!.CancelAfter(TimeSpan.FromSeconds(45));
-        try
-        {
-            var release = await _client!.CheckAsync(UpdateLauncher.CurrentVersion, _operation.Token);
-            DiscardStagedUpdate();
-            _release = release;
-            _releaseVerified = release != null;
-            _releaseChanged(release);
-            _state = release == null ? UpdateState.Latest : UpdateState.Available;
-        }
-        catch (OperationCanceledException) { CancelledOrTimedOut(); }
-        catch (Exception error) { Fail(error); }
-        finally { EndOperation(); }
+        _actionError = null;
+        await _session!.CheckAndDownloadAsync();
     }
 
     private async void PrimaryClicked(object sender, RoutedEventArgs e)
     {
         if (!CanAct) return;
-        if (_staged != null) { await InstallAsync(); return; }
-        BeginOperation(UpdateState.Downloading);
-        _operation!.CancelAfter(TimeSpan.FromMinutes(30));
-        _totalBytes = _release!.PackageSize;
-        _bytesReceived = 0;
-        Refresh();
+        _actionError = null;
         try
         {
-            var progress = new Progress<UpdateProgress>(value =>
-            {
-                if (_state != UpdateState.Downloading) return;
-                _bytesReceived = value.BytesReceived;
-                _totalBytes = value.TotalBytes;
-                Refresh();
-            });
-            _staged = await _client!.DownloadAndStageAsync(_release, UpdateLauncher.StagingRoot, progress, _operation!.Token);
-            _state = UpdateState.Staged;
+            await _install();
         }
-        catch (OperationCanceledException) { CancelledOrTimedOut(); }
-        catch (Exception error) { Fail(error); }
-        finally { EndOperation(); }
-    }
-
-    private async Task InstallAsync()
-    {
-        BeginOperation(UpdateState.Installing);
-        var launchAttempted = false;
-        try
-        {
-            await _prepareInstall();
-            if (Owner is not MainWindow main) throw new InvalidOperationException(Localization.Choose("The main window is unavailable. Reopen HappyCheats and retry.", "主窗口不可用。请重新打开 HappyCheats 后重试。"));
-            _handoff = true;
-            launchAttempted = true;
-            main.BeginUpdateHandoff(_staged!);
-        }
-        catch (Exception error)
-        {
-            _handoff = false;
-            if (launchAttempted) DiscardStagedUpdate();
-            Fail(error);
-        }
-        finally { EndOperation(); }
-    }
-
-    private void BeginOperation(UpdateState state)
-    {
-        _operation?.Dispose();
-        _operation = new CancellationTokenSource();
-        _userCancelled = false;
-        _error = null;
-        _state = state;
+        catch (Exception error) { _actionError = error.Message; }
         Refresh();
     }
 
-    private void EndOperation()
-    {
-        _operation?.Dispose();
-        _operation = null;
-        Refresh();
-        if (_closeRequested && !_handoff) Close();
-    }
-
-    private void Fail(Exception error)
-    {
-        _state = UpdateState.Failed;
-        _error = error.Message switch
-        {
-            "The fallback update source does not have this exact release. Check for updates again." => Localization.Choose(error.Message, "备用服务器上的版本已变化，请重新检查更新。"),
-            "The update source timed out." => Localization.Choose(error.Message, "更新服务器响应超时，请检查网络后重试。"),
-            var message when message.StartsWith("The update source could not be reached. ", StringComparison.Ordinal) => Localization.Choose(message, "无法连接更新服务器，请检查网络后重试。"),
-            _ => error.Message
-        };
-    }
-
-    private void CloseClicked(object sender, RoutedEventArgs e)
-    {
-        if (IsWorking) CancelPending(); else Close();
-    }
-
-    public void CancelPending()
-    {
-        _userCancelled = true;
-        _operation?.Cancel();
-    }
-
-    private void CancelledOrTimedOut()
-    {
-        _state = _userCancelled ? UpdateState.Cancelled : UpdateState.Failed;
-        if (!_userCancelled) _error = Localization.Choose("The update server took too long to respond. Check your connection and retry.", "更新服务器响应超时。请检查网络连接后重试。");
-    }
-
-    private void WindowClosing(object? sender, CancelEventArgs e)
-    {
-        if (!IsWorking || _handoff) return;
-        e.Cancel = true;
-        if (_state == UpdateState.Installing) return;
-        _closeRequested = true;
-        CancelPending();
-    }
-
-    private void DiscardStagedUpdate()
-    {
-        if (_staged == null || _handoff) return;
-        try
-        {
-            var root = Path.GetFullPath(UpdateLauncher.StagingRoot).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
-            var work = Path.GetFullPath(_staged.WorkDirectory);
-            if (work.StartsWith(root, StringComparison.OrdinalIgnoreCase) && Directory.Exists(work)) Directory.Delete(work, recursive: true);
-        }
-        catch { /* A locked staging folder can be cleaned up on a later update. */ }
-        _staged = null;
-    }
-
+    private void CloseClicked(object sender, RoutedEventArgs e) => Close();
+    private void SessionChanged(object? sender, PropertyChangedEventArgs e) => Refresh();
+    internal void RefreshLanguage() => Refresh();
     private static string FormatBytes(long bytes) => bytes >= 1024L * 1024 * 1024
         ? (bytes / (1024d * 1024 * 1024)).ToString("0.0", CultureInfo.InvariantCulture) + " GB"
         : (bytes / (1024d * 1024)).ToString("0.0", CultureInfo.InvariantCulture) + " MB";
