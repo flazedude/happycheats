@@ -1,6 +1,6 @@
 # GitHub updates and publishing
 
-From **0.3.52**, official HappyCheats clients check public GitHub Releases directly. Downloads remain available while the publisher's PC is off. LAN hosting and normal LAN publishing were retired on **30 October 2026**; the old server is stopped and its scheduled startup task is disabled. Downloads still require **Download update** and **Install & restart**.
+From **0.3.52**, official HappyCheats clients check public GitHub Releases directly. Downloads remain available while the publisher's PC is off. Normal LAN publishing is no longer required. The existing LAN server and scheduled startup task remain running for compatibility, as requested on **30 October 2026**. Downloads still require **Download update** and **Install & restart**.
 
 - [Source and releases](https://github.com/flazedude/happycheats)
 - [Stable signed feed](https://github.com/flazedude/happycheats/releases/latest/download/latest.json)
@@ -12,13 +12,13 @@ The repository is public so clients can download releases without a GitHub accou
 
 GitHub releases retain the established signing key. The signed feed points to an immutable version-specific package URL such as `/releases/download/v0.3.52/HappyCheats-0.3.52-win-x64.zip`. The client verifies the signature, channel, archive size and SHA-256 before installation, then validates the complete package structure. Invalid signatures, channels, hashes and archive structure remain errors.
 
-Internet requests use a 60-second feed/response deadline and a 60-second read inactivity limit; the update window also bounds its overall check. A continuously progressing package download is not limited to 60 seconds in total. Cancellation ends the operation. If GitHub is unavailable, the installed client remains usable and the user can retry later. Official 0.3.52 clients do not retry the retired LAN server.
+Internet requests use a 60-second feed/response deadline and a 60-second read inactivity limit; the update window also bounds its overall check. A continuously progressing package download is not limited to 60 seconds in total. Cancellation ends the operation. If GitHub is unavailable, the installed client remains usable and the user can retry later. Official 0.3.52 clients do not retry the legacy LAN server.
 
 ## Existing installations
 
-Official **0.3.46–0.3.51** clients already include GitHub fallback. With the LAN server stopped, they can discover and install 0.3.52 through that fallback, after their existing LAN timeout. A stale running LAN feed can prevent these clients from checking GitHub, so keep the retired server stopped and its startup task disabled.
+Official **0.3.46–0.3.51** clients already include GitHub fallback. When LAN is unavailable, they can discover and install 0.3.52 through that fallback after their existing LAN timeout. The existing LAN server also provides a one-time migration bridge: its `latest.json` serves the identical signed GitHub **0.3.52** feed, whose package URL downloads the published ZIP from GitHub. This avoids a stale LAN feed hiding the migration release while allowing the server and startup task to remain running. After this update, official clients check GitHub directly; future releases do not require further LAN publication.
 
-**Pre-0.3.46** clients do not know the GitHub endpoint. Run the [latest complete standalone EXE](https://github.com/flazedude/happycheats/releases/latest/download/HappyCheats.exe) once to obtain the configured client. User preferences remain in `%LOCALAPPDATA%/HappyCheats/settings.json`.
+**Pre-0.3.46** clients do not know the GitHub feed endpoint. They need a reachable compatible LAN configuration to discover the bridge, or can run the [latest complete standalone EXE](https://github.com/flazedude/happycheats/releases/latest/download/HappyCheats.exe) once to obtain the configured client. User preferences remain in `%LOCALAPPDATA%/HappyCheats/settings.json`.
 
 The updater continues preserving `update-settings.json` and its trusted signing key. When 0.3.52 loads bundled `update-defaults.json`, it switches the effective primary endpoint to GitHub only if all of these conditions hold:
 
@@ -60,8 +60,10 @@ The current publisher serializes GitHub draft creation, uploads and finalization
 
 Source synchronization carries the scripts and project instructions to the other PC; it does not configure that PC remotely. Run this setup locally on each publishing PC. The second PC's actual setup and release capability must be verified there.
 
+The established signing key has already been transferred to the second PC, as confirmed by the user on 30 October 2026. Use its existing local key path with the initializer below; another transfer is unnecessary. Publisher initialization and release validation on that PC remain unverified.
+
 1. Sign in to GitHub separately on each PC using its existing Git credential manager, or `gh auth login --hostname github.com`. The account needs permission to push source and publish releases to `flazedude/happycheats`. Credentials stay in that PC's credential store and are never copied into source or client packages.
-2. Securely transfer the **existing private signing key** once to a protected local file on the second PC. Use a private transfer method; never commit the key, attach it to a GitHub release or place it in a public/synchronized repository directory. Both PCs must use the same signing identity already trusted by installed clients. Do not generate a new key.
+2. Locate the **existing private signing key** already present on that PC. For any additional PC without a copy, transfer the established key once using a private method; never commit it, attach it to a GitHub release or place it in a public/synchronized repository directory. Both PCs must use the same signing identity already trusted by installed clients. Do not generate a new key.
 3. In PowerShell 7, point the initializer to that existing key. Replace the example path with the protected file's actual location:
 
    ```powershell
@@ -112,4 +114,4 @@ A process interruption or network failure can leave the GitHub publishing lock b
 
 Before calling a release complete, verify the hosted signature and channel, anonymous GitHub downloads, package sizes/hashes, direct GitHub configuration, trusted LAN-settings migration, fresh EXE version and a suitable packaged-client smoke check. Synthetic migration and network tests do not establish second-PC or physical-network validation. No game launch or save change is part of update verification.
 
-Existing chats receive these checked-in instructions when they next read them; running chats can retain an older snapshot. Re-read the current instructions instead of restarting LAN from an older release procedure.
+Existing chats receive these checked-in instructions when they next read them; running chats can retain an older snapshot. Re-read the current instructions: GitHub is the required publishing target, and the existing LAN service may remain running without ongoing LAN releases.

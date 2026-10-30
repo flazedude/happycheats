@@ -1,6 +1,6 @@
 # HappyCheats 游戏修改器平台
 
-HappyCheats **0.3.53** 直接从 GitHub 获取带签名的更新，发布电脑关机时仍可下载。局域网托管已停用。现有官方局域网配置仅在签名公钥和更新通道匹配时迁移；自定义配置保持不变。两种完整发行包均包含全部十七款游戏、《黎明行者之血》修改器 **0.4.1** 和《影之刃零》修改器 **0.1.1**。[下载最新完整 EXE](https://github.com/flazedude/happycheats/releases/latest/download/HappyCheats.exe)、[更新设置](docs/github-updates.md)、[更新日志](docs/releases/0.3.53.zh.txt)。
+HappyCheats **0.3.53** 直接从 GitHub 获取带签名的更新，发布电脑关机时仍可下载。不再要求向局域网发布更新；现有局域网服务器可以继续运行。现有官方局域网配置仅在签名公钥和更新通道匹配时迁移；自定义配置保持不变。两种完整发行包均包含全部十七款游戏、《黎明行者之血》修改器 **0.4.1** 和《影之刃零》修改器 **0.1.1**。[下载最新完整 EXE](https://github.com/flazedude/happycheats/releases/latest/download/HappyCheats.exe)、[更新设置](docs/github-updates.md)、[更新日志](docs/releases/0.3.53.zh.txt)。
 
 本机构建 **0.3.51** 引入《黎明行者之血》修改器 **0.4.1**：允许基础值为零但实际倍率有效的攻击属性，验证计算后的 10 倍结果，并提供明确的启用错误。此前尚未公开发布的修正现已纳入 **0.3.53**。请关闭游戏后选择“安装 / 更新”。实战效果仍未验证。详见[伤害功能调查](docs/dawnwalker-damage.md)和[构建说明](docs/releases/0.3.51.zh.txt)。
 

@@ -1,8 +1,8 @@
-# Legacy LAN updates — deprecated
+# Legacy LAN compatibility server
 
-**Deprecated on 30 October 2026.** Normal releases now use GitHub only through `scripts/Publish-Update.ps1`; official clients from **0.3.52** check GitHub directly. The old server is stopped and the **HappyCheats LAN Update Server** scheduled task is disabled. Preserve its task definition, configuration, established signing key, old archives and recovery backups. Do not start, enable or publish to LAN unless the user explicitly requests it. See [GitHub migration and publishing](github-updates.md).
+**LAN publication is no longer required from 30 October 2026.** Normal releases use GitHub only through `scripts/Publish-Update.ps1`; official clients from **0.3.52** check GitHub directly. The user wants the existing server and **HappyCheats LAN Update Server** scheduled task kept running. Preserve their configuration, established signing key, old archives and recovery backups. Keeping this service available does not require publishing every future release to LAN. See [GitHub migration and publishing](github-updates.md).
 
-The instructions below are a legacy recovery reference. Clients **0.3.46–0.3.51** use GitHub fallback when LAN is unavailable. A stale running LAN feed can hide newer GitHub releases from those clients, so keep the retired host stopped. Older clients should obtain the latest complete standalone EXE from GitHub.
+The one-time migration bridge serves the identical signed GitHub **0.3.52** feed at the existing LAN `latest.json`; its package URL points to the immutable GitHub ZIP. Old LAN clients can discover that update while the server remains online. Once updated, official clients use GitHub directly, so the bridge needs no ongoing LAN releases. Clients **0.3.46–0.3.51** can also use GitHub fallback when LAN is unavailable. Other installations can obtain the latest complete standalone EXE from GitHub. Preserve the signed feed unchanged rather than rebuilding or re-signing 0.3.52.
 
 One Windows PC hosts signed releases. Other PCs on the same network install the configured starter once and then use **Updates / 客户端更新**, followed by **Install & restart**. No cloud account, domain or internet-facing port forwarding is needed. The host needs .NET 8 SDK or later for building/publishing. Run the scripts in PowerShell 7 (`pwsh`). Published clients and server include their runtimes.
 
@@ -16,7 +16,7 @@ Use the host's actual private IPv4 address. Omitting `-Address` detects a single
 
 `-OpenFirewall` creates a rule when run as administrator, restricted to this executable, local address/port and clients in `LocalSubnet`. It applies to all Windows network profiles because home Wi-Fi is sometimes classified Public. Existing rules are not removed or widened.
 
-When explicitly restoring LAN hosting, reserve the address in your router's DHCP settings and keep the host awake and connected while clients download. The preserved Windows scheduled task **HappyCheats LAN Update Server** is currently disabled. When enabled, it starts the server at boot before sign-in, after a 30-second delay, and waits for the configured Wi-Fi address. Its supervisor retries an exited server after 15 seconds, without a retry limit. The task has no runtime limit and runs on battery power too.
+For the existing compatibility server, retain the reserved router address. The Windows scheduled task **HappyCheats LAN Update Server** remains enabled and starts the server at boot before sign-in, after a 30-second delay, then waits for the configured Wi-Fi address. Its supervisor retries an exited server after 15 seconds, without a retry limit. The task has no runtime limit and runs on battery power too. The migration feed is reachable while this PC is on; direct GitHub updates and package downloads do not depend on it.
 
 To install or repair boot startup, run `scripts/Install-LanUpdateStartup.ps1` once from administrator PowerShell. It uses the current user's local file permissions through S4U, with no stored password and no interactive sign-in requirement. It runs the already published server with Windows' built-in PowerShell; it does not build code or read signing keys at boot. Keep this checkout and the published server at their current paths.
 
@@ -34,13 +34,13 @@ Project policy in `AGENTS.md` now requires a signed GitHub release, source sync 
 
 `-SkipPayloads` reuses already built trainer payloads. Omit it when rebuilding changed cheats; game-specific build prerequisites still apply. Tests run by default. The opt-in command requires reviewed, committed source, verifies/pushes it to GitHub, builds a client with the saved LAN feed/public key and GitHub fallback, then stages and publishes both signed feeds and the complete distributions. The legacy `Publish-LanUpdate.ps1` wrapper selects the same opt-in mode. See the [normal GitHub workflow](github-updates.md). Simultaneous publishing and equal/older versions are rejected. Optional `-NewGame 'Game name'` accepts multiple display names; the actual game implementation and payload must also be included in the project.
 
-Only while the legacy host has been explicitly restored, another PC can open:
+While the legacy host is available, another PC can open its retained starter:
 
 ```text
 http://192.168.2.76:17845/happycheats/HappyCheats.exe
 ```
 
-Run this file once. Every later release requires new changelog files and a higher unpublished version. Clients check at startup or when **Updates** is opened. After updating the client, use **Install / update** for affected games to apply new trainers.
+The retained LAN starter is not refreshed by normal GitHub publishing; use the [latest complete EXE on GitHub](https://github.com/flazedude/happycheats/releases/latest/download/HappyCheats.exe) for a current starter. Every release requires new changelog files and a higher unpublished version. Clients check at startup or when **Updates** is opened. After updating the client, use **Install / update** for affected games to apply new trainers.
 
 Older HTTPS/loopback-only clients cannot pull a LAN HTTP release themselves: distribute the new starter once. Previously cloud-configured clients also need the LAN starter/configuration, since updates preserve their trusted feed. User settings remain in `%LOCALAPPDATA%/HappyCheats/settings.json`.
 
