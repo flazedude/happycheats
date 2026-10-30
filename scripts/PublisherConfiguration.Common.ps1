@@ -57,6 +57,7 @@ function Get-HcPublisherConfiguration {
     if (![IO.Path]::IsPathFullyQualified($hcSaved.PublicKeyPath)) { throw 'Publisher key paths must be absolute.' }
     $null = Get-HcSigningPublicIdentity -PrivateKeyPath $hcSaved.PrivateKeyPath -PublicKeyPath $hcSaved.PublicKeyPath
     if ($RequireLan -and (!$hcLegacy -or !$hcLegacy.BaseUrl -or !$hcLegacy.PublicDirectory)) { throw 'Explicit legacy LAN publication requires the saved LAN server configuration.' }
+    if ($RequireLan) { $null = Get-HcSigningPublicIdentity -PrivateKeyPath $hcSaved.PrivateKeyPath -PublicKeyPath $hcLegacy.PublicKeyPath }
     return [pscustomobject]@{
         Repository=$Repository; PrivateKeyPath=$hcSaved.PrivateKeyPath; PublicKeyPath=$hcSaved.PublicKeyPath
         BaseUrl=$hcLegacy.BaseUrl; PublicDirectory=$hcLegacy.PublicDirectory

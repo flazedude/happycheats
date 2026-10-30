@@ -22,7 +22,7 @@ internal static class ReleaseCommand
                 HappyCheats release publisher (no remote uploads)
 
                 keygen --private-key PATH --public-key PATH
-                configure --feed-url URL --public-key PATH --output PATH [--fallback-feed-url URL]
+                configure --feed-url URL --public-key PATH --output PATH [--fallback-feed-url URL] [--feed-source URL ...]
                 publish --package ZIP --version X.Y.Z --base-url URL
                         --private-key PATH --output DIR --notes-en FILE
                         [--notes-zh FILE] [--new-game NAME ...] [--channel stable]
@@ -97,11 +97,20 @@ internal static class ReleaseCommand
 
     private static void Configure(Dictionary<string, List<string>> options)
     {
-        Allow(options, "feed-url", "fallback-feed-url", "public-key", "output");
+        Allow(options, "feed-url", "fallback-feed-url", "feed-source", "public-key", "output");
         var feed = UpdateAddress.Validate(Required(options, "feed-url"), "Feed URL");
         var fallback = Optional(options, "fallback-feed-url") is { } fallbackUrl
             ? UpdateAddress.Validate(fallbackUrl, "Fallback feed URL") : null;
         if (fallback == feed) throw new ArgumentException("The fallback feed must differ from the primary feed.");
+        string[]? feedUrls = null;
+        if (options.TryGetValue("feed-source", out var sources))
+        {
+            var endpoints = sources.Select(value => UpdateAddress.Validate(value, "Feed source")).ToArray();
+            if (endpoints.Length is < 1 or > 8 || endpoints.Distinct().Count() != endpoints.Length ||
+                endpoints[0] != feed || (fallback != null && endpoints[^1] != fallback))
+                throw new ArgumentException("Feed sources must contain one to eight distinct URLs, starting with the primary and ending with the fallback when configured.");
+            feedUrls = endpoints.Select(endpoint => endpoint.AbsoluteUri).ToArray();
+        }
         var publicKeyPath = Path.GetFullPath(Required(options, "public-key"));
         var outputPath = Path.GetFullPath(Required(options, "output"));
         if (outputPath.Equals(publicKeyPath, StringComparison.OrdinalIgnoreCase))
@@ -125,7 +134,7 @@ internal static class ReleaseCommand
         }
         var configuration = new UpdateConfiguration
         {
-            FeedUrl = feed.AbsoluteUri, FallbackFeedUrl = fallback?.AbsoluteUri,
+            FeedUrl = feed.AbsoluteUri, FallbackFeedUrl = fallback?.AbsoluteUri, FeedUrls = feedUrls,
             PublicKeyPem = publicKey, Channel = "stable"
         };
         WriteAtomically(outputPath,
@@ -250,7 +259,7 @@ internal static class ReleaseCommand
                 throw new ArgumentException($"Expected --option VALUE, near {flag}.");
             var name = flag[2..];
             if (!result.TryGetValue(name, out var values)) result.Add(name, values = []);
-            else if (name != "new-game") throw new ArgumentException($"Option --{name} can only be specified once.");
+            else if (name is not ("new-game" or "feed-source")) throw new ArgumentException($"Option --{name} can only be specified once.");
             values.Add(arguments[index + 1]);
         }
         return result;

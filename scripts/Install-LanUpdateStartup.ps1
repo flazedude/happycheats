@@ -1,6 +1,7 @@
 [CmdletBinding()]
-param()
+param([switch]$EnableMirror, [ValidateRange(60,86400)][int]$MirrorIntervalSeconds = 300)
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'LanMirrorSupervisor.Common.ps1')
 $hcRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $hcIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
 if (!([Security.Principal.WindowsPrincipal]::new($hcIdentity)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
@@ -10,6 +11,9 @@ $hcConfigPath = Join-Path $hcRoot 'artifacts\lan-updates\server.json'
 $hcServerExe = Join-Path $hcRoot 'artifacts\lan-update-server\HappyCheats.UpdateServer.exe'
 if (!(Test-Path -LiteralPath $hcConfigPath) -or !(Test-Path -LiteralPath $hcServerExe)) {
     throw 'Run Start-LanUpdateServer.ps1 first to configure and publish the LAN server.'
+}
+if ($EnableMirror) {
+    if ($PSVersionTable.PSVersion.Major -lt 7 -or !(Test-Path -LiteralPath (Join-Path $PSScriptRoot 'Sync-LanUpdate.ps1'))) { throw 'Enable mirror setup from PowerShell 7 with the current sync helper present.' }
 }
 $hcTaskName = 'HappyCheats LAN Update Server'
 $hcEntry = Join-Path $PSScriptRoot 'Run-LanUpdateServer.ps1'
@@ -27,6 +31,9 @@ $hcAction = New-ScheduledTaskAction -Execute $hcPowerShell -Argument $hcArgument
 $hcSettings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1)
 # Stop only the verified existing HappyCheats server before handing control to the task.
 & (Join-Path $PSScriptRoot 'Stop-LanUpdateServer.ps1')
+if ($EnableMirror) {
+    Enable-HcLanMirrorConfiguration -ConfigPath $hcConfigPath -PowerShellPath (Get-Process -Id $PID).Path -IntervalSeconds $MirrorIntervalSeconds
+}
 Register-ScheduledTask -TaskName $hcTaskName -Description 'Starts the HappyCheats LAN update server at Windows boot and restarts it after failure.' -Action $hcAction -Trigger $hcTrigger -Principal $hcPrincipal -Settings $hcSettings -Force | Out-Null
 Start-ScheduledTask -TaskName $hcTaskName
 & (Join-Path $PSScriptRoot 'Start-LanUpdateServer.ps1')

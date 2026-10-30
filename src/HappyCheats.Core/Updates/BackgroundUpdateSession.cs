@@ -66,7 +66,7 @@ public sealed class BackgroundUpdateSession : INotifyPropertyChanged, IDisposabl
             }
             using (var check = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token))
             {
-                check.CancelAfter(TimeSpan.FromMinutes(5));
+                check.CancelAfter(client.CheckTimeout);
                 var release = await client.CheckAsync(currentVersion, check.Token);
                 lock (gate)
                 {

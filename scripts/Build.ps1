@@ -8,9 +8,10 @@ param(
     [string]$ChineseParentsGameDirectory,
     [string]$StardewGameDirectory,
     [string]$ProjectHospitalGameDirectory,
-    [string]$Version = '0.3.53',
+    [string]$Version = '0.3.54',
     [string]$UpdateFeedUrl,
     [string]$UpdateFallbackFeedUrl,
+    [string[]]$UpdateFeedUrls = @(),
     [string]$UpdatePublicKeyPath,
     [string]$ReleaseSourceCommit
 )
@@ -21,6 +22,7 @@ $hcParsedVersion = [Version]::Parse($Version)
 if ($hcParsedVersion.Major -gt 65534 -or $hcParsedVersion.Minor -gt 65534 -or $hcParsedVersion.Build -gt 65534) { throw 'Version components cannot exceed 65534 (assembly version limit).' }
 if ([bool]$UpdateFeedUrl -ne [bool]$UpdatePublicKeyPath) { throw 'Supply both UpdateFeedUrl and UpdatePublicKeyPath to configure server updates.' }
 if ($UpdateFallbackFeedUrl -and !$UpdateFeedUrl) { throw 'UpdateFallbackFeedUrl requires the primary feed and public key.' }
+if ($UpdateFeedUrls.Count -and !$UpdateFeedUrl) { throw 'UpdateFeedUrls requires the compatibility primary feed and public key.' }
 if ($ReleaseSourceCommit -and $ReleaseSourceCommit -cnotmatch '^[0-9a-f]{40}$') { throw 'ReleaseSourceCommit must be a full Git commit SHA.' }
 if ($SingleExe -and $FrameworkDependent) { throw 'SingleExe requires a self-contained release; omit FrameworkDependent.' }
 if ($UpdatePublicKeyPath -and !(Test-Path -LiteralPath $UpdatePublicKeyPath -PathType Leaf)) { throw 'UpdatePublicKeyPath must point to the public verification PEM file.' }
@@ -64,6 +66,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Updater publish failed.' }
 if ($UpdateFeedUrl) {
     $hcConfigureArgs = @('configure','--feed-url',$UpdateFeedUrl,'--public-key',$UpdatePublicKeyPath,'--output',(Join-Path $hcStaging 'update-settings.json'))
     if ($UpdateFallbackFeedUrl) { $hcConfigureArgs += @('--fallback-feed-url',$UpdateFallbackFeedUrl) }
+    foreach ($hcFeedSource in $UpdateFeedUrls) { $hcConfigureArgs += @('--feed-source',$hcFeedSource) }
     & dotnet run --project (Join-Path $hcRoot 'tools\HappyCheats.Release') -c Release -- @hcConfigureArgs
     if ($LASTEXITCODE -ne 0) { throw 'Update configuration failed.' }
     # Defaults permit migration of official endpoints only when retained trust matches.

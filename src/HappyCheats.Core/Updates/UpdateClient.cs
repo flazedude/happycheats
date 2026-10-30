@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -21,9 +22,10 @@ public sealed class UpdateClient
     {
         ArgumentNullException.ThrowIfNull(http);
         ArgumentNullException.ThrowIfNull(config);
-        config.Validate();
+        var snapshot = config with { FeedUrls = config.FeedUrls?.ToArray() };
+        snapshot.Validate();
         this.http = http;
-        configuration = config;
+        configuration = snapshot;
         if (primaryTimeout <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(primaryTimeout));
         this.primaryTimeout = primaryTimeout;
         this.internetTimeout = internetTimeout ?? TimeSpan.FromSeconds(60);
@@ -33,6 +35,8 @@ public sealed class UpdateClient
     public async Task<ReleaseManifest?> CheckAsync(string currentVersion, CancellationToken token = default)
     {
         var current = ReleaseVersion.Parse(currentVersion);
+        if (configuration.FeedUrls != null)
+            return await CheckOrderedSourcesAsync(current, token).ConfigureAwait(false);
         var source = configuration.FeedUrl;
         ReleaseManifest release;
         try
@@ -52,6 +56,51 @@ public sealed class UpdateClient
 
     private bool HasFallback => configuration.FallbackFeedUrl != null
         && !SameUrl(configuration.FeedUrl, configuration.FallbackFeedUrl);
+
+    // UI cancellation must allow the complete bounded feed chain to finish.
+    public TimeSpan CheckTimeout => configuration.FeedUrls != null
+        ? TimeSpan.FromTicks(configuration.FeedUrls.Sum(url => SourceTimeout(url).Ticks)) + TimeSpan.FromSeconds(5)
+        : (HasFallback ? primaryTimeout + internetTimeout : internetTimeout) + TimeSpan.FromSeconds(5);
+
+    private TimeSpan SourceTimeout(string url) => IsLocalUrl(url) ? primaryTimeout : internetTimeout;
+
+    private static bool IsLocalUrl(string url)
+    {
+        var address = new Uri(url);
+        return address.IsLoopback || (IPAddress.TryParse(address.Host, out var ip) && UpdateAddress.IsLocalAddress(ip));
+    }
+
+    private static bool SamePackage(ReleaseManifest left, ReleaseManifest right)
+        => left.Version == right.Version && left.Channel == right.Channel && left.PackageSize == right.PackageSize
+            && string.Equals(left.Sha256, right.Sha256, StringComparison.OrdinalIgnoreCase);
+
+    private async Task<ReleaseManifest?> CheckOrderedSourcesAsync(ReleaseVersion current, CancellationToken token)
+    {
+        ReleaseManifest? newest = null;
+        string? selectedSource = null;
+        UpdateTransportException? lastTransportError = null;
+        var seenVersions = new Dictionary<string, ReleaseManifest>(StringComparer.Ordinal);
+        foreach (var source in configuration.FeedUrls!)
+        {
+            ReleaseManifest candidate;
+            try { candidate = await ReadFeedAsync(source, SourceTimeout(source), token).ConfigureAwait(false); }
+            catch (UpdateTransportException error) when (!token.IsCancellationRequested)
+            { lastTransportError = error; continue; }
+            if (seenVersions.TryGetValue(candidate.Version, out var previous) && !SamePackage(previous, candidate))
+                throw new InvalidDataException("Update sources disagree about the signed package for the same release version.");
+            seenVersions.TryAdd(candidate.Version, candidate);
+            var comparison = newest == null ? 1 : ReleaseVersion.Parse(candidate.Version).CompareTo(ReleaseVersion.Parse(newest.Version));
+            // Equal packages keep their configured order, preferring an actual
+            // LAN package over an earlier bridge that points directly to GitHub.
+            if (comparison > 0 || (comparison == 0 && IsLocalUrl(candidate.PackageUrl) && !IsLocalUrl(newest!.PackageUrl)))
+            { newest = candidate; selectedSource = source; }
+        }
+        token.ThrowIfCancellationRequested();
+        if (newest == null) throw lastTransportError ?? new IOException("No configured update source could be reached.");
+        if (ReleaseVersion.Parse(newest.Version).CompareTo(current) <= 0) return null;
+        verifiedReleases.TryAdd(Fingerprint(newest), selectedSource!);
+        return newest;
+    }
 
     private async Task<ReleaseManifest> ReadFeedAsync(string url, TimeSpan timeout, CancellationToken token)
     {
@@ -102,22 +151,27 @@ public sealed class UpdateClient
         try
         {
             var archivePath = Path.Combine(work, "archive.zip");
-            var canFallback = HasFallback && !SameUrl(source, configuration.FallbackFeedUrl!);
-            try
+            if (configuration.FeedUrls != null)
+                await DownloadFromOrderedSourcesAsync(release, source, archivePath, progress, token).ConfigureAwait(false);
+            else
             {
-                await DownloadAsync(release, archivePath, canFallback ? primaryTimeout : internetTimeout, progress, token).ConfigureAwait(false);
-            }
-            catch (UpdateTransportException) when (canFallback && !token.IsCancellationRequested)
-            {
-                // Never invent a mirror URL. Independently verify its signed feed
-                // and require the exact package already accepted from the primary.
-                File.Delete(archivePath);
-                var mirror = await ReadFeedAsync(configuration.FallbackFeedUrl!, internetTimeout, token).ConfigureAwait(false);
-                if (mirror.Version != release.Version || mirror.PackageSize != release.PackageSize
-                    || !string.Equals(mirror.Sha256, release.Sha256, StringComparison.OrdinalIgnoreCase)
-                    || SameUrl(mirror.PackageUrl, release.PackageUrl))
-                    throw new InvalidDataException("The fallback update source does not have this exact release. Check for updates again.");
-                await DownloadAsync(mirror, archivePath, internetTimeout, progress, token).ConfigureAwait(false);
+                var canFallback = HasFallback && !SameUrl(source, configuration.FallbackFeedUrl!);
+                try
+                {
+                    await DownloadAsync(release, archivePath, canFallback ? primaryTimeout : internetTimeout, progress, token).ConfigureAwait(false);
+                }
+                catch (UpdateTransportException) when (canFallback && !token.IsCancellationRequested)
+                {
+                    // Never invent a mirror URL. Independently verify its signed feed
+                    // and require the exact package already accepted from the primary.
+                    File.Delete(archivePath);
+                    var mirror = await ReadFeedAsync(configuration.FallbackFeedUrl!, internetTimeout, token).ConfigureAwait(false);
+                    if (mirror.Version != release.Version || mirror.PackageSize != release.PackageSize
+                        || !string.Equals(mirror.Sha256, release.Sha256, StringComparison.OrdinalIgnoreCase)
+                        || SameUrl(mirror.PackageUrl, release.PackageUrl))
+                        throw new InvalidDataException("The fallback update source does not have this exact release. Check for updates again.");
+                    await DownloadAsync(mirror, archivePath, internetTimeout, progress, token).ConfigureAwait(false);
+                }
             }
             await UpdatePackage.ExtractAsync(archivePath, work, token).ConfigureAwait(false);
             token.ThrowIfCancellationRequested();
@@ -129,6 +183,41 @@ public sealed class UpdateClient
             try { Directory.Delete(work, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
             throw;
         }
+    }
+
+    private async Task DownloadFromOrderedSourcesAsync(ReleaseManifest release, string source, string archivePath,
+        IProgress<UpdateProgress>? progress, CancellationToken token)
+    {
+        var sources = configuration.FeedUrls!;
+        var sourceIndex = Array.FindIndex(sources, candidate => SameUrl(candidate, source));
+        if (sourceIndex < 0) throw new InvalidDataException("The verified release source is no longer configured.");
+        var attemptedPackages = new HashSet<Uri>();
+        UpdateTransportException? lastTransportError = null;
+        for (var index = sourceIndex; index < sources.Length; index++)
+        {
+            var candidate = release;
+            if (index != sourceIndex)
+            {
+                // Reverify the live signed feed after a failed package transfer.
+                // A stale or advanced host is not a mirror for the accepted release.
+                try { candidate = await ReadFeedAsync(sources[index], SourceTimeout(sources[index]), token).ConfigureAwait(false); }
+                catch (UpdateTransportException error) when (!token.IsCancellationRequested)
+                { lastTransportError = error; continue; }
+                if (candidate.Version != release.Version) continue;
+                if (!SamePackage(candidate, release))
+                    throw new InvalidDataException("A subsequent update source changed the signed package for this release version.");
+            }
+            if (!attemptedPackages.Add(new Uri(candidate.PackageUrl))) continue;
+            try
+            {
+                await DownloadAsync(candidate, archivePath, SourceTimeout(candidate.PackageUrl), progress, token).ConfigureAwait(false);
+                return;
+            }
+            catch (UpdateTransportException error) when (!token.IsCancellationRequested)
+            { lastTransportError = error; File.Delete(archivePath); }
+        }
+        token.ThrowIfCancellationRequested();
+        throw new IOException("No subsequent update source could download the exact verified release. Check for updates again.", lastTransportError);
     }
 
     private async Task DownloadAsync(ReleaseManifest release, string archivePath, TimeSpan inactivityTimeout,

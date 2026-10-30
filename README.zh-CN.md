@@ -1,6 +1,6 @@
 # HappyCheats 游戏修改器平台
 
-HappyCheats **0.3.53** 直接从 GitHub 获取带签名的更新，发布电脑关机时仍可下载。不再要求向局域网发布更新；现有局域网服务器可以继续运行。现有官方局域网配置仅在签名公钥和更新通道匹配时迁移；自定义配置保持不变。两种完整发行包均包含全部十七款游戏、《黎明行者之血》修改器 **0.4.1** 和《影之刃零》修改器 **0.1.1**。[下载最新完整 EXE](https://github.com/flazedude/happycheats/releases/latest/download/HappyCheats.exe)、[更新设置](docs/github-updates.md)、[更新日志](docs/releases/0.3.53.zh.txt)。
+HappyCheats **0.3.54** 依次检查两台局域网主机（`192.168.2.76`、`192.168.2.59`）和 GitHub，选择可信的最新版本，并优先从版本及安装包一致的局域网源下载。可连接但过时的局域网源不会遮蔽 GitHub 上的新版本；两台电脑关机时仍可使用 GitHub。已知官方配置仅在签名公钥和通道匹配时采用这三个源，自定义配置保持不变。两种完整发行包均包含全部十七款游戏、《黎明行者之血》修改器 **0.4.1** 和《影之刃零》修改器 **0.1.1**。[下载最新完整 EXE](https://github.com/flazedude/happycheats/releases/latest/download/HappyCheats.exe)、[更新设置](docs/github-updates.md)、[更新日志](docs/releases/0.3.54.zh.txt)。
 
 本机构建 **0.3.51** 引入《黎明行者之血》修改器 **0.4.1**：允许基础值为零但实际倍率有效的攻击属性，验证计算后的 10 倍结果，并提供明确的启用错误。此前尚未公开发布的修正现已纳入 **0.3.53**。请关闭游戏后选择“安装 / 更新”。实战效果仍未验证。详见[伤害功能调查](docs/dawnwalker-damage.md)和[构建说明](docs/releases/0.3.51.zh.txt)。
 
@@ -8,7 +8,7 @@ HappyCheats **0.3.50** 将《影之刃零》修改器更新至 **0.1.1**，纠�
 
 HappyCheats **0.3.47** 将《黎明行者之血》修改器更新至 **0.3.4**，支持 Steam 构建 **25915545 / 补丁 3**。请关闭游戏并选择“安装 / 更新”。保留现有功能、统一菜单快捷键和原生传送加载过程。当前游戏版本的启动与实际效果仍待验证，详见[兼容性检查](docs/dawnwalker-patch3.md)和[更新日志](docs/releases/0.3.47.zh.txt)。
 
-HappyCheats **0.3.46** 引入局域网优先、GitHub 备用的更新方式，两条路径均验证签名和安装包哈希。**0.3.53** 改为直接从 GitHub 更新。旧版客户端可在局域网不可用时使用 GitHub 备用源；没有备用功能的旧版需运行一次最新完整 EXE。详见[更新与发行流程](docs/github-updates.md)和[历史更新说明](docs/releases/0.3.46.zh.txt)。
+HappyCheats **0.3.46** 引入局域网优先、GitHub 备用的更新方式，**0.3.52–0.3.53** 直接使用 GitHub。**0.3.54** 检查两台局域网主机与 GitHub，选择可信的最新版本，每条路径均保留签名及安装包校验。旧版客户端可使用已有更新途径，或运行一次最新完整 EXE。详见[更新与发行流程](docs/github-updates.md)和[历史更新说明](docs/releases/0.3.46.zh.txt)。
 
 HappyCheats **0.3.45** 包含《红色沙漠》修改器 **0.2.5**，修复玩家身份未变的定期刷新可能导致生命恢复遗漏的问题，并保留此前伤害与标记钩子的内存分配修正。请关闭游戏，打开新版客户端，选择“安装 / 更新”后重新连接。修正已通过独立回归验证；报告中的死亡原因及新版 DLL 实际效果仍待确认。详见[红色沙漠说明](docs/crimson-desert.md)和[更新日志](docs/releases/0.3.45.zh.txt)。
 
@@ -40,11 +40,11 @@ HappyCheats **0.3.33** 放宽《文明 VI》连接检查，并为全部 15 项�
 
 本版本还新增《酒店建筑师》的 24 项酒店、人物、时间与家具功能，以及《文明 VI》的 15 项已实现单人功能和 4 项明确不可用的原始数值编辑。文明 VI 使用本机 FireTuner 接口；启用 Tuner 会禁用成就，持续功能需要保持其页面打开。新增功能仅完成离线验证，详见[酒店建筑师说明](docs/hotel-architect.md)和[文明 VI 设置与限制](docs/civilization-vi.md)。
 
-**GitHub 更新：** 首次[下载已配置的完整 EXE](https://github.com/flazedude/happycheats/releases/latest/download/HappyCheats.exe) 后，即可在 HappyCheats 内下载带签名的新版本，无需保持发布电脑开机。详见[设置与发行流程](docs/github-updates.md)。
+**签名更新：** 首次[下载已配置的完整 EXE](https://github.com/flazedude/happycheats/releases/latest/download/HappyCheats.exe) 后，即可在 HappyCheats 内更新。客户端检查两台局域网主机和 GitHub，优先下载一致的局域网安装包；主机关机时仍可使用 GitHub。详见[设置与发行流程](docs/github-updates.md)。
 
 **新增《巫师 3：狂猎 重制版》**八项实验性功能：生命、活力、肾上腺素、魔药毒性、一键恢复、克朗、基础经验与技能点。煎药毒性会保留；经验受新游戏+倍率和等级上限影响。面向已检查的 Steam 构建 **25575366 / 5.0.0.1041720（DX12）**。持续功能需保持其页面打开。请关闭游戏后选择“安装 / 更新”；冲突模组会被保留。游戏内脚本编译和实际效果仍待验证。详见[安装、操作与限制](docs/witcher-3.md)。
 
-下载 **`HappyCheats-0.3.53-win-x64-single-exe.zip`**，解压出 **`HappyCheats.exe`** 后运行。这个单文件发行包包含启动器、全部十七款游戏的修改器、更新程序、运行库、SMAPI 官方安装包和说明文档，只需分发这一个 EXE 文件，无需旁边的其他文件，也无需为启动器单独安装 .NET。首次运行会校验并自动解压到 `%LOCALAPPDATA%/HappyCheats/Bundles/`，然后打开界面；以后启动会复用本地文件。启动器无需安装向导或管理员权限。也可直接使用未压缩的 `dist/HappyCheats.exe`。缓存位置、更新行为和构建命令见 [单文件发行说明](docs/single-exe.md)。
+下载 **`HappyCheats-0.3.54-win-x64-single-exe.zip`**，解压出 **`HappyCheats.exe`** 后运行。这个单文件发行包包含启动器、全部十七款游戏的修改器、更新程序、运行库、SMAPI 官方安装包和说明文档，只需分发这一个 EXE 文件，无需旁边的其他文件，也无需为启动器单独安装 .NET。首次运行会校验并自动解压到 `%LOCALAPPDATA%/HappyCheats/Bundles/`，然后打开界面；以后启动会复用本地文件。启动器无需安装向导或管理员权限。也可直接使用未压缩的 `dist/HappyCheats.exe`。缓存位置、更新行为和构建命令见 [单文件发行说明](docs/single-exe.md)。
 
 HappyCheats **0.3.25** 为游戏库新增 **A–Z / Z–A** 排序选项，默认按 **A–Z** 排序，并保存您的选择。中英文界面均按游戏的英文名称排序，保持顺序一致。搜索与当前所选游戏保持不变；修改器文件未变更。详见[更新日志](docs/releases/0.3.25.zh.txt)。
 
@@ -118,11 +118,11 @@ HappyCheats **0.3.3** 内置 **SMAPI 4.5.2**，可离线完成《星露谷物语
 
 支持通过已配置的 HTTPS 服务器获取经过数字签名验证的客户端和修改器库更新，并查看中英文更新日志及新增游戏。旧客户端需要先手动安装一次包含服务器地址和公钥的初始版本。客户端更新后，请关闭对应游戏，再点击“安装 / 更新”以更新游戏目录中的修改器。仓库未预设正式服务器地址或签名私钥；未配置服务器时仍可正常使用。
 
-单文件发行包保留在线更新能力：更新程序替换本地解压出的客户端，再次打开同一个 EXE 时会使用更新后的客户端。EXE 本身仍包含最初打包的版本。正式发行包直接使用 GitHub 更新源，仅嵌入签名验证公钥；发布电脑无需持续开机。首次分发、配置迁移与后续发布详见 [GitHub 更新与发布指南](docs/github-updates.md)。
+单文件发行包保留在线更新能力：更新程序替换本地解压出的客户端，再次打开同一个 EXE 时会使用更新后的客户端。EXE 本身仍包含最初打包的版本。正式发行包配置两个局域网源和 GitHub，仅嵌入签名验证公钥。首次分发、配置迁移与后续发布详见 [更新源与发布指南](docs/github-updates.md)。
 
-开发构建：`.\scripts\Build.ps1 -Version 0.3.53 -Zip -SingleExe`。已有完整发行目录时，可运行 `.\scripts\Build-SingleExe.ps1 -PackageDirectory .\dist\HappyCheats -Zip` 直接生成单文件 EXE 和 ZIP，版本号从现有客户端读取。仅运行离线测试：`.\scripts\Test.ps1`。星露谷物语模块需要本机安装游戏和 SMAPI 以提供编译引用。完整源代码包含在本项目，原来的两个修改器项目保留。
+开发构建：`.\scripts\Build.ps1 -Version 0.3.54 -Zip -SingleExe`。已有完整发行目录时，可运行 `.\scripts\Build-SingleExe.ps1 -PackageDirectory .\dist\HappyCheats -Zip` 直接生成单文件 EXE 和 ZIP，版本号从现有客户端读取。仅运行离线测试：`.\scripts\Test.ps1`。星露谷物语模块需要本机安装游戏和 SMAPI 以提供编译引用。完整源代码包含在本项目，原来的两个修改器项目保留。
 
-向用户分发 `dist/HappyCheats-0.3.53-win-x64-single-exe.zip` 或 `dist/HappyCheats.exe` 即可。单文件 ZIP 内只有 `HappyCheats.exe`，SHA-256 校验文件单独提供。`Build.ps1 -Zip -SingleExe` 还会生成完整目录格式的 `HappyCheats-0.3.53-win-x64.zip`，保留现有在线更新包格式。`dist/HappyCheats/` 目录保留供开发使用；目录里面的较小 `HappyCheats.exe` 不能代替外面的完整单文件发行包。
+向用户分发 `dist/HappyCheats-0.3.54-win-x64-single-exe.zip` 或 `dist/HappyCheats.exe` 即可。单文件 ZIP 内只有 `HappyCheats.exe`，SHA-256 校验文件单独提供。`Build.ps1 -Zip -SingleExe` 还会生成完整目录格式的 `HappyCheats-0.3.54-win-x64.zip`，保留现有在线更新包格式。`dist/HappyCheats/` 目录保留供开发使用；目录里面的较小 `HappyCheats.exe` 不能代替外面的完整单文件发行包。
 
 [English documentation](README.md)
 

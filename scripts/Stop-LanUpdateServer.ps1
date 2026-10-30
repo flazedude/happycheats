@@ -1,10 +1,16 @@
 [CmdletBinding()]
 param()
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'LanMirrorSupervisor.Common.ps1')
 $hcRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $hcPidPath = Join-Path $hcRoot 'artifacts\lan-updates\process.json'
 $hcStartupTask = Get-ScheduledTask -TaskName 'HappyCheats LAN Update Server' -ErrorAction SilentlyContinue
 if ($hcStartupTask -and $hcStartupTask.State -eq 'Running') { Stop-ScheduledTask -TaskName $hcStartupTask.TaskName }
+$hcConfigPath = Join-Path $hcRoot 'artifacts\lan-updates\server.json'
+if (Test-Path -LiteralPath $hcConfigPath) {
+    $hcConfig = Get-Content -LiteralPath $hcConfigPath -Raw | ConvertFrom-Json
+    Stop-HcLanMirrorProcess -Config $hcConfig -StateRoot (Split-Path $hcPidPath)
+}
 if (!(Test-Path -LiteralPath $hcPidPath)) { Write-Host 'No saved LAN server process.'; return }
 $hcSaved = Get-Content -LiteralPath $hcPidPath -Raw | ConvertFrom-Json
 $hcProcess = Get-Process -Id $hcSaved.Id -ErrorAction SilentlyContinue
