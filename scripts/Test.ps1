@@ -4,6 +4,9 @@ $ErrorActionPreference = 'Stop'
 $hcRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 # These suites use temporary fixtures and never start an installed game.
 & (Join-Path $PSScriptRoot 'Test-PublisherConfiguration.ps1')
+& (Join-Path $PSScriptRoot 'Test-LanMirror.ps1')
+& (Join-Path $PSScriptRoot 'Test-LanMirrorSupervisor.ps1')
+& (Join-Path $PSScriptRoot 'Test-ReleaseConfiguration.ps1')
 & (Join-Path $PSScriptRoot 'Test-GitHubRelease.ps1')
 & (Join-Path $PSScriptRoot 'Test-GitHubPublishLock.ps1')
 & dotnet run --project (Join-Path $hcRoot 'tests\HappyCheats.Bootstrap.Tests') -c Release --no-launch-profile

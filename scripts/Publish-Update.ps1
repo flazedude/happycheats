@@ -12,11 +12,17 @@ param(
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'GitHubRelease.Common.ps1')
 $hcRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-$hcConfig = Get-HcPublisherConfiguration -Root $hcRoot -Repository $GitHubRepository -RequireLan:$PublishLan
 if ($Version -cnotmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$') { throw 'Use a major.minor.patch version.' }
 foreach ($hcNotes in @($NotesEnglish, $NotesChinese)) { if (!(Test-Path -LiteralPath $hcNotes -PathType Leaf)) { throw "Missing changelog: $hcNotes" } }
-foreach ($hcKeyPath in @($hcConfig.PublicKeyPath, $hcConfig.PrivateKeyPath)) { if (!(Test-Path -LiteralPath $hcKeyPath -PathType Leaf)) { throw 'Established signing key is missing. Restore it; no replacement key will be generated.' } }
 $hcStageDirectory = Join-Path $hcRoot "artifacts/releases/$Version"
+$hcStageExists = Test-Path -LiteralPath (Join-Path $hcStageDirectory 'release.json')
+$hcExistingStage = if ($hcStageExists) { Get-Content -LiteralPath (Join-Path $hcStageDirectory 'release.json') -Raw | ConvertFrom-Json } else { $null }
+$hcTriple = !$hcStageExists -or $hcExistingStage.schemaVersion -eq 3
+$hcLocalLan = $hcTriple -or [bool]$PublishLan
+$hcConfig = Get-HcPublisherConfiguration -Root $hcRoot -Repository $GitHubRepository -RequireLan:$hcLocalLan
+foreach ($hcKeyPath in @($hcConfig.PublicKeyPath, $hcConfig.PrivateKeyPath)) { if (!(Test-Path -LiteralPath $hcKeyPath -PathType Leaf)) { throw 'Established signing key is missing. Restore it; no replacement key will be generated.' } }
+$hcFeedUrls = @(Get-HcOfficialFeedUrls $GitHubRepository)
+if ($hcTriple) { $null = Get-HcLanFeedAsset $hcConfig.BaseUrl }
 $hcZipName = "HappyCheats-$Version-win-x64.zip"
 $hcGitHubBase = "https://github.com/$GitHubRepository/releases/download/v$Version"
 $hcGitHubFeed = "https://github.com/$GitHubRepository/releases/latest/download/latest.json"
@@ -25,30 +31,29 @@ try {
     # Reuse the existing lock so legacy and GitHub-only publishers cannot share outputs.
     $hcLockDirectory = Join-Path $hcRoot 'artifacts/lan-updates'
     New-Item -ItemType Directory -Path $hcLockDirectory -Force | Out-Null
+    Assert-HcMirrorSafePath (Join-Path $hcLockDirectory 'publish.lock')
     $hcLock = [IO.File]::Open((Join-Path $hcLockDirectory 'publish.lock'), [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::Write, [IO.FileShare]::None)
     $hcClient = New-HcGitHubClient
     $hcExpectedCommit = & git -C $hcRoot rev-parse HEAD
-    $hcStageExists = Test-Path -LiteralPath (Join-Path $hcStageDirectory 'release.json')
     $null = Assert-HcGitHubPreflight -Client $hcClient -Repository $GitHubRepository -Version $Version -SourceCommit $hcExpectedCommit -AllowExistingVersion:$hcStageExists -AllowPublishedResume:$hcStageExists
     $hcSourceCommit = Assert-HcReleaseSource -Root $hcRoot -Repository $GitHubRepository -ExpectedCommit $hcExpectedCommit -Push
-    $hcFeed = if ($PublishLan -and $hcConfig.PublicDirectory) { Join-Path $hcConfig.PublicDirectory 'latest.json' } else { $null }
+    $hcFeed = if ($hcLocalLan -and $hcConfig.PublicDirectory) { Join-Path $hcConfig.PublicDirectory 'latest.json' } else { $null }
     if ($hcFeed -and (Test-Path -LiteralPath $hcFeed)) {
         $hcEnvelope = Get-Content -LiteralPath $hcFeed -Raw | ConvertFrom-Json
         $hcLast = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($hcEnvelope.payload)) | ConvertFrom-Json
         if ([Version]$Version -lt [Version]$hcLast.version -or ([Version]$Version -eq [Version]$hcLast.version -and !$hcStageExists)) { throw "Version must be newer than $($hcLast.version). An interrupted staged release may resume unchanged." }
     }
     if (!$hcStageExists) {
-        if ((Test-Path -LiteralPath $hcStageDirectory) -or ($PublishLan -and $hcConfig.PublicDirectory -and (Test-Path -LiteralPath (Join-Path $hcConfig.PublicDirectory $hcZipName)))) { throw 'This version already has release artifacts. Preserve them and choose a higher version.' }
+        if ((Test-Path -LiteralPath $hcStageDirectory) -or ($hcLocalLan -and $hcConfig.PublicDirectory -and (Test-Path -LiteralPath (Join-Path $hcConfig.PublicDirectory $hcZipName)))) { throw 'This version already has release artifacts. Preserve them and choose a higher version.' }
         $hcAppProject = [xml](Get-Content -LiteralPath (Join-Path $hcRoot 'src/HappyCheats.App/HappyCheats.App.csproj') -Raw)
         if ($hcAppProject.Project.PropertyGroup.Version -cne $Version) { throw 'App project version must match the requested release.' }
-        $hcBuildFeed = if ($PublishLan) { $hcConfig.BaseUrl + '/latest.json' } else { $hcGitHubFeed }
-        $hcBuildFallback = if ($PublishLan) { $hcGitHubFeed } else { $null }
-        & (Join-Path $PSScriptRoot 'Build.ps1') -Version $Version -Zip -SingleExe -SkipPayloads:$SkipPayloads -SkipTests:$SkipTests -UpdateFeedUrl $hcBuildFeed -UpdateFallbackFeedUrl $hcBuildFallback -UpdatePublicKeyPath $hcConfig.PublicKeyPath -ReleaseSourceCommit $hcSourceCommit
+        & (Join-Path $PSScriptRoot 'Build.ps1') -Version $Version -Zip -SingleExe -SkipPayloads:$SkipPayloads -SkipTests:$SkipTests -UpdateFeedUrl $hcFeedUrls[0] -UpdateFallbackFeedUrl $hcGitHubFeed -UpdateFeedUrls $hcFeedUrls -UpdatePublicKeyPath $hcConfig.PublicKeyPath -ReleaseSourceCommit $hcSourceCommit
         $null = Assert-HcReleaseSource -Root $hcRoot -Repository $GitHubRepository -ExpectedCommit $hcSourceCommit
         $hcStageTemporary = Join-Path $hcRoot ('artifacts/releases/.' + $Version + '-' + [Guid]::NewGuid().ToString('N'))
         New-Item -ItemType Directory -Path (Join-Path $hcStageTemporary 'assets') -Force | Out-Null
         $hcTargets = ,@('github',$hcGitHubBase)
-        if ($PublishLan) { $hcTargets += ,@('lan',$hcConfig.BaseUrl) }
+        $hcLanBases = @($hcFeedUrls[0..1] | ForEach-Object { $_.Substring(0, $_.Length - '/latest.json'.Length) })
+        $hcTargets += ,@('lan-76',$hcLanBases[0]); $hcTargets += ,@('lan-59',$hcLanBases[1])
         foreach ($hcTarget in $hcTargets) {
             $hcPublishArgs = @('publish','--package',(Join-Path $hcRoot "dist/$hcZipName"),'--version',$Version,'--base-url',$hcTarget[1],'--private-key',$hcConfig.PrivateKeyPath,'--output',(Join-Path $hcStageTemporary $hcTarget[0]),'--notes-en',[IO.Path]::GetFullPath($NotesEnglish),'--notes-zh',[IO.Path]::GetFullPath($NotesChinese))
             foreach ($hcGame in $NewGame) { $hcPublishArgs += @('--new-game',$hcGame) }
@@ -60,20 +65,23 @@ try {
         foreach ($hcName in @("HappyCheats-$Version-win-x64-single-exe.zip", "HappyCheats-$Version-win-x64-single-exe.zip.sha256", "$hcZipName.sha256")) {
             Copy-Item -LiteralPath (Join-Path $hcRoot "dist/$hcName") -Destination (Join-Path $hcStageTemporary "assets/$hcName")
         }
+        Copy-Item -LiteralPath (Join-Path $hcStageTemporary 'lan-76/latest.json') -Destination (Join-Path $hcStageTemporary 'assets/latest-lan-76.json')
+        Copy-Item -LiteralPath (Join-Path $hcStageTemporary 'lan-59/latest.json') -Destination (Join-Path $hcStageTemporary 'assets/latest-lan-59.json')
+        Write-HcSignedMirrorManifest -Directory $hcStageTemporary -Version $Version -Repository $GitHubRepository -Commit $hcSourceCommit -PrivateKeyPath $hcConfig.PrivateKeyPath
         $hcReleaseNotes = (Get-Content -LiteralPath $NotesEnglish -Raw).Trim() + "`n`n---`n`n" + (Get-Content -LiteralPath $NotesChinese -Raw).Trim() + "`n`nSource commit: $hcSourceCommit`n"
         [IO.File]::WriteAllText((Join-Path $hcStageTemporary 'release-notes.md'), $hcReleaseNotes, [Text.UTF8Encoding]::new($false))
         $hcFiles = @(Get-ChildItem -LiteralPath $hcStageTemporary -File -Recurse | Sort-Object FullName | ForEach-Object {
             $hcRelative = [IO.Path]::GetRelativePath($hcStageTemporary, $_.FullName).Replace('\','/')
             [ordered]@{ path=$hcRelative; size=$_.Length; sha256=(Get-FileHash -LiteralPath $_.FullName).Hash; upload=($hcRelative.StartsWith('github/') -or $hcRelative.StartsWith('assets/')) }
         })
-        [ordered]@{ version=$Version; repository=$GitHubRepository; commit=$hcSourceCommit; publishLan=[bool]$PublishLan; lanBaseUrl=$(if ($PublishLan) { $hcConfig.BaseUrl } else { $null }); files=$hcFiles } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $hcStageTemporary 'release.json') -Encoding utf8NoBOM
+        [ordered]@{ schemaVersion=3; version=$Version; repository=$GitHubRepository; commit=$hcSourceCommit; publishLan=$true; lanBaseUrls=$hcLanBases; feedUrls=$hcFeedUrls; files=$hcFiles } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $hcStageTemporary 'release.json') -Encoding utf8NoBOM
         # Both directory paths are fixed children of artifacts/releases, including retries.
         $hcStageParent = [IO.Path]::GetFullPath((Join-Path $hcRoot 'artifacts/releases')).TrimEnd('\') + '\'
         if (![IO.Path]::GetFullPath($hcStageTemporary).StartsWith($hcStageParent) -or ![IO.Path]::GetFullPath($hcStageDirectory).StartsWith($hcStageParent)) { throw 'Invalid release stage path.' }
         [IO.Directory]::Move($hcStageTemporary, $hcStageDirectory)
     }
     $hcStage = Get-HcReleaseStage -Directory $hcStageDirectory -Version $Version -Repository $GitHubRepository
-    if ($hcStage.commit -cne $hcSourceCommit -or (Test-HcReleaseIncludesLan $hcStage) -ne [bool]$PublishLan -or ($PublishLan -and $hcStage.lanBaseUrl -cne $hcConfig.BaseUrl)) { throw 'Staged source or publication targets changed. Resume using the original targets, or preserve the release stage and choose a new version.' }
+    if ($hcStage.commit -cne $hcSourceCommit -or (!$hcTriple -and ((Test-HcReleaseIncludesLan $hcStage) -ne [bool]$PublishLan -or ($PublishLan -and $hcStage.lanBaseUrl -cne $hcConfig.BaseUrl)))) { throw 'Staged source or publication targets changed. Resume using the original targets, or preserve the release stage and choose a new version.' }
     Assert-HcReleaseStageTrust -Directory $hcStageDirectory -Stage $hcStage -Config $hcConfig
     # A retry may run after dist was removed or another version was built. Restore
     # every required local artifact from the same verified immutable stage.
@@ -87,7 +95,13 @@ try {
     & (Join-Path $PSScriptRoot 'Publish-GitHubUpdate.ps1') -Version $Version -GitHubRepository $GitHubRepository -ReleaseDirectory $hcStageDirectory -PrepareOnly
     $null = Assert-HcReleaseSource -Root $hcRoot -Repository $GitHubRepository -ExpectedCommit $hcSourceCommit
     $null = Get-HcReleaseStage -Directory $hcStageDirectory -Version $Version -Repository $GitHubRepository
-    if ($PublishLan) {
+    if ($hcTriple) {
+        # Publish the canonical signed assets first. An offline peer can catch up
+        # without a private key; a failed local mirror resumes these exact bytes.
+        & (Join-Path $PSScriptRoot 'Publish-GitHubUpdate.ps1') -Version $Version -GitHubRepository $GitHubRepository -ReleaseDirectory $hcStageDirectory
+        try { $null = Install-HcLanMirror -Config $hcConfig -Directory (Join-Path $hcStageDirectory 'assets') -PackageDirectory (Join-Path $hcStageDirectory 'github') -Repository $GitHubRepository -BackupDirectory (Join-Path $hcRoot 'artifacts/lan-updates/mirror-backups') }
+        catch { throw "GitHub $Version is published, but the local LAN mirror is incomplete. Rerun this command to resume the immutable stage. $($_.Exception.Message)" }
+    } elseif ($PublishLan) {
         New-Item -ItemType Directory -Force -Path $hcConfig.PublicDirectory | Out-Null
         $hcPublishedZip = Join-Path $hcConfig.PublicDirectory $hcZipName
         $hcStagedZip = Join-Path $hcStageDirectory "lan/$hcZipName"
@@ -108,9 +122,9 @@ try {
             } else { [IO.File]::Move($hcTemporary, $hcDestination) }
         }
     }
-    & (Join-Path $PSScriptRoot 'Publish-GitHubUpdate.ps1') -Version $Version -GitHubRepository $GitHubRepository -ReleaseDirectory $hcStageDirectory
+    if (!$hcTriple) { & (Join-Path $PSScriptRoot 'Publish-GitHubUpdate.ps1') -Version $Version -GitHubRepository $GitHubRepository -ReleaseDirectory $hcStageDirectory }
     Write-Host "Published $Version to GitHub from $hcSourceCommit."
-    if ($PublishLan) { Write-Host "Legacy LAN download: $($hcConfig.BaseUrl)/HappyCheats.exe" }
+    if ($hcLocalLan) { Write-Host "Local LAN download: $($hcConfig.BaseUrl)/HappyCheats.exe" }
     Write-Host "GitHub download: $hcGitHubBase/HappyCheats.exe"
     Write-Host "Versioned standalone EXE: $(Join-Path $hcRoot "dist/HappyCheats-$Version.exe")"
 } finally { if ($hcClient) { $hcClient.Dispose() }; if ($hcLock) { $hcLock.Dispose() } }

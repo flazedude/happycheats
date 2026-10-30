@@ -128,7 +128,7 @@ public partial class UpdateWindow : Window, INotifyPropertyChanged
         if (!CanCheck) return;
         _releaseVerified = false;
         BeginOperation(UpdateState.Checking);
-        _operation!.CancelAfter(TimeSpan.FromSeconds(45));
+        _operation!.CancelAfter(_client!.CheckTimeout);
         try
         {
             var release = await _client!.CheckAsync(UpdateLauncher.CurrentVersion, _operation.Token);

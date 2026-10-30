@@ -1,5 +1,6 @@
 # Shared publishing helpers. Credentials remain in memory and never enter arguments or logs.
 . (Join-Path $PSScriptRoot 'PublisherConfiguration.Common.ps1')
+. (Join-Path $PSScriptRoot 'LanMirror.Common.ps1')
 function New-HcGitHubClient {
     $hcToken = $null
     $hcCredentialProcess = $null
@@ -186,10 +187,24 @@ function Test-HcReleaseIncludesLan {
     return $Stage.publishLan
 }
 
+function Get-HcReleaseUploads($Stage) {
+    $hcUploads = @($Stage.files | Where-Object upload)
+    $hcNames = @($hcUploads | ForEach-Object { [IO.Path]::GetFileName($_.path) })
+    $hcVersion = $Stage.version
+    $hcRequired = if ($Stage.schemaVersion -eq 3) { @(Get-HcMirrorAssetNames $hcVersion) + @('mirror.json') } else { @('latest.json',"HappyCheats-$hcVersion-win-x64.zip",'HappyCheats.exe',"HappyCheats-$hcVersion.exe", "HappyCheats-$hcVersion-win-x64-single-exe.zip") }
+    foreach ($hcName in $hcRequired) {
+        if (@($hcNames | Where-Object { $_ -ceq $hcName }).Count -ne 1) { throw "Release stage must include exactly one $hcName upload." }
+    }
+    return ,$hcUploads
+}
+
 function Assert-HcReleaseStageTrust {
     param([string]$Directory, $Stage, $Config)
     $hcIncludesLan = Test-HcReleaseIncludesLan $Stage
-    if ($hcIncludesLan -and $Stage.lanBaseUrl -cne $Config.BaseUrl) { throw 'The staged LAN address differs from the saved server.' }
+    $hcTriple = $Stage.schemaVersion -eq 3
+    $hcOfficialFeeds = @(Get-HcOfficialFeedUrls $Stage.repository)
+    if ($hcTriple -and (!$hcIncludesLan -or ($Stage.feedUrls -join '|') -cne ($hcOfficialFeeds -join '|') -or ($Stage.lanBaseUrls -join '|') -cne (($hcOfficialFeeds[0..1] | ForEach-Object { $_.Substring(0, $_.Length - '/latest.json'.Length) }) -join '|'))) { throw 'The staged three-source targets differ from the official mirrors.' }
+    if (!$hcTriple -and $hcIncludesLan -and $Stage.lanBaseUrl -cne $Config.BaseUrl) { throw 'The staged LAN address differs from the saved server.' }
     if (!$hcIncludesLan -and ($Stage.lanBaseUrl -or @($Stage.files | Where-Object { $_.path.StartsWith('lan/') }).Count)) { throw 'A GitHub-only stage cannot contain a LAN publication target.' }
     $hcVersion = $Stage.version
     $hcZipName = "HappyCheats-$hcVersion-win-x64.zip"
@@ -200,7 +215,8 @@ function Assert-HcReleaseStageTrust {
     try {
         $hcKey.ImportFromPem([IO.File]::ReadAllText($Config.PublicKeyPath))
         $hcTargets = ,@('github',"https://github.com/$($Stage.repository)/releases/download/v$hcVersion")
-        if ($hcIncludesLan) { $hcTargets += ,@('lan',$Config.BaseUrl) }
+        if ($hcTriple) { $hcTargets += ,@('lan-76',$Stage.lanBaseUrls[0]); $hcTargets += ,@('lan-59',$Stage.lanBaseUrls[1]) }
+        elseif ($hcIncludesLan) { $hcTargets += ,@('lan',$Config.BaseUrl) }
         foreach ($hcTarget in $hcTargets) {
             $hcEnvelope = Get-Content -LiteralPath (Join-Path $Directory ($hcTarget[0] + '/latest.json')) -Raw | ConvertFrom-Json
             $hcPayload = [Convert]::FromBase64String($hcEnvelope.payload)
@@ -208,7 +224,22 @@ function Assert-HcReleaseStageTrust {
             $hcFeed = [Text.Encoding]::UTF8.GetString($hcPayload) | ConvertFrom-Json
             if ($hcFeed.version -cne $hcVersion -or $hcFeed.channel -cne 'stable' -or $hcFeed.packageSize -ne $hcZipBytes -or $hcFeed.sha256 -ine $hcZipHash -or $hcFeed.packageUrl -cne ($hcTarget[1] + '/' + $hcZipName)) { throw 'Signed release identity or download URL does not match the staged package.' }
         }
-        if ($hcIncludesLan -and (Get-FileHash -LiteralPath (Join-Path $Directory "lan/$hcZipName")).Hash -cne $hcZipHash) { throw 'LAN and GitHub update packages must be byte-identical.' }
+        for ($hcTargetIndex = 1; $hcTargetIndex -lt $hcTargets.Count; $hcTargetIndex++) {
+            $hcTarget = $hcTargets[$hcTargetIndex]
+            if ((Get-FileHash -LiteralPath (Join-Path $Directory ($hcTarget[0] + '/' + $hcZipName))).Hash -cne $hcZipHash) { throw 'LAN and GitHub update packages must be byte-identical.' }
+        }
+        if ($hcTriple) {
+            $hcMirror = Read-HcMirrorManifest -Path (Join-Path $Directory 'assets/mirror.json') -Key $hcKey -Repository $Stage.repository
+            if ($hcMirror.commit -cne $Stage.commit -or $hcMirror.version -cne $hcVersion) { throw 'Signed mirror metadata identifies different release source.' }
+            foreach ($hcAsset in $hcMirror.assets) {
+                $hcAssetPath = if ($hcAsset.name -ceq $hcZipName -or $hcAsset.name -ceq 'latest.json') { Join-Path $Directory ('github/' + $hcAsset.name) } else { Join-Path $Directory ('assets/' + $hcAsset.name) }
+                Assert-HcMirrorAsset -Path $hcAssetPath -Asset $hcAsset
+            }
+            for ($hcIndex = 0; $hcIndex -lt 2; $hcIndex++) {
+                $hcFeedName = Get-HcLanFeedAsset $Stage.lanBaseUrls[$hcIndex]
+                $null = Assert-HcMirrorFeed -Path (Join-Path $Directory ('assets/' + $hcFeedName)) -Key $hcKey -Manifest $hcMirror -BaseUrl $Stage.lanBaseUrls[$hcIndex]
+            }
+        }
         $hcZip = [IO.Compression.ZipFile]::OpenRead($hcZipPath)
         try {
             function Read-HcStageZipText([string]$Name) {
@@ -223,7 +254,9 @@ function Assert-HcReleaseStageTrust {
             if ($hcSettingsText -cne (Read-HcStageZipText 'update-defaults.json')) { throw 'Bundled update defaults must match the configured starter.' }
             $hcSettings = $hcSettingsText | ConvertFrom-Json
             $hcGitHubFeed = "https://github.com/$($Stage.repository)/releases/latest/download/latest.json"
-            if ($hcIncludesLan) {
+            if ($hcTriple) {
+                if ($hcSettings.feedUrl -cne $hcOfficialFeeds[0] -or $hcSettings.fallbackFeedUrl -cne $hcOfficialFeeds[2] -or ($hcSettings.feedUrls -join '|') -cne ($hcOfficialFeeds -join '|') -or $hcSettings.channel -cne 'stable') { throw 'Packaged three-source update configuration is incorrect.' }
+            } elseif ($hcIncludesLan) {
                 if ($hcSettings.feedUrl -cne ($Config.BaseUrl + '/latest.json') -or $hcSettings.fallbackFeedUrl -cne $hcGitHubFeed -or $hcSettings.channel -cne 'stable') { throw 'Packaged LAN/GitHub update configuration is incorrect.' }
             } elseif ($hcSettings.feedUrl -cne $hcGitHubFeed -or $hcSettings.fallbackFeedUrl -or $hcSettings.channel -cne 'stable') { throw 'Packaged GitHub-only update configuration is incorrect.' }
             $hcEmbeddedKey = [Security.Cryptography.RSA]::Create()
@@ -241,6 +274,21 @@ function Assert-HcReleaseStageTrust {
             try { $hcInsideHash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($hcExeStream)) } finally { $hcExeStream.Dispose() }
             if ($hcInsideHash -cne $hcExeHash) { throw 'The standalone ZIP contains a different executable.' }
         } finally { $hcSingleZip.Dispose() }
+    } finally { $hcKey.Dispose() }
+}
+
+function Write-HcSignedMirrorManifest {
+    param([string]$Directory, [string]$Version, [string]$Repository, [string]$Commit, [string]$PrivateKeyPath)
+    $hcAssets = @(foreach ($hcName in Get-HcMirrorAssetNames $Version) {
+        $hcPath = if ($hcName -ceq "HappyCheats-$Version-win-x64.zip" -or $hcName -ceq 'latest.json') { Join-Path $Directory "github/$hcName" } else { Join-Path $Directory "assets/$hcName" }
+        [ordered]@{ name=$hcName; size=(Get-Item -LiteralPath $hcPath).Length; sha256=(Get-FileHash -LiteralPath $hcPath).Hash.ToLowerInvariant() }
+    })
+    $hcPayload = [Text.Encoding]::UTF8.GetBytes(([ordered]@{ schemaVersion=1; repository=$Repository; version=$Version; channel='stable'; commit=$Commit; assets=$hcAssets } | ConvertTo-Json -Depth 5 -Compress))
+    $hcKey = [Security.Cryptography.RSA]::Create()
+    try {
+        $hcKey.ImportFromPem([IO.File]::ReadAllText($PrivateKeyPath))
+        $hcSignature = $hcKey.SignData($hcPayload, [Security.Cryptography.HashAlgorithmName]::SHA256, [Security.Cryptography.RSASignaturePadding]::Pkcs1)
+        [ordered]@{ payload=[Convert]::ToBase64String($hcPayload); signature=[Convert]::ToBase64String($hcSignature) } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $Directory 'assets/mirror.json') -Encoding utf8NoBOM
     } finally { $hcKey.Dispose() }
 }
 

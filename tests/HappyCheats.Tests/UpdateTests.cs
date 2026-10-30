@@ -223,8 +223,353 @@ internal static class UpdateTests
         });
         RunFallbackTests(Run, privateKey, publicKey);
         RunGitHubMigrationTests(Run, privateKey, publicKey);
+        RunOrderedFeedTests(Run, privateKey, publicKey);
         Console.WriteLine($"Update tests: {passed} passed, {failed} failed.");
         return failed == 0 ? 0 : 1;
+    }
+
+    private static void RunOrderedFeedTests(Action<string, Action> run, string privateKey, string publicKey)
+    {
+        const string first = "http://192.168.2.76:17845/happycheats/latest.json";
+        const string second = "http://192.168.2.59:17845/happycheats/latest.json";
+        const string github = "https://github.com/flazedude/happycheats/releases/latest/download/latest.json";
+        var sources = new[] { first, second, github };
+        var packageUrls = new[] { "http://192.168.2.76:17845/happycheats/release.zip", "http://192.168.2.59:17845/happycheats/release.zip", "https://github.com/flazedude/happycheats/releases/download/v1.2.3/release.zip" };
+        var config = Config(publicKey) with { FeedUrl = first, FallbackFeedUrl = github, FeedUrls = sources };
+        var package = Package();
+        var manifests = packageUrls.Select(url => Manifest(package) with { PackageUrl = url }).ToArray();
+        byte[] Feed(ReleaseManifest value) => ReleaseSigning.SerializeEnvelope(ReleaseSigning.Sign(value, privateKey));
+        HttpResponseMessage Reply(HttpRequestMessage request, byte[] bytes) => new(HttpStatusCode.OK) { RequestMessage = request, Content = new ByteArrayContent(bytes) };
+        UpdateClient Client(HttpClient http, UpdateConfiguration? settings = null) => new(http, settings ?? config, TimeSpan.FromMilliseconds(60), TimeSpan.FromMilliseconds(120));
+        void Save(Fixture fixture, string name, UpdateConfiguration value) => File.WriteAllText(Path.Combine(fixture.Root, name), JsonSerializer.Serialize(value, ReleaseSigning.JsonOptions));
+        string Serialize(UpdateConfiguration value) => JsonSerializer.Serialize(value, ReleaseSigning.JsonOptions);
+
+        run("ordered source configuration roundtrips while old custom settings stay compatible", () =>
+        {
+            using var fixture = new Fixture();
+            Save(fixture, "update-settings.json", config);
+            Assert(UpdateConfiguration.Load(fixture.Root)!.FeedUrls!.SequenceEqual(sources));
+            Assert(!Serialize(Config(publicKey)).Contains("feedUrls"));
+            using var http = new HttpClient();
+            Assert(new UpdateClient(http, config).CheckTimeout == TimeSpan.FromSeconds(73));
+        });
+        run("ordered sources reject empty oversized duplicate unsafe or ambiguous chains", () =>
+        {
+            using var http = new HttpClient();
+            foreach (var invalid in new[] {
+                Array.Empty<string>(), Enumerable.Range(0, 9).Select(index => $"https://example.com/{index}").ToArray(),
+                new[] { first, first, github }, new[] { second, first, github }, new[] { first, second },
+                new[] { first, "http://public.example/latest.json", github }, new[] { first, null!, github } })
+                Fails(() => Client(http, config with { FeedUrls = invalid }));
+        });
+        run("official LAN and GitHub settings migrate to both LANs without rewriting trusted files", () =>
+        {
+            using var fixture = new Fixture();
+            Save(fixture, "update-defaults.json", config);
+            foreach (var previous in new[] { config with { FeedUrls = null, FallbackFeedUrl = null }, config with { FeedUrls = null }, config with { FeedUrls = null, FeedUrl = github, FallbackFeedUrl = null }, config })
+            {
+                Save(fixture, "update-settings.json", previous);
+                var before = File.ReadAllBytes(Path.Combine(fixture.Root, "update-settings.json"));
+                Assert(Serialize(UpdateConfiguration.Load(fixture.Root)!) == Serialize(config));
+                Assert(before.SequenceEqual(File.ReadAllBytes(Path.Combine(fixture.Root, "update-settings.json"))));
+            }
+        });
+        run("ordered migration preserves custom endpoints and explicit custom chains", () =>
+        {
+            using var fixture = new Fixture();
+            Save(fixture, "update-defaults.json", config);
+            foreach (var previous in new[] {
+                Config(publicKey) with { FeedUrl = "https://custom.example/latest.json" },
+                config with { FeedUrls = null, FallbackFeedUrl = "https://custom.example/latest.json" },
+                config with { FeedUrls = null, FeedUrl = first + "?custom=true" },
+                config with { FeedUrls = null, FeedUrl = github, FallbackFeedUrl = first },
+                config with { FeedUrls = new[] { first, "https://custom.example/latest.json", github } } })
+            {
+                Save(fixture, "update-settings.json", previous);
+                Assert(Serialize(UpdateConfiguration.Load(fixture.Root)!) == Serialize(previous));
+            }
+        });
+        run("ordered migration requires exact official defaults matching key and channel", () =>
+        {
+            using var fixture = new Fixture();
+            using var wrong = RSA.Create(2048);
+            var previous = config with { FeedUrl = github, FallbackFeedUrl = null, FeedUrls = null };
+            Save(fixture, "update-settings.json", previous);
+            foreach (var defaults in new[] { config with { PublicKeyPem = wrong.ExportSubjectPublicKeyInfoPem() }, config with { Channel = "preview" }, config with { FeedUrls = new[] { first, "https://custom.example/latest.json", github } } })
+            {
+                Save(fixture, "update-defaults.json", defaults);
+                Assert(Serialize(UpdateConfiguration.Load(fixture.Root)!) == Serialize(previous));
+            }
+        });
+        run("stale or current LAN feeds cannot hide newer GitHub releases", () =>
+        {
+            foreach (var current in new[] { "1.0.0", "1.2.2" })
+            {
+                var requests = new List<string>();
+                using var http = new HttpClient(new AsyncHandler((request, _) => {
+                    var url = request.RequestUri!.AbsoluteUri; requests.Add(url);
+                    var index = Array.IndexOf(sources, url);
+                    return Task.FromResult(Reply(request, Feed(manifests[index] with { Version = index == 2 ? "1.2.3" : "1.2.2" })));
+                }));
+                Assert(Client(http).CheckAsync(current).GetAwaiter().GetResult()!.PackageUrl == packageUrls[2]);
+                Assert(requests.SequenceEqual(sources));
+            }
+        });
+        run("all sources are checked even when every release is already installed", () =>
+        {
+            var requests = new List<string>();
+            using var http = new HttpClient(new AsyncHandler((request, _) => {
+                var url = request.RequestUri!.AbsoluteUri; requests.Add(url);
+                return Task.FromResult(Reply(request, Feed(manifests[Array.IndexOf(sources, url)])));
+            }));
+            Assert(Client(http).CheckAsync("1.2.3").GetAwaiter().GetResult() == null);
+            Assert(requests.SequenceEqual(sources));
+        });
+        run("equal matching releases prefer the first LAN package after checking GitHub", () =>
+        {
+            using var fixture = new Fixture();
+            var requests = new List<string>();
+            using var http = new HttpClient(new AsyncHandler((request, _) => {
+                var url = request.RequestUri!.AbsoluteUri; requests.Add(url);
+                var index = Array.IndexOf(sources, url);
+                return Task.FromResult(Reply(request, index >= 0 ? Feed(manifests[index]) : package));
+            }));
+            var client = Client(http); var release = client.CheckAsync("1.0.0").GetAwaiter().GetResult()!;
+            Assert(release.PackageUrl == packageUrls[0]);
+            client.DownloadAndStageAsync(release, fixture.Staging).GetAwaiter().GetResult();
+            Assert(requests.SequenceEqual(sources.Concat(new[] { packageUrls[0] })));
+        });
+        run("a matching second LAN package is preferred over an earlier GitHub bridge", () =>
+        {
+            using var http = new HttpClient(new AsyncHandler((request, _) => {
+                var index = Array.IndexOf(sources, request.RequestUri!.AbsoluteUri);
+                return Task.FromResult(Reply(request, Feed(manifests[index == 0 ? 2 : index])));
+            }));
+            Assert(Client(http).CheckAsync("1.0.0").GetAwaiter().GetResult()!.PackageUrl == packageUrls[1]);
+        });
+        run("the newest signed LAN release survives an older or unreachable GitHub source", () =>
+        {
+            foreach (var offline in new[] { false, true })
+            {
+                var requests = new List<string>();
+                using var http = new HttpClient(new AsyncHandler((request, _) => {
+                    var url = request.RequestUri!.AbsoluteUri; requests.Add(url);
+                    var index = Array.IndexOf(sources, url);
+                    if (index == 2 && offline) throw new HttpRequestException("fixture offline");
+                    return Task.FromResult(Reply(request, Feed(manifests[index] with { Version = index == 1 ? "1.2.4" : "1.2.3" })));
+                }));
+                Assert(Client(http).CheckAsync("1.0.0").GetAwaiter().GetResult()!.PackageUrl == packageUrls[1]);
+                Assert(requests.SequenceEqual(sources));
+            }
+        });
+        run("both stalled LAN checks are bounded before the GitHub check", () =>
+        {
+            var requests = new List<string>(); var canceledLans = 0;
+            using var http = new HttpClient(new AsyncHandler(async (request, token) => {
+                var url = request.RequestUri!.AbsoluteUri; requests.Add(url);
+                if (url != github) {
+                    try { await Task.Delay(Timeout.Infinite, token); }
+                    catch (OperationCanceledException) { canceledLans++; throw; }
+                }
+                return Reply(request, Feed(manifests[2]));
+            }));
+            Assert(Client(http).CheckAsync("1.0.0").GetAwaiter().GetResult()!.PackageUrl == packageUrls[2]);
+            Assert(canceledLans == 2 && requests.SequenceEqual(sources));
+        });
+        run("unreachable ordered sources report failure after exactly one ordered pass", () =>
+        {
+            var requests = new List<string>();
+            using var http = new HttpClient(new AsyncHandler((request, _) => { requests.Add(request.RequestUri!.AbsoluteUri); throw new HttpRequestException("fixture offline"); }));
+            Throws<IOException>(() => Client(http).CheckAsync("1.0.0").GetAwaiter().GetResult());
+            Assert(requests.SequenceEqual(sources));
+        });
+        run("same-version signed size or hash conflicts are rejected", () =>
+        {
+            foreach (var mismatch in new[] { "size", "hash" })
+            {
+                using var http = new HttpClient(new AsyncHandler((request, _) => {
+                    var index = Array.IndexOf(sources, request.RequestUri!.AbsoluteUri);
+                    var value = manifests[index];
+                    if (index == 2) value = mismatch == "size" ? value with { PackageSize = package.Length + 1 } : value with { Sha256 = new string('0', 64) };
+                    return Task.FromResult(Reply(request, Feed(value)));
+                }));
+                Fails(() => Client(http).CheckAsync("1.0.0").GetAwaiter().GetResult());
+            }
+        });
+        run("ordered checks never bypass invalid signatures channels or malformed metadata", () =>
+        {
+            using var wrong = RSA.Create(2048);
+            using var trusted = RSA.Create(); trusted.ImportFromPem(privateKey);
+            foreach (var failure in new[] { "signature", "channel", "json", "metadata" })
+            {
+                var requests = new List<string>();
+                using var http = new HttpClient(new AsyncHandler((request, _) => {
+                    var url = request.RequestUri!.AbsoluteUri; requests.Add(url);
+                    var bytes = url != second ? Feed(manifests[0]) : failure switch {
+                        "signature" => ReleaseSigning.SerializeEnvelope(ReleaseSigning.Sign(manifests[1], wrong.ExportPkcs8PrivateKeyPem())),
+                        "channel" => Feed(manifests[1] with { Channel = "preview" }),
+                        "metadata" => ReleaseSigning.SerializeEnvelope(SignRaw(manifests[1] with { PackageSize = 0 }, trusted)),
+                        _ => Encoding.UTF8.GetBytes("{") };
+                    return Task.FromResult(Reply(request, bytes));
+                }));
+                Fails(() => Client(http).CheckAsync("1.0.0").GetAwaiter().GetResult());
+                Assert(requests.SequenceEqual(new[] { first, second }));
+            }
+        });
+        run("caller cancellation stops ordered checks before contacting another host", () =>
+        {
+            var requests = new List<string>(); using var cancel = new CancellationTokenSource();
+            using var http = new HttpClient(new AsyncHandler(async (request, token) => {
+                requests.Add(request.RequestUri!.AbsoluteUri); cancel.Cancel(); await Task.Delay(Timeout.Infinite, token); return Reply(request, Array.Empty<byte>());
+            }));
+            Throws<OperationCanceledException>(() => Client(http).CheckAsync("1.0.0", cancel.Token).GetAwaiter().GetResult());
+            Assert(requests.SequenceEqual(new[] { first }));
+        });
+        run("caller mutations cannot redirect an already constructed ordered client", () =>
+        {
+            var mutable = config with { FeedUrls = sources.ToArray() }; var requests = new List<string>();
+            using var http = new HttpClient(new AsyncHandler((request, _) => {
+                var url = request.RequestUri!.AbsoluteUri; requests.Add(url);
+                return Task.FromResult(Reply(request, Feed(manifests[Array.IndexOf(sources, url)])));
+            }));
+            var client = Client(http, mutable); mutable.FeedUrls![1] = "https://custom.example/latest.json";
+            client.CheckAsync("1.0.0").GetAwaiter().GetResult(); Assert(requests.SequenceEqual(sources));
+        });
+        run("failed first and second LAN downloads reverify each next feed before GitHub", () =>
+        {
+            using var fixture = new Fixture(); var requests = new List<string>();
+            using var http = new HttpClient(new AsyncHandler((request, _) => {
+                var url = request.RequestUri!.AbsoluteUri; requests.Add(url); var index = Array.IndexOf(sources, url);
+                if (index >= 0) return Task.FromResult(Reply(request, Feed(manifests[index])));
+                if (url != packageUrls[2]) throw new HttpRequestException("fixture offline");
+                return Task.FromResult(Reply(request, package));
+            }));
+            var client = Client(http); var release = client.CheckAsync("1.0.0").GetAwaiter().GetResult()!;
+            var staged = client.DownloadAndStageAsync(release, fixture.Staging).GetAwaiter().GetResult();
+            Assert(File.Exists(Path.Combine(staged.PackageDirectory, "HappyCheats.exe")));
+            Assert(requests.SequenceEqual(sources.Concat(new[] { packageUrls[0], second, packageUrls[1], github, packageUrls[2] })));
+        });
+        run("failed first LAN package can use the second LAN without a GitHub package request", () =>
+        {
+            using var fixture = new Fixture(); var requests = new List<string>();
+            using var http = new HttpClient(new AsyncHandler((request, _) => {
+                var url = request.RequestUri!.AbsoluteUri; requests.Add(url); var index = Array.IndexOf(sources, url);
+                if (index >= 0) return Task.FromResult(Reply(request, Feed(manifests[index])));
+                if (url == packageUrls[0]) throw new HttpRequestException("fixture offline");
+                return Task.FromResult(Reply(request, package));
+            }));
+            var client = Client(http); var release = client.CheckAsync("1.0.0").GetAwaiter().GetResult()!;
+            client.DownloadAndStageAsync(release, fixture.Staging).GetAwaiter().GetResult();
+            Assert(requests.SequenceEqual(sources.Concat(new[] { packageUrls[0], second, packageUrls[1] })));
+        });
+        run("different-version middle mirrors are skipped while searching for the exact release", () =>
+        {
+            foreach (var version in new[] { "1.2.2", "1.2.4" })
+            {
+                using var fixture = new Fixture(); var requests = new List<string>(); var downloading = false;
+                using var http = new HttpClient(new AsyncHandler((request, _) => {
+                    var url = request.RequestUri!.AbsoluteUri; requests.Add(url); var index = Array.IndexOf(sources, url);
+                    if (index >= 0) return Task.FromResult(Reply(request, Feed(index == 1 && downloading ? manifests[1] with { Version = version } : manifests[index])));
+                    if (url == packageUrls[0]) throw new HttpRequestException("fixture offline");
+                    return Task.FromResult(Reply(request, package));
+                }));
+                var client = Client(http); var release = client.CheckAsync("1.0.0").GetAwaiter().GetResult()!; downloading = true;
+                client.DownloadAndStageAsync(release, fixture.Staging).GetAwaiter().GetResult();
+                Assert(requests.SequenceEqual(sources.Concat(new[] { packageUrls[0], second, github, packageUrls[2] })));
+            }
+        });
+        run("partial or stalled ordered LAN transfers restart cleanly on the second LAN", () =>
+        {
+            foreach (var stall in new[] { false, true })
+            {
+                using var fixture = new Fixture(); var requests = new List<string>();
+                using var http = new HttpClient(new AsyncHandler((request, _) => {
+                    var url = request.RequestUri!.AbsoluteUri; requests.Add(url); var index = Array.IndexOf(sources, url);
+                    if (index >= 0) return Task.FromResult(Reply(request, Feed(manifests[index])));
+                    if (url == packageUrls[0]) return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { RequestMessage = request, Content = new StreamContent(new InterruptedStream(package, stall)) });
+                    return Task.FromResult(Reply(request, package));
+                }));
+                var client = Client(http); var release = client.CheckAsync("1.0.0").GetAwaiter().GetResult()!;
+                var staged = client.DownloadAndStageAsync(release, fixture.Staging).GetAwaiter().GetResult();
+                Assert(File.ReadAllBytes(Path.Combine(staged.WorkDirectory, "archive.zip")).SequenceEqual(package));
+                Assert(requests.SequenceEqual(sources.Concat(new[] { packageUrls[0], second, packageUrls[1] })));
+            }
+        });
+        run("ordered package cancellation cleans partial files without contacting another host", () =>
+        {
+            using var fixture = new Fixture(); var requests = new List<string>(); using var cancel = new CancellationTokenSource();
+            using var http = new HttpClient(new AsyncHandler((request, _) => {
+                var url = request.RequestUri!.AbsoluteUri; requests.Add(url); var index = Array.IndexOf(sources, url);
+                return Task.FromResult(Reply(request, index >= 0 ? Feed(manifests[index]) : package));
+            }));
+            var client = Client(http); var release = client.CheckAsync("1.0.0").GetAwaiter().GetResult()!;
+            Throws<OperationCanceledException>(() => client.DownloadAndStageAsync(release, fixture.Staging,
+                new DirectProgress(progress => { if (progress.BytesReceived > 0) cancel.Cancel(); }), cancel.Token).GetAwaiter().GetResult());
+            Assert(requests.SequenceEqual(sources.Concat(new[] { packageUrls[0] })));
+            Assert(!Directory.EnumerateFileSystemEntries(fixture.Staging).Any());
+        });
+        run("fresh mirror signatures channels and same-version integrity are required", () =>
+        {
+            using var wrong = RSA.Create(2048);
+            foreach (var failure in new[] { "signature", "channel", "size", "hash" })
+            {
+                using var fixture = new Fixture(); var requests = new List<string>(); var downloading = false;
+                using var http = new HttpClient(new AsyncHandler((request, _) => {
+                    var url = request.RequestUri!.AbsoluteUri; requests.Add(url); var index = Array.IndexOf(sources, url);
+                    if (index < 0) throw new HttpRequestException("fixture offline");
+                    var value = manifests[index];
+                    if (index == 1 && downloading) value = failure switch { "channel" => value with { Channel = "preview" }, "size" => value with { PackageSize = package.Length + 1 }, "hash" => value with { Sha256 = new string('0', 64) }, _ => value };
+                    var bytes = index == 1 && downloading && failure == "signature" ? ReleaseSigning.SerializeEnvelope(ReleaseSigning.Sign(value, wrong.ExportPkcs8PrivateKeyPem())) : Feed(value);
+                    return Task.FromResult(Reply(request, bytes));
+                }));
+                var client = Client(http); var release = client.CheckAsync("1.0.0").GetAwaiter().GetResult()!; downloading = true;
+                Fails(() => client.DownloadAndStageAsync(release, fixture.Staging).GetAwaiter().GetResult());
+                Assert(requests.SequenceEqual(sources.Concat(new[] { packageUrls[0], second })));
+                Assert(!Directory.EnumerateFileSystemEntries(fixture.Staging).Any());
+            }
+        });
+        run("ordered downloads never fall through after package hash or size failure", () =>
+        {
+            foreach (var failure in new[] { "hash", "size" })
+            {
+                using var fixture = new Fixture(); var requests = new List<string>();
+                using var http = new HttpClient(new AsyncHandler((request, _) => {
+                    var url = request.RequestUri!.AbsoluteUri; requests.Add(url); var index = Array.IndexOf(sources, url);
+                    var bytes = package.ToArray(); if (failure == "hash") bytes[0] ^= 1; else bytes = bytes[..^1];
+                    return Task.FromResult(Reply(request, index >= 0 ? Feed(manifests[index]) : bytes));
+                }));
+                var client = Client(http); var release = client.CheckAsync("1.0.0").GetAwaiter().GetResult()!;
+                Fails(() => client.DownloadAndStageAsync(release, fixture.Staging).GetAwaiter().GetResult());
+                Assert(requests.SequenceEqual(sources.Concat(new[] { packageUrls[0] })));
+                Assert(!Directory.EnumerateFileSystemEntries(fixture.Staging).Any());
+            }
+        });
+        run("duplicate package URLs are not retried through a different feed", () =>
+        {
+            using var fixture = new Fixture(); var requests = new List<string>();
+            using var http = new HttpClient(new AsyncHandler((request, _) => {
+                var url = request.RequestUri!.AbsoluteUri; requests.Add(url); var index = Array.IndexOf(sources, url);
+                if (index >= 0) return Task.FromResult(Reply(request, Feed(manifests[index == 1 ? 0 : index])));
+                if (url == packageUrls[0]) throw new HttpRequestException("fixture offline");
+                return Task.FromResult(Reply(request, package));
+            }));
+            var client = Client(http); var release = client.CheckAsync("1.0.0").GetAwaiter().GetResult()!;
+            client.DownloadAndStageAsync(release, fixture.Staging).GetAwaiter().GetResult();
+            Assert(requests.SequenceEqual(sources.Concat(new[] { packageUrls[0], second, github, packageUrls[2] })));
+        });
+        run("ordered package exhaustion cleans partial staging without a retry loop", () =>
+        {
+            using var fixture = new Fixture(); var requests = new List<string>();
+            using var http = new HttpClient(new AsyncHandler((request, _) => {
+                var url = request.RequestUri!.AbsoluteUri; requests.Add(url); var index = Array.IndexOf(sources, url);
+                if (index < 0) throw new HttpRequestException("fixture offline");
+                return Task.FromResult(Reply(request, Feed(manifests[index])));
+            }));
+            var client = Client(http); var release = client.CheckAsync("1.0.0").GetAwaiter().GetResult()!;
+            Throws<IOException>(() => client.DownloadAndStageAsync(release, fixture.Staging).GetAwaiter().GetResult());
+            Assert(requests.SequenceEqual(sources.Concat(new[] { packageUrls[0], second, packageUrls[1], github, packageUrls[2] })));
+            Assert(!Directory.EnumerateFileSystemEntries(fixture.Staging).Any());
+        });
     }
 
     private static void RunGitHubMigrationTests(Action<string, Action> run, string privateKey, string publicKey)

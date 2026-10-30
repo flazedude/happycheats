@@ -213,10 +213,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private async Task CheckUpdatesInBackgroundAsync()
     {
         _startupUpdateCheck = CancellationTokenSource.CreateLinkedTokenSource(_updateLifetime.Token);
-        _startupUpdateCheck.CancelAfter(TimeSpan.FromSeconds(30));
         try
         {
-            var release = await new UpdateClient(UpdateHttp, _updateConfiguration!).CheckAsync(UpdateLauncher.CurrentVersion, _startupUpdateCheck.Token);
+            var client = new UpdateClient(UpdateHttp, _updateConfiguration!);
+            _startupUpdateCheck.CancelAfter(client.CheckTimeout);
+            var release = await client.CheckAsync(UpdateLauncher.CurrentVersion, _startupUpdateCheck.Token);
             if (!_startupUpdateCheck.IsCancellationRequested) UpdateReleaseChanged(release);
         }
         catch { /* A failed background check stays quiet; the Updates dialog offers retry and details. */ }

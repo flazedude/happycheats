@@ -21,11 +21,7 @@ try {
     $null = Assert-HcReleaseSource -Root $hcRoot -Repository $GitHubRepository -ExpectedCommit $hcStage.commit
     $hcClient = New-HcGitHubClient
     $hcRelease = Assert-HcGitHubPreflight -Client $hcClient -Repository $GitHubRepository -Version $Version -SourceCommit $hcStage.commit -AllowExistingVersion -AllowPublishedResume
-    $hcUploads = @($hcStage.files | Where-Object upload)
-    $hcNames = @($hcUploads | ForEach-Object { [IO.Path]::GetFileName($_.path) })
-    foreach ($hcRequired in @('latest.json',"HappyCheats-$Version-win-x64.zip",'HappyCheats.exe',"HappyCheats-$Version.exe", "HappyCheats-$Version-win-x64-single-exe.zip")) {
-        if (@($hcNames | Where-Object { $_ -ceq $hcRequired }).Count -ne 1) { throw "Release stage must include exactly one $hcRequired upload." }
-    }
+    $hcUploads = Get-HcReleaseUploads $hcStage
     if ($hcRelease -and !$hcRelease.draft) {
         # A lost publication response is recoverable by proving the exact staged
         # bytes already exist. Do not acquire a remote lock, upload or move latest.
@@ -86,7 +82,7 @@ try {
     }
     if ($PrepareOnly) { Write-Host "GitHub v$Version draft is complete and verified; publication is pending finalization."; return }
     # Legacy dual-host stages retain their original LAN-first publication invariant.
-    if (Test-HcReleaseIncludesLan $hcStage) {
+    if ((Test-HcReleaseIncludesLan $hcStage) -and $hcStage.schemaVersion -ne 3) {
         foreach ($hcPair in @(@('lan/latest.json','latest.json'), @("lan/HappyCheats-$Version-win-x64.zip","HappyCheats-$Version-win-x64.zip"), @('assets/HappyCheats.exe','HappyCheats.exe'))) {
             if ((Get-FileHash -LiteralPath (Join-Path $ReleaseDirectory $hcPair[0])).Hash -cne (Get-FileHash -LiteralPath (Join-Path $hcConfig.PublicDirectory $hcPair[1])).Hash) { throw 'The identical LAN release must be ready before making GitHub latest.' }
         }
