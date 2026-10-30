@@ -1,15 +1,13 @@
 [CmdletBinding()]
 param([string]$Address, [ValidateRange(0,65535)][int]$Port = 0, [switch]$OpenFirewall)
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'LanUpdateConfiguration.Common.ps1')
 $hcRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $hcStateRoot = Join-Path $hcRoot 'artifacts\lan-updates'
 $hcConfigPath = Join-Path $hcStateRoot 'server.json'
 New-Item -ItemType Directory -Force -Path $hcStateRoot | Out-Null
 if (Test-Path -LiteralPath $hcConfigPath) {
-    $hcConfig = Get-Content -LiteralPath $hcConfigPath -Raw | ConvertFrom-Json
-    if (($Address -and $Address -ne $hcConfig.Address) -or ($Port -and $Port -ne $hcConfig.Port)) {
-        throw 'The saved LAN address differs. Keep its DHCP reservation, or follow docs/lan-updates.md to migrate the feed.'
-    }
+    $hcConfig = Initialize-HcLanUpdateConfiguration -Root $hcRoot -Address $Address -Port $Port
     $Address = $hcConfig.Address
     $Port = [int]$hcConfig.Port
 } else {
@@ -25,16 +23,7 @@ if (Test-Path -LiteralPath $hcConfigPath) {
     if ($hcBytes.Length -ne 4 -or !($hcBytes[0] -eq 10 -or ($hcBytes[0] -eq 172 -and $hcBytes[1] -ge 16 -and $hcBytes[1] -le 31) -or ($hcBytes[0] -eq 192 -and $hcBytes[1] -eq 168))) { throw 'Choose a private LAN IPv4 address.' }
     if ($Port -lt 1024) { throw 'Choose a port between 1024 and 65535.' }
     if (!(Get-NetIPAddress -AddressFamily IPv4 | Where-Object IPAddress -eq $Address)) { throw 'This PC does not own that IPv4 address.' }
-    $hcKeys = Join-Path $env:LOCALAPPDATA 'HappyCheatsPublisher\LAN'
-    $hcPrivate = Join-Path $hcKeys 'release-private.pem'
-    $hcPublic = Join-Path $hcKeys 'release-public.pem'
-    if (!(Test-Path -LiteralPath $hcPrivate) -and !(Test-Path -LiteralPath $hcPublic)) {
-        & dotnet run --project (Join-Path $hcRoot 'tools\HappyCheats.Release') -c Release -- keygen --private-key $hcPrivate --public-key $hcPublic
-        if ($LASTEXITCODE -ne 0) { throw 'LAN signing key generation failed.' }
-    }
-    if (!(Test-Path -LiteralPath $hcPrivate) -or !(Test-Path -LiteralPath $hcPublic)) { throw 'The LAN signing key pair is incomplete. Restore it; do not replace an existing client signing key.' }
-    $hcConfig = [pscustomobject]@{ Address = $Address; Port = $Port; BaseUrl = "http://${Address}:$Port/happycheats"; PublicDirectory = (Join-Path $hcStateRoot 'public'); PrivateKeyPath = $hcPrivate; PublicKeyPath = $hcPublic }
-    $hcConfig | ConvertTo-Json | Set-Content -LiteralPath $hcConfigPath -Encoding UTF8
+    $hcConfig = Initialize-HcLanUpdateConfiguration -Root $hcRoot -Address $Address -Port $Port
 }
 $hcServerDirectory = Join-Path $hcRoot 'artifacts\lan-update-server'
 $hcServerExe = Join-Path $hcServerDirectory 'HappyCheats.UpdateServer.exe'

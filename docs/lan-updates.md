@@ -4,7 +4,7 @@
 
 The one-time migration bridge serves the identical signed GitHub **0.3.52** feed at the existing LAN `latest.json`; its package URL points to the immutable GitHub ZIP. Old LAN clients can discover that update while the server remains online. Once updated, official clients use GitHub directly, so the bridge needs no ongoing LAN releases. Clients **0.3.46–0.3.51** can also use GitHub fallback when LAN is unavailable. Other installations can obtain the latest complete standalone EXE from GitHub. Preserve the signed feed unchanged rather than rebuilding or re-signing 0.3.52.
 
-One Windows PC hosts signed releases. Other PCs on the same network install the configured starter once and then use **Updates / 客户端更新**, followed by **Install & restart**. No cloud account, domain or internet-facing port forwarding is needed. The host needs .NET 8 SDK or later for building/publishing. Run the scripts in PowerShell 7 (`pwsh`). Published clients and server include their runtimes.
+Both **JACK-PC** and **GPD-PC** can host LAN servers. Each uses its own private IPv4 address, local public directory and startup task, while sharing the established signing identity and GitHub repository. Other PCs on the same network can use a configured LAN endpoint. Official clients from 0.3.52 use GitHub directly, with **Updates / 客户端更新**, followed by **Install & restart**. Hosting another LAN server does not automatically redirect those clients or synchronize the servers' files. The host needs .NET 8 SDK or later for building/publishing. Run interactive scripts in PowerShell 7 (`pwsh`); published clients and servers include their runtimes.
 
 ## Start the host
 
@@ -12,7 +12,9 @@ One Windows PC hosts signed releases. Other PCs on the same network install the 
 .\scripts\Start-LanUpdateServer.ps1 -Address 192.168.2.76 -OpenFirewall
 ```
 
-Use the host's actual private IPv4 address. Omitting `-Address` detects a single physical connection with a gateway. Initial setup saves the address/port (default **17845**), generates a persistent RSA signing key outside the repository, builds the server and starts it in the background. Later invocations reuse the same address and key.
+The example address above belongs to JACK-PC. On GPD-PC, use GPD-PC's actual private IPv4 address; do not copy the desktop's `server.json`. Omitting `-Address` detects a single physical connection with a gateway. Initial setup saves the local address/port (default **17845**), reuses the verified signing-key paths from that PC's publisher configuration, builds the server and starts it in the background. It does not generate a new signing identity. Initialize the publisher first if needed, using the existing transferred key. Later invocations preserve the saved address and key.
+
+Run `Start-LanUpdateServer.ps1` and then, if boot startup is wanted, `Install-LanUpdateStartup.ps1` locally on GPD-PC. Firewall changes remain an explicit setup action: `-OpenFirewall` is limited to the host's address/port and local subnet. This desktop session has not configured or validated GPD-PC's LAN address, firewall or startup task.
 
 `-OpenFirewall` creates a rule when run as administrator, restricted to this executable, local address/port and clients in `LocalSubnet`. It applies to all Windows network profiles because home Wi-Fi is sometimes classified Public. Existing rules are not removed or widened.
 

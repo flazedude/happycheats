@@ -31,6 +31,8 @@ This migration does not rewrite the preserved settings file. Custom primary feed
 
 ## Developing on either PC
 
+**JACK-PC** and **GPD-PC** are equal publishers. Work completed on GPD-PC travels through the shared GitHub repository and releases to JACK-PC, and vice versa. Earlier GPD setup records use the name `JACKGPD`; this documentation does not rename Windows or assume a network address. Both PCs can also run LAN servers with independent local configuration. The clients' normal update route remains GitHub, so neither PC needs the other to be online.
+
 GitHub is the shared source of truth for both checkouts. At the start of work on either PC, read `AGENTS.md`, inspect local changes and fetch the remote branch:
 
 ```powershell
