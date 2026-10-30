@@ -4,7 +4,7 @@ $ErrorActionPreference = 'Stop'
 $hcRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $hcArchive = Join-Path $hcRoot 'artifacts\astroneer\UE4SS_v3.0.1-1133-gb4cefa18.zip'
 $hcArchiveHash = '89B7EED47C37D6FF6EAA144A41311A75098279A3454777F4EDD2446CEA1EA7A8'
-$hcUrl = 'https://github.com/UE4SS-RE/RE-UE4SS/releases/download/experimental-latest/UE4SS_v3.0.1-1133-gb4cefa18.zip'
+$hcUrl = 'https://github.com/UE4SS-RE/RE-UE4SS/releases/download/experimental/UE4SS_v3.0.1-1133-gb4cefa18.zip'
 $hcExtract = Join-Path $hcRoot 'artifacts\dawnwalker\ue4ss'
 $hcPackage = Join-Path $hcRoot 'payload\dawnwalker'
 $hcBinary = Join-Path $hcPackage 'Dawnwalker\Binaries\Win64'
@@ -38,5 +38,5 @@ $hcProvenance | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $h
 # Enumerate only deliverables. Runtime mailboxes and probe output never enter a release.
 $hcRuntimeFiles = @('dwmapi.dll','ue4ss/UE4SS.dll','ue4ss/UE4SS-settings.ini','ue4ss/Mods/mods.txt','ue4ss/Mods/HappyCheatsDawnwalker/Scripts/main.lua','ue4ss/Mods/HappyCheatsDawnwalker/Scripts/bindings.lua','ue4ss/Mods/HappyCheatsDawnwalker/Scripts/protocol.lua','ue4ss/Mods/HappyCheatsDawnwalker/bridge/README.txt','ue4ss/Mods/HappyCheatsDawnwalker/Scripts/combat.lua','ue4ss/Mods/HappyCheatsDawnwalker/Scripts/movement.lua','ue4ss/Mods/HappyCheatsDawnwalker/Scripts/economy.lua')
 $hcFiles = @($hcRuntimeFiles | ForEach-Object { $hcPath = Join-Path $hcBinary $_; [ordered]@{ path=[IO.Path]::GetRelativePath($hcPackage,$hcPath).Replace('\','/'); sha256=(Get-FileHash -LiteralPath $hcPath -Algorithm SHA256).Hash } })
-[ordered]@{ version='0.4.0'; app_id='3751260'; steam_build='25915545'; executable_sha256='E6222B815B1C376F2C85A2189120C5A9B5CD30AC5688A34B61A2C18EFBC9B117'; files=$hcFiles } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $hcPackage 'package.json') -Encoding utf8NoBOM
+[ordered]@{ version='0.4.1'; app_id='3751260'; steam_build='25915545'; executable_sha256='E6222B815B1C376F2C85A2189120C5A9B5CD30AC5688A34B61A2C18EFBC9B117'; files=$hcFiles } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $hcPackage 'package.json') -Encoding utf8NoBOM
 Write-Host 'Built Dawnwalker payload with pinned UE4SS and verified file hashes.'

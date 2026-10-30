@@ -23,6 +23,7 @@ local DAMAGE_FUNCTIONS = {
     "/Script/GameplayAbilities.AbilitySystemComponent:GetAllAttributes",
     "/Script/GameplayAbilities.AbilitySystemBlueprintLibrary:GetDebugStringFromGameplayAttribute",
     "/Script/GameplayAbilities.AbilitySystemBlueprintLibrary:GetFloatAttributeBaseFromAbilitySystemComponent",
+    "/Script/GameplayAbilities.AbilitySystemBlueprintLibrary:GetFloatAttributeFromAbilitySystemComponent",
     "/Script/DogwoodCombat.CombatBlueprintFunctionLibrary:SetAttributeValue",
     "/Script/DogwoodCombat.CombatComponentBase:GetAbilitySystemComponent"
 }
@@ -149,17 +150,46 @@ end
 function Instance:_resolve_damage()
     if self.damage_bindings ~= nil then return self.damage_bindings ~= false and self.damage_bindings or nil end
     self.damage_bindings = false
-    for _, path in ipairs(DAMAGE_FUNCTIONS) do if not self.api.has_function(path) then return nil end end
+    for _, path in ipairs(DAMAGE_FUNCTIONS) do
+        if not self.api.has_function(path) then
+            self.damage_reason = "Damage binding unavailable: " .. path
+            return nil
+        end
+    end
     local library, combat = self.api.resolve(LIBRARY), self.api.resolve(COMBAT_LIBRARY)
-    if not self.api.valid(library) or not self.api.valid(combat) then return nil end
+    if not self.api.valid(library) then self.damage_reason = "Damage attribute library unavailable"; return nil end
+    if not self.api.valid(combat) then self.damage_reason = "Damage setter library unavailable"; return nil end
     self.damage_bindings = {library = library, combat = combat}
     return self.damage_bindings
 end
 
 function Instance:_damage_base(lease, entry)
-    local found = {}
+    -- Reuse scalar OUT tables while polling; always clear the flag so a failed
+    -- native conversion cannot inherit an earlier successful lookup.
+    entry.base_out = entry.base_out or {}
+    local found = entry.base_out
+    found.bSuccessfullyFoundAttribute = nil
     local ok, value = self.api.invoke(lease.library, "GetFloatAttributeBaseFromAbilitySystemComponent", lease.asc, entry.attribute, found)
-    if ok and found.bSuccessfullyFoundAttribute == true and self.api.finite(value) then return value end
+    if not ok then return nil, "Damage base-value getter failed: " .. entry.name end
+    if found.bSuccessfullyFoundAttribute ~= true then return nil, "Damage attribute was not found: " .. entry.name end
+    if not self.api.finite(value) then return nil, "Damage base value is not finite: " .. entry.name end
+    return value
+end
+
+function Instance:_damage_current(lease, entry)
+    entry.current_out = entry.current_out or {}
+    local found = entry.current_out
+    found.bSuccessfullyFoundAttribute = nil
+    local ok, value = self.api.invoke(lease.library, "GetFloatAttributeFromAbilitySystemComponent", lease.asc, entry.attribute, found)
+    if not ok then return nil, "Damage current-value getter failed: " .. entry.name end
+    if found.bSuccessfullyFoundAttribute ~= true then return nil, "Current damage attribute was not found: " .. entry.name end
+    if not self.api.finite(value) then return nil, "Current damage value is not finite: " .. entry.name end
+    return value
+end
+
+local function damage_close(value, expected)
+    if expected == 0 then return value == 0 end
+    return value ~= nil and math.abs(value - expected) <= math.max(1e-44, math.abs(expected) * 0.00001)
 end
 
 function Instance:_disable_damage()
@@ -190,11 +220,20 @@ function Instance:_apply_damage(state, enabled)
     if not state or state.key ~= self.key then return false, "Player session changed; reconnect before enabling" end
     if self.damage_lease then
         local owned = self.api.same(self.api.read(state.character, "AbilitySystemComponent"), self.damage_lease.asc)
-        if owned and self.damage_active then return true, "Super damage already enabled" end
+        if owned and self.damage_active then
+            for _, entry in ipairs(self.damage_lease.observations) do
+                if self:_damage_base(self.damage_lease, entry) ~= entry.written
+                    or not damage_close(self:_damage_current(self.damage_lease, entry), entry.expected_current) then
+                    local cleaned, message = self:_disable_damage()
+                    return false, cleaned and "Damage factors changed; enable super damage again" or message
+                end
+            end
+            return true, "Super damage already enabled"
+        end
         return false, "Restore previous damage values before enabling again"
     end
     local bindings = self:_resolve_damage()
-    if not bindings then return false, "Native damage attribute setters unavailable" end
+    if not bindings then return false, self.damage_reason or "Native damage attribute setters unavailable" end
     local asc = self.api.read(state.character, "AbilitySystemComponent")
     local combat_ok, combat_asc = self.api.invoke(state.combat, "GetAbilitySystemComponent")
     if not self.api.valid(asc) or not combat_ok or not self.api.same(asc, combat_asc) then return false, "Player ability-system ownership is unavailable" end
@@ -225,37 +264,60 @@ function Instance:_apply_damage(state, enabled)
         end
     end
     local lease = {asc = asc, library = bindings.library, combat = bindings.combat, entries = {}}
-    local planned = {}
+    local planned, active_fields = {}, 0
     for _, name in ipairs(DAMAGE_FIELDS) do
         if not descriptors[name] then return false, "Verified damage attribute missing: " .. name end
         local entry = {attribute = descriptors[name], name = name}
-        entry.original = self:_damage_base(lease, entry)
-        if not entry.original or entry.original <= 0 or entry.original > 100000 then return false, "Damage base value outside the supported range" end
+        local reason
+        entry.original, reason = self:_damage_base(lease, entry)
+        if entry.original == nil then return false, reason end
+        if entry.original < 0 or entry.original > 100000 then return false, "Damage base value outside the supported range: " .. name end
+        entry.current, reason = self:_damage_current(lease, entry)
+        if entry.current == nil then return false, reason end
+        if entry.current < 0 or entry.current > 100000 then return false, "Current damage value outside the supported range: " .. name end
+        if entry.current > 0 then active_fields = active_fields + 1 end
+        -- These are raw damage factors, not additive percentage bonuses. Their
+        -- native base can be zero while game effects supply a positive current
+        -- factor. Apply a bounded base delta, then require the evaluated factor
+        -- to reach the target. Override/scaling/clamp effects that prevent that
+        -- result cause rollback; do not guess a neutral +1 or retry native writes.
+        entry.expected_current = string.unpack("<f", string.pack("<f", entry.current * 10))
         -- Native GAS values are float32. Retain the exact expected native value
         -- before calling, so even a lost readback can be restored conditionally.
-        entry.written = string.unpack("<f", string.pack("<f", entry.original * 10))
+        entry.written = string.unpack("<f", string.pack("<f", entry.original + entry.current * 9))
         planned[#planned + 1] = entry
     end
+    if active_fields == 0 then return false, "No positive player damage factors are active; equip an attack before enabling" end
+    lease.observations = planned
     self.damage_lease = lease
     for _, entry in ipairs(planned) do
-        if self:_damage_base(lease, entry) ~= entry.original then
+        if self:_damage_base(lease, entry) ~= entry.original or self:_damage_current(lease, entry) ~= entry.current then
             local cleaned, message = self:_disable_damage()
             return false, cleaned and "A damage value changed before application; try again" or message
         end
-        lease.entries[#lease.entries + 1] = entry
-        local ok = self.api.invoke(lease.combat, "SetAttributeValue", lease.asc, entry.attribute, entry.written)
-        local readback = self:_damage_base(lease, entry)
-        local confirmed = readback == entry.written
-        if confirmed then
-            entry.written = readback -- retain the actual native float for exact ownership comparison
+        -- An inactive attack factor stays zero. Keep monitoring it, but do not
+        -- create an ownership lease for a value that was never changed.
+        if entry.written ~= entry.original then
+            lease.entries[#lease.entries + 1] = entry
+            local ok = self.api.invoke(lease.combat, "SetAttributeValue", lease.asc, entry.attribute, entry.written)
+            local readback = self:_damage_base(lease, entry)
+            local current = self:_damage_current(lease, entry)
+            if not ok or readback ~= entry.written or not damage_close(current, entry.expected_current) then
+                local cleaned, message = self:_disable_damage()
+                return false, cleaned and ("The game did not confirm 10x damage for " .. entry.name .. "; active effects may override or scale the factor") or message
+            end
         end
-        if not ok or not confirmed then
+    end
+    -- A later setter can trigger recalculation of an earlier field. Confirm all
+    -- four factors again before acknowledging success, including untouched zeros.
+    for _, entry in ipairs(planned) do
+        if self:_damage_base(lease, entry) ~= entry.written or not damage_close(self:_damage_current(lease, entry), entry.expected_current) then
             local cleaned, message = self:_disable_damage()
-            return false, cleaned and "The game did not confirm all damage changes" or message
+            return false, cleaned and "Damage factors changed during application; owned changes were restored" or message
         end
     end
     self.damage_active, self.damage_reason = true, nil
-    return true, "Super damage enabled: base attack multipliers x10"
+    return true, "Super damage enabled: current native attack factors x10; inactive factors unchanged"
 end
 
 function Instance:_resolve()
@@ -321,15 +383,16 @@ function Instance:refresh(state)
     local values = {}
     if not state or type(state.key) ~= "string" or state.key == "" then
         local ok, message = self:disable_all()
-        if ok then self.key, self.bindings, self.damage_bindings, self.invisible_bindings = nil, nil, nil, nil end
+        if ok then self.key, self.bindings, self.damage_bindings, self.invisible_bindings, self.damage_reason = nil, nil, nil, nil, nil end
         values.diagnostic_invulnerable = message
+        values.diagnostic_damage = message
         values.diagnostic_invisible = message
         return available, values
     end
     if self.key ~= state.key then
         local ok, message = self:disable_all()
-        if not ok then values.diagnostic_invulnerable = message; values.diagnostic_invisible = message; return available, values end
-        self.key, self.bindings, self.damage_bindings, self.invisible_bindings, self.reason = state.key, nil, nil, nil, nil
+        if not ok then values.diagnostic_invulnerable = message; values.diagnostic_damage = message; values.diagnostic_invisible = message; return available, values end
+        self.key, self.bindings, self.damage_bindings, self.invisible_bindings, self.reason, self.damage_reason = state.key, nil, nil, nil, nil, nil
     end
     local bindings = self:_resolve()
     available[INVULNERABLE] = bindings ~= nil
@@ -356,14 +419,17 @@ function Instance:refresh(state)
         local lease, changed, unreadable = self.damage_lease, false, false
         if not self.api.same(self.api.read(state.character, "AbilitySystemComponent"), lease.asc) then changed = true end
         if not changed then
-            for _, entry in ipairs(lease.entries) do
+            for _, entry in ipairs(lease.observations or lease.entries) do
                 local current = self:_damage_base(lease, entry)
                 if current == nil then unreadable = true elseif current ~= entry.written then changed = true end
+                local evaluated = self:_damage_current(lease, entry)
+                if evaluated == nil then unreadable = true
+                elseif not damage_close(evaluated, entry.expected_current) then changed = true end
             end
         end
         if changed then
             local cleaned, message = self:_disable_damage()
-            self.damage_reason = message
+            self.damage_reason = cleaned and "Damage factors changed; super damage disabled. Enable it again if needed" or message
             if not cleaned then available[DAMAGE] = false end
         elseif unreadable or not self.damage_active then
             available[DAMAGE] = false; self.damage_reason = "Owned damage values could not be confirmed"
@@ -385,7 +451,7 @@ function Instance:refresh(state)
         end
     end
     values.diagnostic_invulnerable = self.reason or (self.active and "Owned native invulnerability effect active" or "Native invulnerability effect ready")
-    values.diagnostic_damage = self.damage_reason or (self.damage_active and "Base melee, claw, magic and unarmed multipliers x10" or "Native base damage multiplier override ready")
+    values.diagnostic_damage = self.damage_reason or (self.damage_active and "Current native attack factors x10; inactive factors unchanged" or "Native damage factors ready; base and evaluated values checked on enable")
     values.diagnostic_invisible = self.invisible_reason or (available[INVISIBLE]
         and (self.invisible_active and "Enemies ignore the player; existing alert memory may persist" or "Player-only enemy detection override ready")
         or "Verified player AI visibility binding unavailable")
@@ -393,7 +459,11 @@ function Instance:refresh(state)
 end
 
 function Instance:apply(state, action, enabled)
-    if action == DAMAGE then return self:_apply_damage(state, enabled) end
+    if action == DAMAGE then
+        local ok, message = self:_apply_damage(state, enabled)
+        self.damage_reason = message
+        return ok, message
+    end
     if action == INVISIBLE then return self:_apply_invisible(state, enabled) end
     if action ~= INVULNERABLE then return false, "This combat modifier has no verified reversible binding" end
     if type(enabled) ~= "boolean" then return false, "An explicit toggle state is required" end

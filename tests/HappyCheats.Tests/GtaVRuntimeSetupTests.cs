@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
@@ -142,7 +143,7 @@ internal static class GtaVRuntimeSetupTests
                 () => { if (committed) throw new IOException("postcommit callback is forbidden"); },
                 () => {
                     Directory.Move(fixture.Game, moved);
-                    Directory.CreateSymbolicLink(fixture.Game, moved);
+                    CreateDirectoryLink(fixture.Game, moved);
                     committed = true;
                 });
             Assert(committed && result.ChangedFiles.Count == 2);
@@ -181,7 +182,7 @@ internal static class GtaVRuntimeSetupTests
             }
             using (var fixture = new Fixture()) {
                 var external = Path.Combine(fixture.Root, "external"); Directory.CreateDirectory(external);
-                Directory.CreateSymbolicLink(Path.Combine(fixture.Game, "happycheats-runtime-backups"), external);
+                CreateDirectoryLink(Path.Combine(fixture.Game, "happycheats-runtime-backups"), external);
                 fixture.Put("ScriptHookV.dll", fixture.OldHook);
                 await Fails(() => fixture.Setup.EnsureAsync(fixture.Game, () => { }));
                 Assert(fixture.Read("ScriptHookV.dll").SequenceEqual(fixture.OldHook) && Directory.GetFiles(external).Length == 0);
@@ -194,6 +195,19 @@ internal static class GtaVRuntimeSetupTests
     private static void Assert(bool value) { if (!value) throw new Exception("Assertion failed."); }
     private static async Task<Exception> Fails(Func<Task> task) { try { await task(); } catch (Exception error) { return error; } throw new Exception("Expected rejection."); }
     private static string Hash(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes));
+    private static void CreateDirectoryLink(string link, string target)
+    {
+        // Junctions exercise the same reparse-point guards without requiring
+        // Windows symbolic-link privileges or changing machine security settings.
+        if (OperatingSystem.IsWindows()) {
+            var start = new ProcessStartInfo("cmd.exe") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+            foreach (var argument in new[] { "/c", "mklink", "/J", link, target }) start.ArgumentList.Add(argument);
+            using var process = Process.Start(start)!;
+            process.WaitForExit();
+            Assert(process.ExitCode == 0);
+        } else Directory.CreateSymbolicLink(link, target);
+        Assert((File.GetAttributes(link) & FileAttributes.ReparsePoint) != 0);
+    }
     private static byte[] Zip(IEnumerable<(string Name, byte[] Data)> files) {
         using var memory = new MemoryStream();
         using (var archive = new ZipArchive(memory, ZipArchiveMode.Create, leaveOpen: true)) foreach (var (name, data) in files) { using var file = archive.CreateEntry(name).Open(); file.Write(data); }
@@ -227,8 +241,16 @@ internal static class GtaVRuntimeSetupTests
             var resolved = Path.GetFullPath(Root);
             var tempRoot = Path.GetFullPath(Path.GetTempPath()).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
             if (!resolved.StartsWith(tempRoot, StringComparison.OrdinalIgnoreCase) || !Path.GetFileName(resolved).StartsWith("HappyCheats-gta-runtime-tests-", StringComparison.Ordinal)) throw new IOException("Unsafe fixture cleanup target.");
-            // Directory.Delete removes a child directory symlink itself rather than traversing its target.
+            // Remove links before their sibling targets; recursive deletion of
+            // dangling Windows junctions can fail even when creation succeeded.
+            RemoveDirectoryLinks(resolved);
             Directory.Delete(resolved, recursive: true);
+        }
+        private static void RemoveDirectoryLinks(string path) {
+            foreach (var directory in Directory.GetDirectories(path)) {
+                if ((File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0) Directory.Delete(directory);
+                else RemoveDirectoryLinks(directory);
+            }
         }
     }
 }

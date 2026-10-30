@@ -12,7 +12,7 @@ public sealed class DawnwalkerModule(string baseDirectory) : IGameModule
     public const string Executable = "Dawnwalker/Binaries/Win64/Dawnwalker.exe";
     public const string SupportedExecutableHash = "E6222B815B1C376F2C85A2189120C5A9B5CD30AC5688A34B61A2C18EFBC9B117";
     public const string BridgeRoot = "Dawnwalker/Binaries/Win64/ue4ss/Mods/HappyCheatsDawnwalker/bridge/";
-    public const string TrainerVersion = "0.4.0";
+    public const string TrainerVersion = "0.4.1";
     private readonly string package = Path.Combine(baseDirectory, "payload", "dawnwalker");
     private readonly SemaphoreSlim commandLock = new(1, 1);
     private readonly object inspectionLock = new();
@@ -30,7 +30,7 @@ public sealed class DawnwalkerModule(string baseDirectory) : IGameModule
             new("dawnwalker_refill", "Refill health and stamina", "Restore the current player's health and stamina once without enabling either toggle.", "F3", false, "Survival"),
             new("dawnwalker_blood", "Refill blood continuously", "Periodically fill the player's blood bar and restore damaged blood segments through the game's native setter. These refills may persist in normal saves.", "F4", true, "Survival"),
             new("dawnwalker_invulnerable", "Invulnerability", "Apply the game's invulnerability effect to prevent health damage. Disable removes only the effect created by this trainer.", "F5", true, "Combat & movement"),
-            new("dawnwalker_damage", "Super damage", "Multiply the player's base melee, claw, magic and unarmed damage multipliers by 10. Disable restores the captured values while preserving later changes made by the game.", "F8", true, "Combat & movement"),
+            new("dawnwalker_damage", "Super damage", "Apply and verify 10× melee, claw, magic and unarmed attack multipliers. Active game effects can prevent application. Disable restores values still owned by this trainer; game changes can turn the control off.", "F8", true, "Combat & movement"),
             new("dawnwalker_invisible", "Invisibility", "Block normal enemy perception and targeting while keeping your character visible. Existing alerts and scripted encounters may persist. Disable restores normal detection.", "F9", true, "Combat & movement"),
             new("dawnwalker_fly", "Fly", "Enable flight with normal directional movement. Space / Left Ctrl or right / left trigger ascend and descend. Disable restores the previous movement mode; collision remains active.", "F11", true, "Combat & movement"),
             new("dawnwalker_teleport", "Teleport to map marker", "Move directly to a newly placed custom map marker without requesting fast travel. Close the map first. Requires loaded, walkable ground with clear space for the player; unloaded or unsafe destinations are refused.", "F7", false, "Combat & movement"),

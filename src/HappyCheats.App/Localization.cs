@@ -169,7 +169,7 @@ public static class Localization
         ["dawnwalker_refill"] = ("恢复生命与耐力", "通过游戏原生方法补满存活角色的生命与耐力。"),
         ["dawnwalker_blood"] = ("持续恢复血量", "通过游戏原生方法定期补满血条，也会修复受损的血量格。仅在当前角色的血量组件可用时生效。"),
         ["dawnwalker_invulnerable"] = ("无敌", "使用游戏自带的无敌效果阻止生命伤害；关闭时只移除本修改器添加的效果。"),
-        ["dawnwalker_damage"] = ("超级伤害", "将角色的近战、利爪、魔法和徒手基础伤害倍率提升至原值的 10 倍。关闭时恢复原值，并保留游戏随后做出的更改。"),
+        ["dawnwalker_damage"] = ("超级伤害", "应用并验证 10 倍近战、利爪、魔法与徒手攻击倍率。游戏中的其他效果可能阻止应用；关闭时仅恢复仍由本修改器控制的属性。游戏更改属性后可能自动关闭。"),
         ["dawnwalker_fly"] = ("飞行", "使用正常方向键移动；空格 / 左 Ctrl 或右 / 左扳机上升和下降。关闭后恢复原移动模式，仍保留碰撞。"),
         ["dawnwalker_invisible"] = ("隐身", "阻止敌人正常的感知和锁定，玩家角色仍然可见。现有警戒和剧情事件可能仍会继续；关闭后恢复正常侦测。"),
         ["dawnwalker_teleport"] = ("传送至地图标记", "直接移动到新放置的自定义标记，不请求快速旅行。请先关闭地图。目标必须有已加载、可站立且空间足够的地面；未加载或不安全的位置会被拒绝。"),
@@ -685,6 +685,17 @@ public static class Localization
         ["Compatible Steam build · ready to install"] = "Steam 版本兼容 · 可以安装",
         ["This game build needs inspection before the trainer can be installed."] = "需要先验证此游戏版本，才能安装修改器。",
         ["Trainer installed · module 0.4.0"] = "修改器已安装 · 模块版本 0.4.0",
+        ["Trainer installed · module 0.4.1"] = "修改器已安装 · 模块版本 0.4.1",
+        ["Trainer update required · installed files differ from module 0.4.1"] = "修改器需要更新 · 已安装文件与模块版本 0.4.1 不同",
+        ["Damage attribute library unavailable"] = "伤害属性读取接口不可用",
+        ["Damage setter library unavailable"] = "伤害属性设置接口不可用",
+        ["No positive player damage factors are active; equip an attack before enabling"] = "当前没有有效的攻击倍率；请装备可用攻击后再启用",
+        ["Damage factors changed during application; owned changes were restored"] = "应用时攻击倍率发生变化；已恢复本次修改",
+        ["Super damage enabled: current native attack factors x10; inactive factors unchanged"] = "超级伤害已启用：当前有效攻击倍率提升至 10 倍；未启用的攻击类型保持不变",
+        ["Current native attack factors x10; inactive factors unchanged"] = "当前有效攻击倍率为 10 倍；未启用的攻击类型保持不变",
+        ["Native damage factors ready; base and evaluated values checked on enable"] = "伤害接口就绪；启用时检查基础值和实际倍率",
+        ["Damage factors changed; enable super damage again"] = "攻击倍率已改变；请重新启用超级伤害",
+        ["Damage factors changed; super damage disabled. Enable it again if needed"] = "攻击倍率已改变，超级伤害已关闭；需要时请重新启用",
         ["Trainer installed · module 0.5.0"] = "修改器已安装 · 模块版本 0.5.0",
         ["Trainer update required · installed files differ from module 0.4.0"] = "修改器需要更新 · 已安装文件与模块版本 0.4.0 不同",
         ["Trainer update required · installed files differ from module 0.5.0"] = "修改器需要更新 · 已安装文件与模块版本 0.5.0 不同",
@@ -897,6 +908,8 @@ public static class Localization
             return source;
         }
         if (Messages.TryGetValue(source, out var translated)) return translated;
+        var dawnwalkerDamage = System.Text.RegularExpressions.Regex.Match(source, @"^The game did not confirm 10x damage for ([A-Za-z]+); active effects may override or scale the factor$");
+        if (dawnwalkerDamage.Success) return $"游戏未确认 {dawnwalkerDamage.Groups[1].Value} 的 10 倍倍率；其他效果可能覆盖或缩放该属性";
         var astroneerBuild = System.Text.RegularExpressions.Regex.Match(source, @"^ASTRONEER ([0-9.]+) detected \(inspected Steam build ([0-9]+)\)\. (.*)$");
         if (astroneerBuild.Success) return $"已检测到异星探险家 {astroneerBuild.Groups[1].Value}（已检查的 Steam 版本 {astroneerBuild.Groups[2].Value}）。" + Message(astroneerBuild.Groups[3].Value);
         if (GtaVLocalization.Translate(source) is { } gtaMessage) return gtaMessage;
@@ -906,6 +919,15 @@ public static class Localization
         if (Witcher3Localization.Translate(source) is { } witcherMessage) return witcherMessage;
         if (PhantomBladeLocalization.Translate(source) is { } phantomMessage) return phantomMessage;
         foreach (var prefix in new[] { ("Game found. ", "已找到游戏。"), ("Trainer installed. ", "修改器已安装。"),
+            ("Damage binding unavailable: ", "伤害功能接口不可用："),
+            ("Damage base-value getter failed: ", "读取伤害基础属性失败："),
+            ("Damage current-value getter failed: ", "读取实际攻击倍率失败："),
+            ("Current damage attribute was not found: ", "未找到实际攻击属性："),
+            ("Current damage value is not finite: ", "实际攻击倍率不是有效数值："),
+            ("Current damage value outside the supported range: ", "实际攻击倍率超出支持范围："),
+            ("Damage attribute was not found: ", "未找到伤害属性："),
+            ("Damage base value is not finite: ", "伤害基础属性不是有效数值："),
+            ("Damage base value outside the supported range: ", "伤害基础属性超出支持范围："),
             ("Waiting for the Red Dead Redemption 2 Story Mode trainer: ", "正在等待荒野大镖客 2 故事模式修改器："),
             ("Script Hook RDR2 component checksum failed: ", "Script Hook RDR2 组件校验失败："),
             ("Modified Red Dead Redemption 2 trainer files were preserved: ", "已保留修改过的荒野大镖客 2 修改器文件："),

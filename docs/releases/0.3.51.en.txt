@@ -1,0 +1,9 @@
+HappyCheats 0.3.51 — Dawnwalker damage activation
+
+Updates Dawnwalker to trainer 0.4.1 for Steam build 25915545 / patch 3. Super damage now reads both the base and evaluated native damage attributes. A zero base no longer rejects an otherwise active attack multiplier. The trainer requests a 10× evaluated result, verifies it, and conditionally restores still-owned changes if an active effect, clamp or failed write prevents confirmation. Inactive zero-valued attack types are left unchanged.
+
+Damage errors now identify missing bindings and failed attributes, and remain visible in diagnostics after the command. Disabling restores only values still owned by this trainer; later game changes are preserved. All toggles start disabled. Ctrl+Del, hold Menu for 350 ms then tap RB, and existing direct shortcuts retain their shared-menu behavior.
+
+Close Dawnwalker, open the new complete EXE, and select Install / update before starting the game again. Updating the client alone does not replace the installed trainer. Both complete distribution formats include all seventeen games and the latest Phantom Blade Zero loader correction from source version 0.3.50.
+
+Validation covers static inspection of the supported game executable, offline native-shaped attribute fixtures, rollback/restoration, client/installer/shared-menu/controller regressions and package checks. Actual damage in combat, physical-controller operation and second-PC access remain unverified. This is a locally prepared build; signed LAN and GitHub publication requires the established publishing computer and original signing key.

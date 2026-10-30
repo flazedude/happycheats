@@ -35,6 +35,16 @@ local function fixture()
         if f.base_unreadable_once == attribute.name then found.bSuccessfullyFoundAttribute = false; f.base_unreadable_once = nil end
         return f.bases[attribute.name]
     end
+    function f.library:GetFloatAttributeFromAbilitySystemComponent(asc, attribute, found)
+        equal(asc, f.asc, "Current attribute read uses original ASC")
+        found.bSuccessfullyFoundAttribute = f.bases[attribute.name] ~= nil and f.current_unreadable ~= attribute.name
+        if f.current_unreadable_once == attribute.name then found.bSuccessfullyFoundAttribute = false; f.current_unreadable_once = nil end
+        local value = (f.bases[attribute.name] + (f.additive and f.additive[attribute.name] or 0)) * (f.current_scale or 1)
+        if f.current_override then value = f.current_override end
+        if f.current_clamp then value = math.min(value, f.current_clamp) end
+        if f.current_noise then value = value + f.current_noise end
+        return string.unpack("<f", string.pack("<f", value))
+    end
     function f.combat_library:SetAttributeValue(asc, attribute, value)
         equal(asc, f.asc, "Native attribute write uses original ASC")
         f.attribute_writes[#f.attribute_writes + 1] = {name = attribute.name, value = value}
@@ -113,7 +123,7 @@ local function fixture()
         has_function = function(path) f.functions = f.functions + 1; return path ~= f.missing_function end,
         resolve = function(path)
             f.resolves = f.resolves + 1
-            if f.missing_object then return nil end
+            if f.missing_object or path == f.missing_object_path then return nil end
             if path == "/Script/DogwoodAI.DogwoodAIGameplayEffect_Invulnerability" then return f.class end
             if path == "/Script/DogwoodAI.Default__DogwoodAIGameplayEffect_Invulnerability" then return f.default end
             if path == "/Script/GameplayAbilities.Default__AbilitySystemBlueprintLibrary" then return f.library end
@@ -144,7 +154,7 @@ do
     equal(available.dawnwalker_invisible, true, "Verified target-side AI gate is available")
     for _ = 1, 1000 do f.trainer:refresh(f.state) end
     equal(f.resolves, 7, "Off-state resolution is session cached")
-    equal(f.functions, 12, "Off-state function lookups are session cached")
+    equal(f.functions, 13, "Off-state function lookups are session cached")
     equal(f.count_reads, nil, "Off-state does not poll effect functions")
     equal(f.attribute_scans, nil, "Off-state never enumerates attributes")
     equal(f.stub_lookups, nil, "Off-state never looks up the player stub")
@@ -288,6 +298,167 @@ local function damage_enable(f)
     equal(f.trainer:apply(f.state, "dawnwalker_damage", true), true)
     equal(f.trainer:enabled().dawnwalker_damage, true)
 end
+for _, path in ipairs({
+    "/Script/GameplayAbilities.AbilitySystemComponent:GetAllAttributes",
+    "/Script/GameplayAbilities.AbilitySystemBlueprintLibrary:GetDebugStringFromGameplayAttribute",
+    "/Script/GameplayAbilities.AbilitySystemBlueprintLibrary:GetFloatAttributeBaseFromAbilitySystemComponent",
+    "/Script/GameplayAbilities.AbilitySystemBlueprintLibrary:GetFloatAttributeFromAbilitySystemComponent",
+    "/Script/DogwoodCombat.CombatBlueprintFunctionLibrary:SetAttributeValue",
+    "/Script/DogwoodCombat.CombatComponentBase:GetAbilitySystemComponent",
+}) do
+    local f = fixture(); f.missing_function = path
+    local available, values = f.trainer:refresh(f.state)
+    equal(available.dawnwalker_damage, false)
+    equal(values.diagnostic_damage, "Damage binding unavailable: " .. path, "Unavailable control identifies its missing binding")
+    local ok, message = f.trainer:apply(f.state, "dawnwalker_damage", true)
+    equal(ok, false); equal(message, values.diagnostic_damage)
+    equal(#f.attribute_writes, 0)
+end
+for _, binding in ipairs({
+    {"/Script/GameplayAbilities.Default__AbilitySystemBlueprintLibrary", "Damage attribute library unavailable"},
+    {"/Script/DogwoodCombat.Default__CombatBlueprintFunctionLibrary", "Damage setter library unavailable"},
+}) do
+    local f = fixture(); f.missing_object_path = binding[1]
+    local available, values = f.trainer:refresh(f.state)
+    equal(available.dawnwalker_damage, false); equal(values.diagnostic_damage, binding[2])
+    equal(#f.attribute_writes, 0)
+end
+do
+    local f = fixture(); f.trainer:refresh(f.state); f.base_unreadable = "MagicDamageMultiplier"
+    local ok, message = f.trainer:apply(f.state, "dawnwalker_damage", true)
+    equal(ok, false); equal(message, "Damage attribute was not found: MagicDamageMultiplier")
+    local _, values = f.trainer:refresh(f.state)
+    equal(values.diagnostic_damage, message, "Failed enable remains visible on subsequent status refresh")
+    equal(#f.attribute_writes, 0)
+    f.base_unreadable = nil; damage_enable(f)
+    _, values = f.trainer:refresh(f.state)
+    equal(values.diagnostic_damage, "Super damage enabled: current native attack factors x10; inactive factors unchanged", "Successful retry replaces stale error")
+end
+do
+    local f = fixture(); f.trainer:refresh(f.state)
+    function f.library:GetFloatAttributeBaseFromAbilitySystemComponent() error("native conversion failed") end
+    local ok, message = f.trainer:apply(f.state, "dawnwalker_damage", true)
+    equal(ok, false); equal(message, "Damage base-value getter failed: MeleeDamageMultiplier")
+    equal(#f.attribute_writes, 0)
+end
+
+local function additive_defaults(f)
+    f.additive = {}
+    for _, name in ipairs(f.attribute_names) do f.bases[name] = 0; f.additive[name] = 1 end
+end
+do
+    local f = fixture(); additive_defaults(f); damage_enable(f)
+    equal(#f.attribute_writes, 4, "Zero native bases with positive evaluated factors are supported")
+    for _, name in ipairs(f.attribute_names) do
+        equal(f.bases[name], 9, "A current factor of one needs a base delta of nine")
+        equal(f.bases[name] + f.additive[name], 10, "The evaluated native factor reaches ten")
+    end
+    equal(f.trainer:apply(f.state, "dawnwalker_damage", true), true)
+    f.trainer:refresh(f.state)
+    equal(#f.attribute_writes, 4, "Repeated enable/refresh never compounds evaluated damage")
+    equal(f.trainer:apply(f.state, "dawnwalker_damage", false), true)
+    for _, name in ipairs(f.attribute_names) do
+        equal(f.bases[name], 0, "Zero native base restored exactly")
+        equal(f.additive[name], 1, "Game-supplied additive initialization remains untouched")
+    end
+end
+do
+    local f = fixture(); additive_defaults(f); f.additive.MagicDamageMultiplier = 0; damage_enable(f)
+    equal(#f.attribute_writes, 3, "Inactive zero factor is never written")
+    equal(f.bases.MagicDamageMultiplier, 0)
+    f.trainer:refresh(f.state); equal(f.trainer:enabled().dawnwalker_damage, true)
+    f.additive.MagicDamageMultiplier = 1
+    f.trainer:refresh(f.state)
+    equal(f.trainer:enabled().dawnwalker_damage, false, "A newly active factor disengages the prior snapshot")
+    equal(#f.attribute_writes, 6, "Only three owned bases need restoration")
+    for _, name in ipairs(f.attribute_names) do equal(f.bases[name], 0) end
+    equal(f.additive.MagicDamageMultiplier, 1, "New gameplay modifier survives cleanup")
+end
+do
+    local f = fixture()
+    for _, name in ipairs(f.attribute_names) do f.bases[name] = 0 end
+    f.trainer:refresh(f.state)
+    local ok, message = f.trainer:apply(f.state, "dawnwalker_damage", true)
+    equal(ok, false); equal(message, "No positive player damage factors are active; equip an attack before enabling")
+    equal(#f.attribute_writes, 0, "All inactive factors do not create an ineffective active toggle")
+end
+for _, setup in ipairs({
+    function(f) f.current_scale = 2 end,
+    function(f) f.current_override = 3 end,
+    function(f) f.current_clamp = 3 end,
+}) do
+    local f = fixture(); setup(f); f.trainer:refresh(f.state)
+    equal(f.trainer:apply(f.state, "dawnwalker_damage", true), false, "Evaluated mismatch refuses unsupported scaling, override or clamp")
+    equal(f.trainer:enabled().dawnwalker_damage, false)
+    equal(#f.attribute_writes, 2, "One attempted native change is rolled back without retrying")
+    for i, name in ipairs(f.attribute_names) do equal(f.bases[name], 1 + i * 0.25) end
+end
+do
+    local f = fixture(); additive_defaults(f); f.trainer:refresh(f.state); f.ignore_write = 2
+    equal(f.trainer:apply(f.state, "dawnwalker_damage", true), false, "Partial zero-base application is rejected")
+    for _, name in ipairs(f.attribute_names) do equal(f.bases[name], 0) end
+    equal(f.trainer:disable_all(), true)
+end
+do
+    local f = fixture(); additive_defaults(f); damage_enable(f)
+    f.additive.ClawsDamageMultiplier = 2
+    f.trainer:refresh(f.state)
+    equal(f.trainer:enabled().dawnwalker_damage, false, "Evaluated change is detected even when all owned bases are unchanged")
+    for _, name in ipairs(f.attribute_names) do equal(f.bases[name], 0) end
+    equal(f.additive.ClawsDamageMultiplier, 2, "Gameplay effect change survives owned-base cleanup")
+end
+do
+    local f = fixture(); f.trainer:refresh(f.state); f.current_unreadable = "ClawsDamageMultiplier"
+    local ok, message = f.trainer:apply(f.state, "dawnwalker_damage", true)
+    equal(ok, false); equal(message, "Current damage attribute was not found: ClawsDamageMultiplier")
+    equal(#f.attribute_writes, 0)
+end
+for _, value in ipairs({-1, math.huge, 100001}) do
+    local f = fixture(); f.current_override = value; f.trainer:refresh(f.state)
+    equal(f.trainer:apply(f.state, "dawnwalker_damage", true), false, "Unsupported evaluated factors fail before writing")
+    equal(#f.attribute_writes, 0)
+end
+do
+    local f = fixture(); additive_defaults(f); damage_enable(f)
+    f.additive.MeleeDamageMultiplier = 2
+    equal(f.trainer:apply(f.state, "dawnwalker_damage", true), false, "Repeated enable rechecks evaluated factors before acknowledgement")
+    equal(f.trainer:enabled().dawnwalker_damage, false)
+    for _, name in ipairs(f.attribute_names) do equal(f.bases[name], 0) end
+    equal(f.additive.MeleeDamageMultiplier, 2)
+end
+do
+    local f = fixture(); f.trainer:refresh(f.state)
+    f.after_attribute_write = function(name, value)
+        if name == "MeleeDamageMultiplier" and value > 10 then f.current_unreadable_once = name end
+    end
+    equal(f.trainer:apply(f.state, "dawnwalker_damage", true), false, "Lost evaluated readback rolls back a confirmed base write")
+    for i, name in ipairs(f.attribute_names) do equal(f.bases[name], 1 + i * 0.25) end
+end
+do
+    local f = fixture(); f.current_noise = 0.000001; damage_enable(f)
+    f.trainer:refresh(f.state)
+    equal(f.trainer:enabled().dawnwalker_damage, true, "Float32 aggregation rounding does not spuriously disengage")
+    equal(f.trainer:disable_all(), true)
+    for i, name in ipairs(f.attribute_names) do equal(f.bases[name], 1 + i * 0.25, "Float tolerance never relaxes base ownership") end
+end
+do
+    local f = fixture(); damage_enable(f)
+    function f.library:GetFloatAttributeFromAbilitySystemComponent(_, attribute) return f.bases[attribute.name] end
+    local available = f.trainer:refresh(f.state)
+    equal(available.dawnwalker_damage, false, "Reused OUT tables never retain a stale success flag")
+    equal(f.trainer:disable_all(), true, "Readable owned bases can still be restored")
+    for i, name in ipairs(f.attribute_names) do equal(f.bases[name], 1 + i * 0.25) end
+end
+do
+    local f = fixture(); f.trainer:refresh(f.state)
+    f.after_attribute_write = function(name, value)
+        if name == "UnarmedDamageMultiplier" and value > 10 then f.bases.MeleeDamageMultiplier = 5.5 end
+    end
+    equal(f.trainer:apply(f.state, "dawnwalker_damage", true), false, "Final verification catches recalculation of an earlier field")
+    equal(f.bases.MeleeDamageMultiplier, 5.5, "Later game base change is preserved")
+    equal(f.bases.ClawsDamageMultiplier, 1.5); equal(f.bases.MagicDamageMultiplier, 1.75); equal(f.bases.UnarmedDamageMultiplier, 2)
+end
+
 local function originals(f)
     for i, name in ipairs(f.attribute_names) do equal(f.bases[name], 1 + i * 0.25, "Original base restored: " .. name) end
 end
@@ -379,7 +550,7 @@ do
     equal(f.trainer:disable_all(), true)
     equal(#f.attribute_writes, 4, "Destroyed ASC receives no attribute restore")
 end
-for _, value in ipairs({0, -1, math.huge, 100001}) do
+for _, value in ipairs({-1, math.huge, 100001}) do
     local f = fixture(); f.trainer:refresh(f.state); f.bases.MagicDamageMultiplier = value
     equal(f.trainer:apply(f.state, "dawnwalker_damage", true), false, "Unsupported base values fail before writing")
     equal(#f.attribute_writes, 0)
