@@ -101,6 +101,15 @@ internal static class PhantomBladeUiChecks
                 "Player world is unavailable", "Player-world lookup failed", "Player-controller discovery failed",
                 "More than one locally controlled Phantom Blade Zero player is available"
             };
+            var healthReasons = new[] {
+                "Phantom Blade Zero health restore API is unavailable.",
+                "Phantom Blade Zero health values are unavailable.",
+                "Phantom Blade Zero health restore requires a living player.",
+                "Phantom Blade Zero health restore target changed.",
+                "Phantom Blade Zero health restore was rejected. Choose Disable all before retrying.",
+                "Phantom Blade Zero health restore call failed. Choose Disable all before retrying.",
+                "Phantom Blade Zero health restore could not be verified. Choose Disable all before retrying."
+            };
             foreach (var language in new[] { "en", "zh" })
             foreach (var theme in new[] { "dark", "light" }) {
                 main.SetLanguage(language, persist: false); main.SetTheme(theme, persist: false);
@@ -124,6 +133,24 @@ internal static class PhantomBladeUiChecks
                     Values = new Dictionary<string, string>(confirmed.Values) { ["pbz_discovery"] = "fixture runtime detail" } });
                 Check(main.Features.All(f => !f.CanUse && f.StateLabel == Localization.Message(missingPlayerClass)), "feature rows omit the localized player detection reason");
                 Check(module.Status.Values["pbz_discovery"] == "fixture runtime detail", "localization altered runtime diagnostic details");
+                foreach (var healthReason in healthReasons) {
+                    var healthFailure = confirmed with {
+                        Values = new Dictionary<string, string>(confirmed.Values) {
+                            ["available_pbz_health"] = "False", ["reason_pbz_health"] = healthReason,
+                            ["diagnostic_pbz_health_error"] = "fixture native error"
+                        }
+                    };
+                    Update(healthFailure);
+                    Check(!health.CanUse && health.StateLabel == Localization.Message(healthReason)
+                        && main.Features.Where(f => f != health).All(f => f.CanUse), "health failure must explain only the affected control");
+                    Check(language == "en" ? health.StateLabel == healthReason : health.StateLabel != healthReason,
+                        "health recovery reason is not translated");
+                    Check(!main.ValuesLine.Contains("fixture native error", StringComparison.Ordinal), "technical health errors leaked into the values display");
+                    Update(healthFailure, working: true);
+                    Check(health.StateLabel != Localization.Message(healthReason), "health error hid working state");
+                    Update(healthFailure with { Enabled = new Dictionary<string, bool> { ["pbz_health"] = true } });
+                    Check(health.CanUse, "health failure removed explicit off/cleanup");
+                }
                 Update(confirmed);
                 if (language == "zh") {
                     Check(fixture.Name == "影之刃零" && main.Features.All(f => f.Name != f.Definition.Name && f.Description != f.Definition.Description), "Chinese labels or descriptions are missing");

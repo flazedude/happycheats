@@ -9,10 +9,11 @@ Its embedded engine string is **Unreal Engine 5.7.4** (image RVA `0x0C9746F8`).
 
 The evidence below was extracted read-only from the user's installed executable
 on 29 October 2026. Addresses identify the inspected evidence only. Production
-Lua uses reflected paths to the owned player's attribute set and its remote
-`FGameplayAttributeData.CurrentValue` float fields. These are direct reflected
-memory writes; the runtime contains no hard-coded game offsets or fabricated
-Unreal structures and never writes an attribute's `BaseValue`. Extracted
+Lua uses reflected paths to the owned player. Health recovery invokes the game's
+targeted native function; Sha-Chi and attack retain direct reflected
+`FGameplayAttributeData.CurrentValue` writes. The runtime contains no hard-coded
+game offsets or fabricated Unreal structures. Health's base value is changed
+only by the game's own recovery routine. Extracted
 game material and research scratch files remain under ignored
 `artifacts/phantom-blade/research-agent` and are not distributed.
 
@@ -41,7 +42,9 @@ for each field access and requires `IsValid()`, `IsMappedToObject()` and
 The pinned UE4SS implementation's ordinary remote-property read returns a
 `LuaUScriptStruct` wrapper. Its `__newindex` implementation finds the nested
 reflected float property and dispatches the registered `FloatProperty` setter.
-This preserves the struct's other fields, including `BaseValue`. Relevant
+This preserves the struct's other fields, including `BaseValue`, but does not
+invoke the game's attribute aggregation or change notifications. Health no
+longer uses this write path. Relevant
 source is `LuaUObject.cpp` (`push_structproperty`, `push_floatproperty` Set case) and
 `LuaUScriptStruct.cpp` (`__newindex`) at pinned revision
 `2bfa839fe2945f9230204145646b5be4ae84fde8`.
@@ -103,16 +106,71 @@ when checking attack ownership; it never substitutes an unknown base value.
 | Sha-Chi (stamina control) | `Shachi` | `Shachi_Max` | The game's legacy-named `GetAnger` reaches `0x067DF7F0`, reading member `0x638`; `GetMaxAnger` reaches `0x067E35E0`, reading `0x658`. Generated properties name these members `Shachi` and `Shachi_Max`. |
 
 The stamina control specifically refills the **Sha-Chi** resource; it does not
-claim to identify another resource from the English word "anger" alone. Both
-toggles set the remote reflected `CurrentValue` float to the maximum attribute's
-`CurrentValue`. They do not change `BaseValue` or maximum values. Non-positive health blocks
-every refill, so the module does not attempt resurrection. Periodic refills
-cannot prevent a lethal hit or resource consumption between updates.
+claim to identify another resource from the English word "anger" alone.
+Sha-Chi retains the remote reflected `CurrentValue` write to its current maximum,
+without changing its base or maximum. Health uses the native path below.
+Non-positive health blocks refills, so the module does not attempt resurrection.
+Periodic refills cannot prevent a lethal hit or resource consumption between
+updates.
 
 The game also has real `GM_SetHealth(float NewHealth)` and
 `GM_GetHealth()` functions on `/Script/ProjectPBZ.PBZCheatManager`. The first
 reaches native `0x06629D00`; the second only logs a result. They are evidence
 supporting the resource identification and are not used by the trainer.
+
+### Canonical health recovery, trainer 0.1.3
+
+On 31 October, 0.1.2 reached readiness and reported health 850/850 with the toggle
+enabled, while the user reported no recovery and continued deaths. The game
+exited before a fresh native base/current snapshot could be captured. The
+telemetry alone cannot prove the exact underlying health at the time of damage.
+Static inspection nevertheless establishes that the old raw `CurrentValue`
+assignment bypasses the normal base-value, aggregator and notification path.
+The old test model also failed to represent these as separate states.
+
+The inspected game exposes this exact-target native alternative:
+
+```text
+/Script/ProjectPBZ.PBZRestoreQueryLibrary:ResetHealthToMax
+static bool ResetHealthToMax(AActor* Target)
+```
+
+Class registration `0x0657CF70`, function factory `0x0657D1A0`, wrapper
+`0x06580C40` and implementation `0x068E79E0` establish its owner and behavior.
+Its 16-byte parameter block contains `Target` at offset 0 and the native bool
+`ReturnValue` at offset 8; flags are `0x04022401`. It obtains the supplied
+actor's ability system directly, requires Health/Health_Max and a positive
+maximum, calls the canonical attribute setter `0x04C7A520`, then returns whether
+current health is at least maximum minus `0.0001`. It does not select a global
+player or perform a save/load operation. The setter reaches `0x04CD18E0`,
+updates base health and the aggregator, and invokes attribute hooks.
+
+Lua obtains the exact function and
+`/Script/ProjectPBZ.Default__PBZRestoreQueryLibrary`, then invokes the function
+with that explicit context and the validated pawn. The pinned UE4SS
+`call_ufunction_from_lua` supports this unbound-function convention and both
+ObjectProperty input and BoolProperty output. It avoids per-object function-map
+lookup and does not marshal an unsupported `FieldPathProperty`. The library
+constructor's vtable independently confirms ProcessEvent at slot `0x260`,
+pointing to `0x01631410`, consistent with the loader's existing dispatch path.
+See the [UFunction calling convention](https://docs.ue4ss.com/dev/lua-api/classes/ufunction.html).
+
+Before dispatch, the trainer revalidates the player/session and owned attributes.
+It skips a full-health update only when both base and current health match the
+maximum. A successful native return and fresh base/current/capacity readback are
+required; there is no raw-health fallback. A false return, exception or failed
+confirmation turns health off and prevents repeated automatic calls. Explicit
+health-off or Disable all clears that fault without writing health, allowing a
+new deliberate attempt. Other controls remain available when only recovery
+fails. Technical details stay in bounded diagnostic telemetry; a short bilingual
+reason appears on the health control.
+
+Ignored evidence is retained in `artifacts/phantom-health-live`, including
+`reset-health-evidence.json`, `reset-health-disassembly.txt`,
+`reset-health-summary.txt` and `gas-sethealth-container.txt`. These are static
+and loader-source findings; they do not establish live invocation or healing.
+Fixtures separately model base health, current health, authoritative health and
+notifications, including full-current/depleted-base and no-op native results.
 
 ## Damage multiplier means attack power
 
@@ -219,8 +277,9 @@ injection, memory writes or save edits. Local evidence is retained under
 `artifacts/phantom-live/` (`snapshot.json`, `readiness-traceback.json`). Tests
 exercise unavailable/throwing old getter methods, direct-property failures,
 remote or ambiguous players, many irrelevant controllers, session transitions
-and ownership changes before refill. The changed Lua path requires a restart
-before its live readiness can be established.
+and ownership changes before refill. After restart, the subsequent 0.1.2
+heartbeat confirmed player readiness; the separate health failure is described
+above.
 
 ## Validation boundary
 
@@ -231,9 +290,10 @@ availability, write/readback handling and restoration behavior against mocks.
 The read-only live check additionally confirms the loaded schemas, player
 ownership and sampled resource values described above.
 
-The observed 0.1.1 heartbeat establishes loader startup on this executable.
-Trainer 0.1.2 readiness, successful live reflected reads/writes, actual combat
-effects, controller operation and rendering over the running game remain
-unverified. Those require separate live evidence after updating and restarting.
+The observed 0.1.1 heartbeat establishes loader startup on this executable, and
+the later 0.1.2 heartbeat establishes player readiness. Trainer 0.1.3 native
+health recovery, actual combat effects, controller operation and rendering over
+the running game remain unverified. Those require separate live evidence after
+updating and restarting.
 The default state has all controls off and multiplier 1. No progression or
 save-editing command is implemented by this profile.

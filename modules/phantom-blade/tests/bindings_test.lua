@@ -16,11 +16,16 @@ local paths = {
     player="/Script/ProjectPBZ.PBZCharacter_Player",
     local_player="/Script/Engine.LocalPlayer",
     basic="/Script/CharacterBasics.BasicAttributeSet",
+    health_library="/Script/ProjectPBZ.PBZRestoreQueryLibrary",
+    health_default="/Script/ProjectPBZ.Default__PBZRestoreQueryLibrary",
+    health_restore="/Script/ProjectPBZ.PBZRestoreQueryLibrary:ResetHealthToMax",
+    function_class="/Script/CoreUObject.Function",
 }
 local function make_player(class, world)
     local f=class.fixture
     local pawn, controller, set, local_player = object(), object(), object(), object()
     pawn.base = {Health=50,Health_Max=100,Shachi=20,Shachi_Max=80,Attack=100}
+    pawn.authoritative_health=50; pawn.health_notifications=0
     pawn.values = {}
     for key,value in pairs(pawn.base) do pawn.values[key] = value end
     pawn.Controller, pawn.world = controller, world
@@ -56,6 +61,7 @@ local function make_player(class, world)
             end,
             __newindex=function(_,field,value)
                 equal(field,"CurrentValue","Only remote CurrentValue may be written")
+                assert(name~="Health","Health must use the native restore API, never a raw reflected write")
                 if f.setter_error==name then error("fixture setter rejected operation") end
                 f.writes[#f.writes+1]={pawn=pawn,set=set,key=name,value=value,base=pawn.base[name]}
                 if f.noop~=name then pawn.values[name]=value end
@@ -66,17 +72,44 @@ local function make_player(class, world)
     return pawn, controller
 end
 local function fixture()
-    local f = {writes={},missing={},read_errors={},base_errors={},scans=0,finds={},now=1000,
+    local f = {writes={},native_calls={},missing={},read_errors={},base_errors={},scans=0,finds={},now=1000,
         data_reads=0,missing_data={},invalid_data={},unmapped_object={},unmapped_property={}}
     f.class, f.local_class, f.basic, f.world = object(), object(), object(), object()
     f.class.fixture=f
     f.pawn, f.controller = make_player(f.class, f.world)
     f.controllers, f.attrs = {f.controller}, f.pawn.values
-    f.objects = {[paths.player]=f.class,[paths.local_player]=f.local_class,[paths.basic]=f.basic}
+    f.health_library,f.health_default,f.health_restore,f.function_class=object(),object(),object(),object()
+    function f.health_default:IsA(wanted) return wanted==f.health_library and self.correct_class~=false end
+    function f.health_restore:IsA(wanted) return wanted==f.function_class and self.correct_class~=false end
+    function f.health_restore:GetOuter()
+        if f.api_probe then f.api_probe() end
+        return self.owner or f.health_library
+    end
+    setmetatable(f.health_default,{__index=function(_,name)
+        if name=="ResetHealthToMax" then error("Per-object reflected function member lookup is broken") end
+    end})
+    setmetatable(f.health_restore,{__call=function(_,context,target)
+        f.native_calls[#f.native_calls+1]={context=context,target=target}
+        equal(context,f.health_default,"Unbound UFunction receives its explicit CDO context")
+        equal(target,f.pawn,"Native health restore receives only the validated local pawn")
+        if f.native_error then error(f.native_error) end
+        if f.native_result==false then return false end
+        if f.native_mode~="noop" then
+            local maximum=target.values.Health_Max
+            if f.native_mode~="current_only" then target.base.Health=maximum end
+            if f.native_mode~="base_only" then target.values.Health=maximum end
+            target.authoritative_health=maximum; target.health_notifications=target.health_notifications+1
+        end
+        if f.after_native then f.after_native(target) end
+        return f.native_after_result~=false
+    end})
+    f.objects = {[paths.player]=f.class,[paths.local_player]=f.local_class,[paths.basic]=f.basic,
+        [paths.health_library]=f.health_library,[paths.health_default]=f.health_default,
+        [paths.health_restore]=f.health_restore,[paths.function_class]=f.function_class}
     local env = setmetatable({
         os={time=function() return f.now end},
         StaticFindObject=function(path)
-            assert(path==paths.player or path==paths.local_player or path==paths.basic,"No native MakeAttribute/helper fallback is supported")
+            assert(f.objects[path]~=nil,"Unexpected native helper or object lookup")
             f.finds[path] = (f.finds[path] or 0) + 1
             if f.find_error then error(f.find_error) end
             if not f.missing[path] then return f.objects[path] end
@@ -105,11 +138,13 @@ end
 test("read-only startup and idle refresh never enable a cheat", function()
     local f=fixture()
     equal(#f.writes,0,"Constructing bindings is inert")
+    equal(#f.native_calls,0,"Constructing bindings never invokes health restoration")
     local values,available=ready(f)
     equal(tonumber(values.pbz_health),50); equal(tonumber(values.pbz_stamina),20)
     for _,id in ipairs({"pbz_health","pbz_stamina","pbz_damage"}) do equal(available[id],true,id.." availability") end
     for _=1,5 do f.trainer:tick() end
     equal(#f.writes,0)
+    equal(#f.native_calls,0,"Idle refresh never invokes health restoration")
     local flags=f.trainer:enabled(); flags.pbz_health=true
     equal(f.trainer:enabled().pbz_health,false,"Returned flags cannot mutate trainer")
 end)
@@ -119,17 +154,187 @@ for _,spec in ipairs({{"pbz_health","Health","Health_Max"},{"pbz_stamina","Shach
         local f=fixture(); ready(f)
         equal(f.trainer:apply(spec[1],true),true)
         equal(f.attrs[spec[2]],f.attrs[spec[3]])
-        equal(f.pawn.base[spec[2]],spec[2]=="Health" and 50 or 20,"Resource BaseValue is untouched")
+        equal(f.pawn.base[spec[2]],spec[2]=="Health" and 100 or 20,"Health uses the canonical base setter; stamina retains its existing path")
         equal(f.trainer:enabled()[spec[1]],true)
         f.attrs[spec[2]]=1; f.attrs[spec[3]]=120
         f.trainer:tick(); equal(f.attrs[spec[2]],120,"Refill follows capacity changes")
-        local count=#f.writes; f.trainer:tick()
-        equal(#f.writes,count,"No redundant full-resource writes")
+        local count=#f.writes+#f.native_calls; f.trainer:tick()
+        equal(#f.writes+#f.native_calls,count,"No redundant full-resource writes")
         equal(f.trainer:apply(spec[1],false),true)
         f.attrs[spec[2]]=1; f.trainer:tick()
-        equal(f.attrs[spec[2]],1); equal(#f.writes,count)
+        equal(f.attrs[spec[2]],1); equal(#f.writes+#f.native_calls,count)
     end)
 end
+
+test("native health restores depleted base even when raw current already looks full",function()
+    local f=fixture(); f.attrs.Health=100; f.pawn.base.Health=15; f.pawn.authoritative_health=15
+    ready(f); equal(f.trainer:apply("pbz_health",true),true)
+    equal(#f.native_calls,1); equal(#f.writes,0)
+    equal(f.pawn.base.Health,100); equal(f.attrs.Health,100)
+    equal(f.pawn.authoritative_health,100,"Canonical setter reaches the modeled gameplay aggregator")
+    equal(f.pawn.health_notifications,1,"Canonical setter emits modeled gameplay change notification")
+    f.attrs.Health=70; f.pawn.base.Health=70; f.pawn.authoritative_health=70
+    f.trainer:tick()
+    equal(#f.native_calls,2); equal(f.pawn.authoritative_health,100)
+    equal(f.pawn.health_notifications,2)
+    f.trainer:tick(); equal(#f.native_calls,2,"Both base/current full avoids redundant native calls")
+    f.trainer:disable_all(); f.attrs.Health=20; f.pawn.base.Health=20; f.pawn.authoritative_health=20
+    f.trainer:tick(); equal(#f.native_calls,2); equal(f.pawn.authoritative_health,20)
+end)
+
+test("missing or invalid health API disables only health and can recover without auto activation",function()
+    for _,change in ipairs({
+        function(f) f.missing[paths.health_library]=true end,
+        function(f) f.missing[paths.health_default]=true end,
+        function(f) f.missing[paths.health_restore]=true end,
+        function(f) f.missing[paths.function_class]=true end,
+        function(f) f.health_default.correct_class=false end,
+        function(f) f.health_restore.correct_class=false end,
+        function(f) f.health_restore.owner=object() end,
+    }) do
+        local f=fixture(); change(f)
+        local values,available=ready(f)
+        equal(available.pbz_health,false); equal(available.pbz_stamina,true); equal(available.pbz_damage,true)
+        equal(values.reason_pbz_health,"Phantom Blade Zero health restore API is unavailable.")
+        equal(f.trainer:apply("pbz_health",true),false); equal(#f.native_calls,0)
+        equal(f.trainer:apply("pbz_stamina",true),true); equal(f.attrs.Shachi,80)
+    end
+    local f=fixture(); ready(f); equal(f.trainer:apply("pbz_health",true),true)
+    f.health_restore.valid=false; f.missing[paths.health_restore]=true
+    f.attrs.Health=40; f.pawn.base.Health=40; f.pawn.authoritative_health=40
+    f.trainer:tick(); equal(f.trainer:enabled().pbz_health,false); equal(#f.native_calls,1)
+    f.health_restore.valid=true; f.missing[paths.health_restore]=nil
+    local values,available=ready(f)
+    equal(available.pbz_health,true); equal(values.reason_pbz_health,nil)
+    f.trainer:tick(); equal(#f.native_calls,1); equal(f.pawn.authoritative_health,40)
+    equal(f.trainer:apply("pbz_health",true),true); equal(f.pawn.authoritative_health,100)
+end)
+
+test("invalid or defeated health base cannot be resurrected behind full raw current",function()
+    for _,base in ipairs({0,-1,0/0,math.huge,100000001}) do
+        local f=fixture(); f.attrs.Health=100; f.pawn.base.Health=base
+        local values,available=ready(f)
+        equal(available.pbz_health,false); equal(available.pbz_stamina,true)
+        equal(values.reason_pbz_health,base==0 and "Phantom Blade Zero health restore requires a living player."
+            or "Phantom Blade Zero health values are unavailable.")
+        equal(f.trainer:apply("pbz_health",true),false); equal(#f.native_calls,0); equal(#f.writes,0)
+    end
+    local f=fixture(); f.base_errors.Health=true
+    local _,available=ready(f); equal(available.pbz_health,false); equal(available.pbz_damage,true)
+    equal(f.trainer:apply("pbz_health",true),false); equal(#f.native_calls,0)
+end)
+
+test("health requires native true and independently confirmed base/current values",function()
+    for _,case in ipairs({
+        {"noop","Phantom Blade Zero health restore could not be verified. Choose Disable all before retrying."},
+        {"current_only","Phantom Blade Zero health restore could not be verified. Choose Disable all before retrying."},
+        {"base_only","Phantom Blade Zero health restore could not be verified. Choose Disable all before retrying."},
+        {"false","Phantom Blade Zero health restore was rejected. Choose Disable all before retrying."},
+        {"error","Phantom Blade Zero health restore call failed. Choose Disable all before retrying."},
+    }) do
+        local f=fixture(); ready(f)
+        if case[1]=="false" then f.native_result=false
+        elseif case[1]=="error" then f.native_error="fixture native failure\n\t\0"..string.rep("x",500)
+        else f.native_mode=case[1] end
+        local ok,message=f.trainer:apply("pbz_health",true)
+        equal(ok,false); equal(message,case[2]); equal(f.trainer:enabled().pbz_health,false)
+        local values,available=ready(f)
+        equal(available.pbz_health,false); equal(available.pbz_stamina,true); equal(available.pbz_damage,true)
+        equal(values.reason_pbz_health,case[2]); equal(#f.native_calls,1); equal(#f.writes,0)
+        equal(#values.diagnostic_pbz_health_error<=160,true)
+        equal(values.diagnostic_pbz_health_error:find("[%z\1-\31\127]"),nil)
+        for _=1,3 do f.trainer:tick() end
+        equal(f.trainer:apply("pbz_health",true),false); equal(#f.native_calls,1,"Uncertain native call never retries in the same session")
+    end
+end)
+
+test("explicit off and Disable all clear a health fault without retrying native writes",function()
+    for _,action in ipairs({"pbz_health","disable_all"}) do
+        local f=fixture(); ready(f); f.native_result=false
+        equal(f.trainer:apply("pbz_health",true),false); equal(#f.native_calls,1)
+        f.native_result=nil
+        equal(f.trainer:apply(action,false),true); equal(#f.native_calls,1)
+        local values,available=ready(f)
+        equal(values.reason_pbz_health,nil); equal(available.pbz_health,true)
+        equal(f.trainer:enabled().pbz_health,false)
+        f.trainer:tick(); equal(#f.native_calls,1,"Clearing a fault never silently enables healing")
+        equal(f.trainer:apply("pbz_health",true),true); equal(#f.native_calls,2)
+        equal(f.pawn.authoritative_health,100)
+    end
+end)
+
+test("native false or error after applying health does not roll back or retry",function()
+    for _,throws in ipairs({false,true}) do
+        local f=fixture(); ready(f)
+        if throws then f.after_native=function() error("native result unavailable after mutation") end
+        else f.native_after_result=false end
+        equal(f.trainer:apply("pbz_health",true),false)
+        equal(f.pawn.base.Health,100); equal(f.attrs.Health,100); equal(f.pawn.authoritative_health,100)
+        equal(f.pawn.health_notifications,1); equal(#f.writes,0)
+        f.after_native=nil; f.native_after_result=nil
+        for _=1,3 do f.trainer:tick() end
+        equal(f.trainer:apply("pbz_health",true),false); equal(#f.native_calls,1)
+        equal(f.trainer:apply("pbz_health",false),true); equal(#f.native_calls,1,"Turning off does not undo real healing")
+    end
+end)
+
+test("a running native health failure turns off and remains visible without tick retries",function()
+    local f=fixture(); ready(f); equal(f.trainer:apply("pbz_health",true),true)
+    f.attrs.Health=10; f.pawn.base.Health=10; f.pawn.authoritative_health=10; f.native_after_result=false
+    f.trainer:tick()
+    equal(f.trainer:enabled().pbz_health,false); equal(#f.native_calls,2)
+    equal(f.pawn.authoritative_health,100,"The failed result can still follow an applied native change")
+    local values,available=ready(f)
+    equal(available.pbz_health,false)
+    equal(values.reason_pbz_health,"Phantom Blade Zero health restore was rejected. Choose Disable all before retrying.")
+    f.trainer:tick(); equal(#f.native_calls,2)
+end)
+
+test("health call revalidates the target after API resolution and before native dispatch",function()
+    for _,change in ipairs({
+        function(f) f.controller.Pawn=object() end,
+        function(f) f.pawn.Controller=object() end,
+        function(f) f.pawn.world=object() end,
+        function(f) f.pawn.AttributeSetBase.owner=object() end,
+        function(f) f.trainer.identity="changed-during-call-preparation" end,
+    }) do
+        local f=fixture(); ready(f); local probes=0
+        f.api_probe=function() probes=probes+1; if probes==2 then change(f) end end
+        local ok,message=f.trainer:apply("pbz_health",true)
+        equal(ok,false); equal(message,"Phantom Blade Zero health restore target changed.")
+        equal(#f.native_calls,0); equal(#f.writes,0); equal(f.pawn.authoritative_health,50)
+    end
+end)
+
+test("health readback loss and target changes after native execution remain unconfirmed",function()
+    for _,change in ipairs({
+        function(f) f.base_errors.Health=true end,
+        function(f) f.read_errors.Health=true end,
+        function(f) f.attrs.Health_Max=200 end,
+        function(f) f.attrs.Health_Max=0.005; f.attrs.Health=0; f.pawn.base.Health=0 end,
+        function(f) f.controller.Pawn=object() end,
+        function(f) f.pawn.world=object() end,
+        function(f) f.pawn.AttributeSetBase.owner=object() end,
+    }) do
+        local f=fixture(); ready(f); f.after_native=function() change(f) end
+        equal(f.trainer:apply("pbz_health",true),false)
+        equal(f.trainer:enabled().pbz_health,false); equal(#f.native_calls,1); equal(#f.writes,0)
+        equal(f.pawn.authoritative_health,100,"Unconfirmed real healing is not rolled back")
+    end
+end)
+
+test("new gameplay session clears a failed health call without carrying its toggle",function()
+    local f=fixture(); ready(f); f.native_result=false
+    equal(f.trainer:apply("pbz_health",true),false); equal(#f.native_calls,1)
+    local old=f.pawn; old.Controller=nil; f.now=f.now+1
+    f.pawn,f.controller=make_player(f.class,object()); f.controllers={f.controller}; f.attrs=f.pawn.values
+    f.native_result=nil
+    local values,available=ready(f)
+    equal(available.pbz_health,true); equal(values.reason_pbz_health,nil)
+    equal(f.trainer:enabled().pbz_health,false); f.trainer:tick(); equal(#f.native_calls,1)
+    equal(f.trainer:apply("pbz_health",true),true); equal(#f.native_calls,2)
+    equal(f.native_calls[2].target,f.pawn); equal(old.authoritative_health,50)
+end)
 
 test("unowned, wrong-class, invalid and ambiguous pawns cannot receive writes",function()
     for _,change in ipairs({
@@ -272,9 +477,10 @@ end)
 
 test("death cannot be reversed by a previously enabled refill",function()
     local f=fixture(); ready(f); equal(f.trainer:apply("pbz_health",true),true)
-    f.attrs.Health=0; local count=#f.writes
+    f.attrs.Health=0; local count=#f.writes; local native_count=#f.native_calls
     f.trainer:tick(); equal(f.trainer:enabled().pbz_health,false)
     equal(f.attrs.Health,0); equal(#f.writes,count,"Dead pawn is never refilled")
+    equal(#f.native_calls,native_count,"Dead pawn never reaches the native health setter")
     equal(f.trainer:apply("pbz_health",true),false)
     f.attrs.Health=20; f.trainer:tick()
     equal(f.attrs.Health,20); equal(f.trainer:enabled().pbz_health,false,"Recovery needs explicit activation")
@@ -301,7 +507,7 @@ test("world transition rotates session even if pawn address is retained",functio
 end)
 
 test("missing essential binding fails closed before any mutation",function()
-    for _,path in pairs(paths) do
+    for _,path in ipairs({paths.player,paths.local_player,paths.basic}) do
         local f=fixture(); f.missing[path]=true
         f.trainer:refresh()
         equal(f.trainer:apply("pbz_health",true),false)

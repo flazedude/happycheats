@@ -1070,6 +1070,10 @@ public sealed class FeatureItem : INotifyPropertyChanged
         if (_connected && !cleanup && status?.Ready == false && Definition.Id.StartsWith("pbz_", StringComparison.Ordinal)
             && !string.IsNullOrWhiteSpace(status.Message) && status.Message.Length <= 160)
             _unavailableReason = status.Message;
+        if (_connected && _unavailable && Definition.Id == "pbz_health"
+            && status!.Values.TryGetValue("reason_pbz_health", out var healthReason)
+            && !string.IsNullOrWhiteSpace(healthReason) && healthReason.Length <= 160)
+            _unavailableReason = healthReason;
         CanUse = available && _connected && gtaStory && (cleanup || status?.Ready == true && !_unavailable);
         var confirmedChoice = status?.Connected == true && Definition.ChoiceValueKey is { } key
             && status.Values.TryGetValue(key, out var selected) ? selected : null;

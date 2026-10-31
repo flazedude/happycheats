@@ -101,4 +101,4 @@ failed in a separate `K2_GetPawn` function lookup; see
 
 Both loader profile files are required, hashed members of the Phantom Blade package. Installation preserves foreign or modified profiles and removal follows the shared-loader ownership rules. Offline fixtures check relocated signature results, rejected candidates, the exact verified layout, required payload files and ownership behavior.
 
-The 31 October session establishes successful UE4SS/trainer startup with this profile. It does not establish gameplay effects, readiness of the changed 0.1.2 bindings, shared-menu rendering over the game or physical-controller operation.
+The 31 October sessions establish successful UE4SS/trainer startup and subsequent 0.1.2 player readiness with this profile. They do not establish successful 0.1.3 health recovery, shared-menu rendering over the game or physical-controller operation.

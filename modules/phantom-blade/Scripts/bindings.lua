@@ -1,10 +1,23 @@
--- Reflected CurrentValue fields inspected in Steam build 26266538.
+-- Native health restoration and reflected attributes inspected in Steam build 26266538.
 -- See docs/phantom-blade-bindings.md. All calls run on the UE4SS game thread.
 local M, T = {}, {}
 T.__index = T
 local PLAYER = "/Script/ProjectPBZ.PBZCharacter_Player"
 local LOCAL_PLAYER = "/Script/Engine.LocalPlayer"
 local BASIC = "/Script/CharacterBasics.BasicAttributeSet"
+local HEALTH_LIBRARY = "/Script/ProjectPBZ.PBZRestoreQueryLibrary"
+local HEALTH_DEFAULT = "/Script/ProjectPBZ.Default__PBZRestoreQueryLibrary"
+local HEALTH_RESTORE = HEALTH_LIBRARY..":ResetHealthToMax"
+local FUNCTION = "/Script/CoreUObject.Function"
+local health_messages = {
+    api="Phantom Blade Zero health restore API is unavailable.",
+    values="Phantom Blade Zero health values are unavailable.",
+    living="Phantom Blade Zero health restore requires a living player.",
+    target="Phantom Blade Zero health restore target changed.",
+    rejected="Phantom Blade Zero health restore was rejected. Choose Disable all before retrying.",
+    failed="Phantom Blade Zero health restore call failed. Choose Disable all before retrying.",
+    verify="Phantom Blade Zero health restore could not be verified. Choose Disable all before retrying.",
+}
 local resources = {pbz_health={"Health","Health_Max"}, pbz_stamina={"Shachi","Shachi_Max"}}
 local function finite(v) return type(v)=="number" and v==v and math.abs(v)<math.huge end
 local function close(a,b) return finite(a) and finite(b) and math.abs(a-b)<=math.max(0.01,math.abs(b)*0.00001) end
@@ -148,12 +161,94 @@ end
 function T:_read(name,pawn,set) return self:_value(name,"CurrentValue",pawn,set) end
 function T:_base(pawn,set) return self:_value("Attack","BaseValue",pawn,set) end
 function T:_write(pawn,name,value,set)
+    -- Raw CurrentValue writes cannot update health's GAS base/aggregator or notifications.
+    if name=="Health" then return false end
     if not finite(value) or value<0 or value>100000000 then return false end
     local data=self:_data(name,pawn,set)
     if not data then return false end
     -- UE4SS's remote UScriptStruct __newindex writes this one reflected float.
     -- Never copy a struct or write BaseValue; normal game recalculation remains authoritative.
     return pcall(function() data.CurrentValue=value end)
+end
+function T:_health_api()
+    local names={health_library=HEALTH_LIBRARY,health_default=HEALTH_DEFAULT,
+        health_restore=HEALTH_RESTORE,function_class=FUNCTION}
+    for key,path in pairs(names) do
+        if not valid(self[key]) then
+            local object,reason=find(path)
+            self[key]=object
+            if not object then return nil,nil,path..": "..diagnostic(reason) end
+        end
+    end
+    local a,default_class=call(self.health_default,"IsA",self.health_library)
+    local b,function_class=call(self.health_restore,"IsA",self.function_class)
+    local c,owner=call(self.health_restore,"GetOuter")
+    if not a or default_class~=true or not b or function_class~=true or not c or not same(owner,self.health_library) then
+        return nil,nil,"Health restore function or default-object class does not match its library"
+    end
+    return self.health_restore,self.health_default
+end
+function T:_health_failure(kind,detail,retain)
+    self.flags.pbz_health=false; self.available.pbz_health=false
+    self.health_reason=health_messages[kind]
+    self.health_error=detail and diagnostic(detail) or nil
+    if retain then self.health_fault={reason=self.health_reason,detail=self.health_error} end
+    return false,self.health_reason
+end
+function T:_health_available(current,maximum)
+    self.health_reason,self.health_error=nil,nil
+    if self.health_fault then
+        self.health_reason,self.health_error=self.health_fault.reason,self.health_fault.detail
+        self.flags.pbz_health=false; self.available.pbz_health=false
+        return false
+    end
+    local base=self:_value("Health","BaseValue")
+    if base==nil or current==nil or maximum==nil or maximum<=0 or current>maximum+0.01 then
+        return self:_health_failure("values","Health base/current/maximum values could not be validated")
+    end
+    if base<=0 or current<=0 then return self:_health_failure("living") end
+    local restore,_,reason=self:_health_api()
+    if not restore then return self:_health_failure("api",reason) end
+    return true
+end
+function T:_health_context(pawn,controller,world,set,identity)
+    if identity=="" or self.identity~=identity or not same(self.pawn,pawn) or not same(self.controller,controller) then return false end
+    if not owned(pawn,controller,self.player_class,self.local_player_class) then return false end
+    local ok,current_world=call(pawn,"GetWorld")
+    return ok and same(current_world,world) and same(self.world,world) and same(self:_attribute_set(pawn),set)
+end
+function T:_restore_health()
+    if self.health_fault then return false,self.health_fault.reason end
+    local pawn,controller,world,identity=self.pawn,self.controller,self.world,self.identity
+    local set=self:_attribute_set(pawn)
+    local restore,context,reason=self:_health_api()
+    if not restore then return self:_health_failure("api",reason) end
+    if not self:_health_context(pawn,controller,world,set,identity) then return self:_health_failure("target",nil,true) end
+    local base=self:_value("Health","BaseValue",pawn,set)
+    local current,maximum=self:_read("Health",pawn,set),self:_read("Health_Max",pawn,set)
+    if base==nil or current==nil or maximum==nil or maximum<=0 or current>maximum+0.01 then
+        return self:_health_failure("values","Health base/current/maximum values could not be validated")
+    end
+    if base<=0 or current<=0 then return self:_health_failure("living") end
+    -- Revalidate possession, world and the owned set after reading the arguments.
+    if not self:_health_context(pawn,controller,world,set,identity) then return self:_health_failure("target",nil,true) end
+    if close(base,maximum) and close(current,maximum) then return true end
+    -- Resolve the UFunction by exact path, then pass its CDO context and the target.
+    -- This bypasses the broken per-object reflected-function member lookup and lets
+    -- the game update its own Health base, aggregator and change notifications.
+    local called,result=pcall(function() return restore(context,pawn) end)
+    if not called then return self:_health_failure("failed",result,true) end
+    if result~=true then return self:_health_failure("rejected","ResetHealthToMax did not return true",true) end
+    if not self:_health_context(pawn,controller,world,set,identity) then return self:_health_failure("target",nil,true) end
+    local observed_base=self:_value("Health","BaseValue",pawn,set)
+    local observed_current,observed_max=self:_read("Health",pawn,set),self:_read("Health_Max",pawn,set)
+    if not self:_health_context(pawn,controller,world,set,identity) then return self:_health_failure("target",nil,true) end
+    if observed_base==nil or observed_base<=0 or observed_current==nil or observed_current<=0
+        or observed_max==nil or observed_max<=0 or not close(observed_base,observed_max) or not close(observed_current,observed_max) then
+        return self:_health_failure("verify","Native health restore returned true without confirmed base/current/maximum values",true)
+    end
+    self.health_reason,self.health_error=nil,nil
+    return true
 end
 function T:_restore_damage()
     local lease=self.damage
@@ -182,6 +277,7 @@ function T:_restore_damage()
 end
 function T:disable_all()
     self.flags.pbz_health=false; self.flags.pbz_stamina=false
+    self.health_fault,self.health_reason,self.health_error=nil,nil,nil
     local restored=self:_restore_damage()
     return restored,restored and "All Phantom Blade Zero controls reset." or "Attack restoration is pending; keep HappyCheats connected."
 end
@@ -214,12 +310,17 @@ function T:refresh()
         self:disable_all()
         return false,"Waiting for a living Phantom Blade Zero player.",values,self.available
     end
+    local health_current,health_max
     for feature,spec in pairs(resources) do
         local current,maximum=self:_read(spec[1]),self:_read(spec[2])
         self.available[feature]=current~=nil and maximum~=nil and maximum>0 and current<=maximum+0.01
+        if feature=="pbz_health" then health_current,health_max=current,maximum end
         if current~=nil then values[feature]=string.format("%.3f",current) end
         if maximum~=nil then values[feature.."_max"]=string.format("%.3f",maximum) end
     end
+    self.available.pbz_health=self:_health_available(health_current,health_max)==true
+    if self.health_reason then values.reason_pbz_health=self.health_reason end
+    if self.health_error then values.diagnostic_pbz_health_error=self.health_error end
     local attack=self:_read("Attack")
     local base=self:_base(pawn)
     if self.damage and self.flags.pbz_damage then
@@ -240,6 +341,7 @@ function T:refresh()
         or "Experimental Phantom Blade Zero trainer connected. Gameplay effects are unverified.",values,self.available
 end
 function T:_refill(feature)
+    if feature=="pbz_health" then return self:_restore_health() end
     local spec=resources[feature]
     local health=self:_read("Health")
     local current,maximum=self:_read(spec[1]),self:_read(spec[2])
@@ -250,7 +352,11 @@ function T:_refill(feature)
 end
 function T:apply(action,enabled,amount)
     if action=="disable_all" then return self:disable_all() end
-    if resources[action] and enabled==false then self.flags[action]=false; return true,"Phantom Blade Zero control disabled." end
+    if resources[action] and enabled==false then
+        self.flags[action]=false
+        if action=="pbz_health" then self.health_fault,self.health_reason,self.health_error=nil,nil,nil end
+        return true,"Phantom Blade Zero control disabled."
+    end
     if action=="pbz_damage" and amount==1 then
         local ok=self:_restore_damage()
         return ok,ok and "Attack multiplier reset." or "Attack restoration is pending; keep HappyCheats connected."
@@ -258,10 +364,15 @@ function T:apply(action,enabled,amount)
     local identity=self.identity
     self:refresh()
     if identity=="" or self.identity~=identity then return false,"Phantom Blade Zero session changed; reconnect before trying again." end
-    if not self.ready or not self.available[action] then return false,"This Phantom Blade Zero control is unavailable in the current session." end
+    if not self.ready or not self.available[action] then
+        return false,action=="pbz_health" and self.health_reason or "This Phantom Blade Zero control is unavailable in the current session."
+    end
     if resources[action] then
         if enabled~=true then return false,"An explicit toggle state is required." end
-        if not self:_refill(action) then self.flags[action]=false; return false,"Resource refill could not be verified." end
+        if not self:_refill(action) then
+            self.flags[action]=false
+            return false,action=="pbz_health" and self.health_reason or "Resource refill could not be verified."
+        end
         self.flags[action]=true; return true,"Phantom Blade Zero control enabled."
     end
     if action~="pbz_damage" then return false,"Unknown Phantom Blade Zero control." end
