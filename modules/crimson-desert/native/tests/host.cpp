@@ -27,7 +27,7 @@ int wmain(int argc, wchar_t** argv) {
             if(status.value("initialization_error",std::string()).empty()) return 10;
             if(status.value("observed_image_size",0u)==0 ||
                 status.value("expected_image_size",0u)!=crimson_build::ExpectedImageSize) return 11;
-            if(status.value("version",std::string())!="0.2.7") return 12;
+            if(status.value("version",std::string())!="0.2.8") return 12;
             if(status.at("hook_library").value("attempted",true)) return 13;
             const auto& hooks=status.at("hook_results");
             if(hooks.size()!=5) return 14;

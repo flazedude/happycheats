@@ -35,8 +35,8 @@ class BindingVerifierTests(unittest.TestCase):
         self.assertTrue(bindings)
         slots = {name: (rva, target) for _, name, rva, target in bindings if isinstance(target, int)}
         self.assertEqual(slots, {
-            'ClientOwnerVtableRva.local_control_slot': (0x59056D8 + 0x178, 0x5B20D0),
-            'ClientChildOwnerVtableRva.local_control_slot': (0x5905BE0 + 0x178, 0x5B20D0)})
+            'ClientOwnerVtableRva.local_control_slot': (0x5907788 + 0x178, 0x5B2140),
+            'ClientChildOwnerVtableRva.local_control_slot': (0x5907C90 + 0x178, 0x5B2140)})
         source_path = root / 'modules/crimson-desert/native/trainer.cpp'
         original = inputs[source_path].decode('utf-8-sig')
         mutations = (

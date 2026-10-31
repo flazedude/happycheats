@@ -1,0 +1,9 @@
+HappyCheats 0.3.59 — Crimson Desert hotfix compatibility
+
+- Updates Crimson Desert trainer to 0.2.8 for Steam build 26329202, executable 1.0.0.3446.
+- Remaps the stat, damage, movement and map-marker bindings and exact executable guards. Earlier game executables are rejected.
+- Preserves the Kliff player-class correction, local-player ownership checks, resource-key validation, manual/automatic teleport behavior and shared menu shortcuts.
+- Includes the rebuilt trainer in the complete standalone EXE and signed update package; other trainers retain their integrated versions.
+- Validation uses static executable/resource inspection and isolated native/client fixtures. No game was started or attached, and no saves were changed. Current-build gameplay, teleport landing and physical-controller behavior remain unverified.
+
+Close Crimson Desert, update HappyCheats, then choose Install / update on its game page before reconnecting.

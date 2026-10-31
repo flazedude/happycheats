@@ -28,13 +28,17 @@ internal static class CrimsonDesertTests
             var speed = module.Definition.Features.Single(feature => feature.Id == "crimson_speed");
             Check(speed.Number == new FeatureNumber(0.25m, 3m, 1m, 0.25m, "×") && speed.ChoiceValueKey == "crimson_speed");
         });
-        Run("DLC compatibility rejects the previous executable before installation", () => {
+        Run("hotfix compatibility rejects previous executables before installation", () => {
             using var f = new Fixture(); var module = f.Module();
             module.HashProvider = _ => "57DA440D72F4DB974F25FEF047CF84C4DADD999A88CB2A3C5AF4C9BD67FDE1E7";
             Check(!module.Compatible(f.Game, force: true));
             Reject(() => module.InstallAsync(f.Installation).GetAwaiter().GetResult());
             Check(!File.Exists(f.InstalledDll));
             module.HashProvider = _ => "D4855C08998638F07FA8FAE08BD6249261F10C8FEC2215EFFC29CB339E7FA525";
+            Check(!module.Compatible(f.Game, force: true));
+            Reject(() => module.InstallAsync(f.Installation).GetAwaiter().GetResult());
+            Check(!File.Exists(f.InstalledDll));
+            module.HashProvider = _ => "FEC07BE1B725A46624D31FCD74BF3730EA809765226CEA6BDE01607AB2D79F66";
             Check(module.Compatible(f.Game, force: true));
         });
         Run("waiting game exposes only explicit connection", () => {
@@ -56,6 +60,7 @@ internal static class CrimsonDesertTests
                 ("version", JsonValue.Create("0.2.4")!),
                 ("version", JsonValue.Create("0.2.5")!),
                 ("version", JsonValue.Create("0.2.6")!),
+                ("version", JsonValue.Create("0.2.7")!),
                 ("process_id", JsonValue.Create(Pid + 1)!), ("process_start_unix_ms", JsonValue.Create(Milliseconds(Started) + 1)!),
                 ("session_id", JsonValue.Create("../../bad")!)
             }) {
@@ -141,7 +146,7 @@ internal static class CrimsonDesertTests
             var current = Parse(State()).Status;
             var command = Command(current, "crimson_health", true);
             Check((string)command["session_id"] == Session && (string)command["request_id"] == Request);
-            Check((string)command["version"] == "0.2.7" && (int)command["schema_version"] == 1);
+            Check((string)command["version"] == "0.2.8" && (int)command["schema_version"] == 1);
             Check((bool)command["enabled"] && (long)command["expires_unix_ms"] == Milliseconds(Now) + 5000);
             Reject(() => CrimsonDesertModule.CreateCommand(current, current with { SessionId = "another-session" }, "crimson_health", true, null, Request, Milliseconds(Now)));
             Reject(() => CrimsonDesertModule.CreateCommand(current, current, "crimson_health", true, null, "bad", Milliseconds(Now)));
@@ -453,7 +458,7 @@ internal static class CrimsonDesertTests
         public string LeasePath => SafePath(Game, CrimsonDesertModule.BridgeRoot + "lease.txt");
         public string CommandPath => SafePath(Game, CrimsonDesertModule.BridgeRoot + "command.json");
         public DateTime ProcessStarted { get; } = DateTime.UtcNow.AddMinutes(-1);
-        public GameInstallation Installation => new(Game, "26317560", true, true, true, true, "Fixture");
+        public GameInstallation Installation => new(Game, "26329202", true, true, true, true, "Fixture");
         public Fixture()
         {
             Directory.CreateDirectory(Path.GetDirectoryName(Executable)!); File.WriteAllText(Executable, "fixture executable; never launched");

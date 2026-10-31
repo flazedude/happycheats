@@ -6,11 +6,11 @@
 
 namespace crimson_logic {
 constexpr std::uint64_t MaxStat = 1000000000000ULL;
-inline constexpr std::uintptr_t ClientRootRva=0x71AEA50;
-inline constexpr std::uintptr_t ClientOwnerVtableRva=0x59056D8;
-inline constexpr std::uintptr_t ClientChildOwnerVtableRva=0x5905BE0;
-inline constexpr std::uintptr_t ClientLocalControlRva=0x5B20D0;
-inline constexpr std::uintptr_t StatusRegistryRva=0x71AFA28;
+inline constexpr std::uintptr_t ClientRootRva=0x71B1A40;
+inline constexpr std::uintptr_t ClientOwnerVtableRva=0x5907788;
+inline constexpr std::uintptr_t ClientChildOwnerVtableRva=0x5907C90;
+inline constexpr std::uintptr_t ClientLocalControlRva=0x5B2140;
+inline constexpr std::uintptr_t StatusRegistryRva=0x71B2A18;
 inline constexpr std::uint32_t HealthKey=1000000,StaminaKey=1000026,SpiritKey=1000027;
 struct Identity { std::uintptr_t owner{}, actor{}, marker{}, root{}, stats{}; };
 struct ClientAnchor { std::uintptr_t root{},service{},owner{},selfUser{}; };
@@ -32,10 +32,10 @@ template<class PointerReader,class ByteReader> bool ResolveControlledClientAncho
     ClientAnchor candidate{};
     std::uintptr_t possessor{},pawn{};
     std::uint8_t local{};
-    // PE3424 ClientActor virtual +178 is the engine's local-control predicate:
+    // PE3446 ClientActor virtual +178 is the engine's local-control predicate:
     // owner+A0 equals this service's self-user (+58), and owner+94 is nonzero.
-    // Normal and ChildOnly share this exact method on PE3424. Kliff's live
-    // owner is ChildOnly; both classes still require every local-self check.
+    // Normal and ChildOnly share this exact method on PE3446. Kliff's owner
+    // was observed as ChildOnly on PE3424; retain every local-self check.
     if(!ResolveClientAnchor(globalAddress,expectedVtable,pointer,candidate,expectedChildVtable) ||
         !pointer(candidate.service+0x58,candidate.selfUser) ||
         !pointer(candidate.owner+0xA0,possessor) || possessor!=candidate.selfUser ||
