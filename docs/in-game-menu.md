@@ -6,7 +6,7 @@ From HappyCheats **0.3.40**, the controller chord and the Xbox shortcuts setting
 
 Use **windowed or borderless** display mode. This is a Windows companion window; exclusive fullscreen is not supported. It attaches only when one matching game process can be identified in the selected installation. It hides when the game is minimized, another application takes focus, the selected game changes, or the client opens Updates.
 
-The menu provides the game's registered toggles, one-shot actions, numeric values and choices, including Astroneer's independent 10× / 20× / 100× collection and 3× / 5× / 10× run-speed selectors, plus invulnerability. Groups organize larger lists. Chinese/English and light/dark settings follow the client. Polling retains the controls and any unfinished numeric entry. Existing connection, session and feature availability checks still apply; opening the menu does not connect or enable a cheat.
+The menu provides the game's registered toggles, one-shot actions, numeric values and choices, including Astroneer's independent 10× / 20× / 100× collection and 3× / 5× / 10× run-speed selectors, plus invulnerability. Groups organize larger lists. Chinese/English and light/dark settings follow the client. Polling retains the controls and any unfinished numeric entry. From 0.3.62, all controls remain clickable while disconnected, unready, unavailable or busy. Clicks enter the shared operation path and show an error if execution fails; errors are recorded in `%LOCALAPPDATA%/HappyCheats/client-errors.log`. Connection, session and availability checks apply at command time.
 
 Clicking the menu gives it keyboard focus so you can type values and navigate its controls. Close it, press Ctrl+Del, or use Menu+RB again to return to the game. Some games pause when focus moves away; a command may wait for gameplay to resume. You can close the menu while a command is pending. Input can also reach the game; Menu may open its pause menu.
 
@@ -20,7 +20,7 @@ Declare every control in `GameDefinition.Features`, including its group, hotkey,
 
 The shared client also supplies Ctrl+Del and the Xbox/XInput Menu+RB chord automatically. Reserve **hold Menu (☰) for 350 ms, then tap RB** for showing/hiding the shared menu in every new module. Respect the common Xbox shortcuts setting. Game-specific direct cheat chords may supplement this convention, but must not replace it or send a native HUD command for Menu+RB. The shared chord is a toggle, not controller navigation.
 
-`GameOverlayChecks` exercises all catalog entries and an unknown future-game fixture, retained numeric drafts, command routing, connection and busy gates, themes/languages, bounds, targeting ambiguity and shortcut edges without launching games. These checks do not establish gameplay effects, physical-controller operation or rendering over each actual game.
+`GameOverlayChecks` exercises all catalog entries and an unknown future-game fixture, retained numeric drafts, click routing in disconnected and busy states, themes/languages, bounds, targeting ambiguity and shortcut edges without launching games. These checks do not establish gameplay effects, physical-controller operation or rendering over each actual game.
 
 ## 中文说明
 
@@ -28,7 +28,7 @@ The shared client also supplies Ctrl+Del and the Xbox/XInput Menu+RB chord autom
 
 从 **0.3.40** 起，这一手柄组合键及“Xbox 手柄快捷键”设置适用于所有现有及未来游戏。Menu+RB 只负责显示或隐藏菜单；菜单中的功能仍使用鼠标和键盘操作，没有新增手柄菜单导航。
 
-支持**窗口 / 无边框模式**，不支持独占全屏。点击菜单后可以输入数值；关闭菜单、再次按 Ctrl+Del 或使用 Menu+RB 返回游戏。部分游戏失去焦点后会暂停，指令可能需要返回游戏后才能完成。菜单不会自动开启功能，也不会绕过连接及可用性检查。按键也可能传递给游戏，Menu 可能同时打开游戏的暂停菜单。
+支持**窗口 / 无边框模式**，不支持独占全屏。点击菜单后可以输入数值；关闭菜单、再次按 Ctrl+Del 或使用 Menu+RB 返回游戏。部分游戏失去焦点后会暂停，指令可能需要返回游戏后才能完成。从 0.3.62 起，所有控件均保持可点击，断开连接、尚未就绪、当前不可用或忙碌时也不会置灰。点击失败会显示错误并记录到本地 client-errors.log，连接及可用性在执行时检查。按键也可能传递给游戏，Menu 可能同时打开游戏的暂停菜单。
 
 菜单包含各游戏登记的开关、单次操作、数值和选项，跟随客户端的中英文与明暗主题设置。切换到其他应用、最小化游戏或更换选中的游戏时，菜单自动隐藏。鬼武者的 Menu+RB 现改为切换统一菜单，F6 仍切换原生状态面板；鬼武者和黎明行者之血原有的直接功能组合键保持不变。黎明行者之血也可按 F6 切换统一菜单，按 Menu+View 切换三页手柄快捷键，当前映射显示在客户端页面和统一菜单中。手柄快捷键页与菜单功能分组相互独立。尚未在所有实际游戏中验证显示与操作效果，也未完成实体手柄验证。
 

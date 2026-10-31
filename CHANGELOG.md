@@ -2,7 +2,17 @@
 
 **[Download the latest release / 下载最新版本](https://github.com/flazedude/happycheats/releases/latest)** · [Home](README.md) · [中文首页](README.zh-CN.md)
 
-## Latest · 0.3.61
+## Latest · 0.3.62
+
+- All client and shared-menu controls remain clickable, including when disconnected, unready, unavailable or busy.
+- Failed attempts show an error and write to `%LOCALAPPDATA%/HappyCheats/client-errors.log`. Existing operations report busy errors on repeated clicks.
+- All 17 trainer payloads are unchanged. Offline catalog and synthetic dispatch checks cover this behavior; other-PC gameplay remains unverified.
+
+所有客户端及共享菜单控件始终可点击，断开连接或忙碌时也不会置灰。失败时显示错误并写入本地日志；已有操作进行时重复点击会显示提示。全部 17 款游戏修改器未变，验证范围为离线及模拟测试。
+
+[English](docs/releases/0.3.62.en.txt) · [中文](docs/releases/0.3.62.zh.txt)
+
+## 0.3.61
 
 - Automatically removes older completed update history, keeping the current installation and newest completed rollback.
 - Preserves settings, trainer payloads, interrupted updates and files in use. No trainer reinstall is needed.

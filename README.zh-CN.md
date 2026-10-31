@@ -4,11 +4,11 @@ Windows 游戏修改器合集，支持 17 款游戏、中英双语和统一游�
 
 **[下载 HappyCheats.exe](https://github.com/flazedude/happycheats/releases/latest/download/HappyCheats.exe)** · [最新发行版](https://github.com/flazedude/happycheats/releases/latest) · [更新日志](CHANGELOG.md) · [English](README.md)
 
-## 最新版本 · 0.3.61
+## 最新版本 · 0.3.62
 
-自动清理较早且已完成的更新文件，保留当前安装和最近一次回退备份。用户设置和修改器内容保持不变；本次更新无需重新安装修改器。
+所有控件均保持可点击，包括断开连接及忙碌时。失败操作会显示错误并记录到本地日志。全部 17 款游戏的桌面界面和统一游戏内菜单采用相同行为；修改器文件未变。
 
-[完整更新说明](docs/releases/0.3.61.zh.txt)
+[完整更新说明](docs/releases/0.3.62.zh.txt)
 
 ![HappyCheats 英文深色界面的游戏库与星露谷物语修改器](docs/images/happycheats-library.png)
 

@@ -139,7 +139,7 @@ internal static class Civ7UiChecks
                 }
                 else Check(main.Features.All(f => f.Name == f.Definition.Name && f.Description == f.Definition.Description), "English labels must match the module");
                 var buttons = Descendants<Button>(main).Where(b => b.Tag is FeatureItem).ToArray();
-                Check(buttons.Length == 15 && buttons.All(b => b.IsEnabled == ((FeatureItem)b.Tag).CanUse), "rendered buttons must bind to guarded availability");
+                Check(buttons.Length == 15 && buttons.All(b => b.IsEnabled), "rendered buttons must stay clickable regardless of availability");
                 Check(Descendants<TextBox>(main).Count(t => t.DataContext is FeatureItem f && f.Definition.Number != null) == 6, "six numeric inputs must render");
                 if (artifacts != null) {
                     Capture(main, Path.Combine(artifacts, $"civilization-vii-{theme}-{language}.png"));

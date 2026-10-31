@@ -73,11 +73,12 @@ internal static class PhantomBladeUiChecks
             damage.NumberText = "12";
             var unavailable = confirmed with { Values = new Dictionary<string, string>(confirmed.Values) { ["available_pbz_damage"] = "False" } };
             Update(unavailable); var blockedCount = module.Values.Count; Number(damage);
-            Check(!damage.CanUse && health.CanUse && module.Values.Count == blockedCount, "damage availability leaked to health or allowed a command");
+            Check(!damage.CanUse && health.CanUse && module.Values.Count == blockedCount + 1, "damage status leaked to health or blocked a clicked command");
+            blockedCount = module.Values.Count;
             Update(confirmed, working: true); Number(damage);
             Check(main.Features.All(f => !f.CanUse) && !main.CanDisableAll && module.Values.Count == blockedCount, "busy state permitted dispatch");
             Update(TrainerStatus.Offline()); Number(damage);
-            Check(main.Features.All(f => !f.CanUse) && damage.ConfirmedNumberVisibility == Visibility.Collapsed && module.Values.Count == blockedCount, "disconnected state retained confirmation or allowed dispatch");
+            Check(main.Features.All(f => !f.CanUse) && damage.ConfirmedNumberVisibility == Visibility.Collapsed && module.Values.Count == blockedCount + 1, "disconnected state retained confirmation or blocked click dispatch");
             Update(confirmed with { Ready = false, Message = "Phantom Blade Zero player discovery failed." });
             Check(main.Features.All(f => !f.CanUse && f.StateLabel == "Phantom Blade Zero player discovery failed."), "player detection failure was hidden behind waiting for gameplay");
             Update(confirmed with { Ready = false, Message = "Phantom Blade Zero player discovery failed." }, working: true);

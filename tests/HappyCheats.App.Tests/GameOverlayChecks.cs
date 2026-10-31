@@ -167,7 +167,7 @@ internal static class GameOverlayChecks
                     var selectedBeforeBlockedClick = selected.Count;
                     Click(choices.Single(button => ReferenceEquals(button.Tag, tenSpeed)));
                     Check(speed.Choices.All(choice => !choice.CanUse) && collection.Choices.All(choice => choice.CanUse)
-                        && selected.Count == selectedBeforeBlockedClick, "Run-speed availability leaked across selectors or allowed a blocked choice");
+                        && selected.Count == selectedBeforeBlockedClick + 1, "Run-speed status leaked across selectors or a click was silently dropped");
                     Update(game, features, confirmedHundred);
                     foreach (var choiceButton in choices)
                     {
@@ -235,14 +235,15 @@ internal static class GameOverlayChecks
                 foreach (var (status, busy) in new[] { (TrainerStatus.Offline(), false), (ready, true), (Unavailable(ready, features), false) })
                 {
                     Update(game, features, status, busy, cleanup: false);
-                    Check(actions.All(button => !button.IsEnabled) && choices.All(button => !button.IsEnabled)
-                        && inputs.All(input => !input.IsEnabled) && !Disable().IsEnabled,
-                        id + " bypassed offline, busy or unavailable state");
-                    // Raising routed events also probes the handler guard, not only disabled styling.
+                    Check(actions.All(button => button.IsEnabled) && choices.All(button => button.IsEnabled)
+                        && inputs.All(input => input.IsEnabled) && Disable().IsEnabled,
+                        id + " greyed out a control in offline, busy or unavailable state");
+                    // Every current row reaches the shared dispatcher; it reports command-time errors.
                     foreach (var action in actions) Click(action);
                     foreach (var choice in choices) Click(choice);
                     Click(Disable());
-                    Check(sent.Count + selected.Count == dispatched, id + " dispatched a guarded action");
+                    dispatched += actions.Length + choices.Length + 1;
+                    Check(sent.Count + selected.Count == dispatched, id + " silently dropped a clicked action");
                 }
                 foreach (var language in new[] { "en", "zh" })
                 foreach (var theme in new[] { "dark", "light" })

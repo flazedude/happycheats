@@ -53,7 +53,8 @@ internal static class Program
             main.InitializeAsync(preview: true).GetAwaiter().GetResult();
             Layout(main);
             Check(app.Windows.Count == 1, "App startup unexpectedly created another window.");
-            if (args.Contains("--crimson"))
+            if (args.Contains("--clickable")) Results.Add(ClickableControlsChecks.Run(main, root));
+            else if (args.Contains("--crimson"))
             {
                 ValidateCrimsonAutoTeleport(main);
                 ValidateCrimsonUnavailableReasons(main, artifacts);
@@ -67,6 +68,7 @@ internal static class Program
             else if (args.Contains("--background-updates")) Results.Add(BackgroundUpdateUiChecks.Run(root));
             else
             {
+            Results.Add(ClickableControlsChecks.Run(main, root));
             Results.Add(LibrarySortChecks.Run(main, root, artifacts, Check));
             foreach (var size in new[] { (Width: 1180, Height: 820), (Width: 854, Height: 534), (Width: 800, Height: 480) })
             foreach (var theme in new[] { "dark", "light" })
@@ -339,7 +341,7 @@ internal static class Program
             Check(feature.Definition.IsToggle && feature.Hotkey == "F9" && !manual.Definition.IsToggle,
                 "Crimson auto teleport must remain an F9 toggle independent of manual teleport.");
             Check(feature.Name == "Auto teleport" && feature.CanUse && button.IsEnabled
-                && !manual.CanUse && !manualButton.IsEnabled,
+                && !manual.CanUse && manualButton.IsEnabled,
                 "Crimson auto teleport cannot be enabled before placing a marker, or inherits manual availability.");
             Check((string)button.Content == "Turn on", "Inactive Crimson auto teleport has the wrong bound action label.");
             var unavailable = waitingForMarker with { Values = new Dictionary<string, string>
@@ -347,21 +349,21 @@ internal static class Program
                 ["available_crimson_auto_teleport"] = "False", ["available_crimson_teleport"] = "True"
             } };
             Update(unavailable);
-            Check(!feature.CanUse && !button.IsEnabled && manual.CanUse && manualButton.IsEnabled,
+            Check(!feature.CanUse && button.IsEnabled && manual.CanUse && manualButton.IsEnabled,
                 "Crimson auto teleport ignored its own unavailable capability or disabled the independent manual action.");
             Update(waitingForMarker with { Ready = false });
-            Check(!feature.CanUse && !button.IsEnabled, "Inactive Crimson auto teleport remained usable without gameplay readiness.");
+            Check(!feature.CanUse && button.IsEnabled, "Inactive Crimson auto teleport remained usable without gameplay readiness.");
             var activeUnavailable = unavailable with { Enabled = new Dictionary<string, bool> { [feature.Definition.Id] = true } };
             Update(activeUnavailable);
             Check(feature.CanUse && button.IsEnabled && (string)button.Content == "Turn off",
                 "Active Crimson auto teleport cannot be turned off after its capability becomes unavailable.");
             Update(activeUnavailable with { Ready = false });
-            Check(feature.CanUse && button.IsEnabled && (string)button.Content == "Turn off" && !manualButton.IsEnabled,
+            Check(feature.CanUse && button.IsEnabled && (string)button.Content == "Turn off" && manualButton.IsEnabled,
                 "Active Crimson auto teleport cannot be turned off after gameplay readiness is lost.");
             Update(activeUnavailable with { Ready = false }, busy: true);
-            Check(!feature.CanUse && !button.IsEnabled, "Crimson auto teleport cleanup remained clickable while a command was pending.");
+            Check(!feature.CanUse && button.IsEnabled, "Crimson cleanup lost its pending status or became disabled.");
             Update(activeUnavailable with { Ready = false, Connected = false });
-            Check(!feature.CanUse && !button.IsEnabled, "Crimson auto teleport cleanup remained clickable after disconnecting.");
+            Check(!feature.CanUse && button.IsEnabled, "Crimson cleanup lost its disconnected status or became disabled.");
             main.SetLanguage("zh", persist: false);
             Update(waitingForMarker);
             Check(feature.Name == "自动传送" && feature.Hotkey == "F9" && button.IsEnabled
@@ -431,9 +433,9 @@ internal static class Program
                     {
                         Check(!feature.CanUse && feature.StateLabel == expected,
                             "Crimson unavailable reason was lost, untranslated, or enabled a control.");
-                        Check(Descendants<Button>(main).Single(item => ReferenceEquals(item.Tag, feature)).IsEnabled == false
+                        Check(Descendants<Button>(main).Single(item => ReferenceEquals(item.Tag, feature)).IsEnabled == true
                             && Descendants<TextBlock>(main).Any(item => ReferenceEquals(item.DataContext, feature) && item.Text == expected),
-                            "Crimson unavailable reason did not reach its disabled bound UI row.");
+                            "Crimson unavailable reason did not reach its clickable bound UI row.");
                     }
                     Check(!main.ValuesLine.Contains("reason_", StringComparison.OrdinalIgnoreCase)
                         && !main.ValuesLine.Contains(expected), "Crimson unavailable reason leaked into raw values.");
@@ -482,8 +484,8 @@ internal static class Program
                 Layout(overlay);
                 var overlayLabels = Descendants<TextBlock>(overlay).Where(item => item.Text == features[0].StateLabel).ToArray();
                 Check(overlayLabels.Length == features.Length && overlayLabels.All(LabelFits), "Crimson reason is clipped in a shared-menu row.");
-                Check(Descendants<Button>(overlay).Where(item => item.Tag is FeatureItem).All(item => !item.IsEnabled),
-                    "The shared menu enabled a Crimson action while displaying an unavailable reason.");
+                Check(Descendants<Button>(overlay).Where(item => item.Tag is FeatureItem).All(item => item.IsEnabled),
+                    "The shared menu disabled a Crimson action while displaying its status.");
                 if (artifacts != null) Capture(overlay, Path.Combine(artifacts, $"crimson-reason-menu-{language}.png"));
             }
             Results.Add(new { Screen = "crimson-unavailable-reasons", EnglishAndChinese = true,
@@ -530,7 +532,7 @@ internal static class Program
                 "Connect replaced the native initialization failure with a false applied-in-game confirmation.");
             Check(main.ConnectionLabel == "Initialization failed" && main.Features.All(feature => !feature.CanUse && feature.StateLabel == "Initialization failed"),
                 "Native initialization failure was mislabeled as waiting for gameplay.");
-            Check(Descendants<Button>(main).Where(button => button.Tag is FeatureItem).All(button => !button.IsEnabled),
+            Check(Descendants<Button>(main).Where(button => button.Tag is FeatureItem).All(button => button.IsEnabled),
                 "Initialization failure left a trainer action enabled.");
             game.Status = failed with { Values = new Dictionary<string, string>() };
             refresh.Invoke(main, null);

@@ -1,0 +1,9 @@
+HappyCheats 0.3.62
+
+All client controls remain clickable, including cheat actions, numeric fields, choices, setup actions, Library and update controls, and the shared in-game menu. Disconnected, unready, unavailable and busy states no longer grey out controls.
+
+Clicks reach the operation/module path. Failed attempts show an error and are recorded in %LOCALAPPDATA%/HappyCheats/client-errors.log. A pending operation reports an error on another action click; it does not overlap commands or silently discard the click. Status labels and confirmed values continue to describe the game's reported state.
+
+All seventeen trainer payloads are unchanged and included in both complete distributions. No trainer reinstall is needed for this client change. Removing disabled styling does not establish a game connection; installation and game runtime failures are reported when a control is used.
+
+Validated with offline catalog-wide desktop/menu checks and synthetic action, numeric, choice, error-log and busy-state dispatch checks, plus the normal release checks. No game launch, save modification, physical-controller or other-PC gameplay validation was performed.

@@ -1,5 +1,9 @@
 # HappyCheats project instructions
 
+## Always clickable client controls (31 October 2026)
+
+Never grey out or disable client controls, including cheat actions, values, choices, setup, Library, updates and the shared in-game menu. Keep controls clickable while disconnected, unready, unavailable or busy. Dispatch current control clicks to the operation/module path and show an actionable error on failure; record client errors locally. Busy operations must report a click-time error instead of overlapping mutations or silently dropping clicks. Keep status information and command/session/integrity checks at operation time. This latest user preference supersedes earlier UI-disable expectations in this file and the menu documentation.
+
 ## Shared in-game menu
 
 All current and future games use the client `GameOverlay` companion menu (Ctrl+Del). New `IGameModule` implementations must provide exact installation-relative `GameExecutables` and complete `FeatureDefinition` metadata; numeric and choice controls use the existing value/choice module interfaces. Do not create a separate companion renderer for a game. Keep command/session/availability checks in the existing shared client and module paths. Include new games in the catalog menu regression checks and follow `docs/in-game-menu.md`. The companion supports windowed/borderless play; do not claim exclusive-fullscreen or live gameplay validation from offline UI checks.

@@ -118,8 +118,8 @@ internal static class LibrarySortChecks
                         $"{language}/{theme}: library sort button has no accessible name.");
                 }
                 busy.SetValue(main, true); refresh.Invoke(main, null); Layout(main);
-                check(!ascending.IsEnabled && !descending.IsEnabled && !library.IsEnabled,
-                    $"{language}/{theme}: sort must be disabled while the client is busy.");
+                check(ascending.IsEnabled && descending.IsEnabled && library.IsEnabled,
+                    $"{language}/{theme}: library and sorting must stay clickable while the client is busy.");
                 busy.SetValue(main, originalBusy); refresh.Invoke(main, null); Layout(main);
                 check(ascending.IsEnabled && descending.IsEnabled, "Sort controls did not recover after busy state.");
                 if (artifacts != null) Capture(main, Path.Combine(artifacts, $"library-sort-{theme}-{language}-800x480.png"));

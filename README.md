@@ -4,11 +4,11 @@ A Windows trainer library with 17 games, English / 中文, and one shared in-gam
 
 **[Download HappyCheats.exe](https://github.com/flazedude/happycheats/releases/latest/download/HappyCheats.exe)** · [Latest release](https://github.com/flazedude/happycheats/releases/latest) · [Changelog](CHANGELOG.md) · [中文说明](README.zh-CN.md)
 
-## Latest version · 0.3.61
+## Latest version · 0.3.62
 
-Older completed update files are now cleaned up automatically, keeping the current installation and the newest rollback backup. Settings and trainer payloads are preserved; no trainer reinstall is needed for this release.
+All controls stay clickable, including while disconnected or busy. Failed attempts show an error and write to the local client error log. The desktop and shared in-game menu use the same behavior across all 17 games; trainer payloads are unchanged.
 
-[Full release notes](docs/releases/0.3.61.en.txt)
+[Full release notes](docs/releases/0.3.62.en.txt)
 
 ![HappyCheats library and Stardew Valley trainer controls in the English dark theme](docs/images/happycheats-library.png)
 

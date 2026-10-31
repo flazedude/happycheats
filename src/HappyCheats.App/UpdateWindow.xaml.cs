@@ -36,7 +36,11 @@ public partial class UpdateWindow : Window, INotifyPropertyChanged
         if (!preview) WindowLayout.Attach(this);
         DataContext = this;
         if (_session != null) _session.PropertyChanged += SessionChanged;
-        Closing += (_, e) => { if (_state == BackgroundUpdateState.Installing) e.Cancel = true; };
+        Closing += (_, e) => {
+            if (_state != BackgroundUpdateState.Installing) return;
+            e.Cancel = true;
+            SetActionError(Localization.Choose("The update is preparing to restart. Please wait for it to finish.", "更新正在准备重启，请等待完成。"));
+        };
         Closed += (_, _) => { if (_session != null) _session.PropertyChanged -= SessionChanged; };
     }
 
@@ -113,24 +117,40 @@ public partial class UpdateWindow : Window, INotifyPropertyChanged
 
     private async void CheckClicked(object sender, RoutedEventArgs e)
     {
-        if (!CanCheck) return;
+        if (!CanCheck)
+        {
+            SetActionError(Localization.Choose(
+                IsWorking ? "An update operation is already running." : _staged != null ? "An update is already downloaded. Choose Restart & install or Later." : StateDescription,
+                IsWorking ? "更新操作正在进行。" : _staged != null ? "更新已下载，请选择“重启并安装”或“稍后”。" : StateDescription));
+            return;
+        }
         _actionError = null;
         await _session!.CheckAndDownloadAsync();
     }
 
     private async void PrimaryClicked(object sender, RoutedEventArgs e)
     {
-        if (!CanAct) return;
+        if (!CanAct)
+        {
+            SetActionError(IsWorking ? Localization.Choose("An update operation is already running.", "更新操作正在进行。") : InstallNote);
+            return;
+        }
         _actionError = null;
         try
         {
             await _install();
         }
-        catch (Exception error) { _actionError = error.Message; }
+        catch (Exception error) { SetActionError(error.Message); }
         Refresh();
     }
 
     private void CloseClicked(object sender, RoutedEventArgs e) => Close();
+    private void SetActionError(string message)
+    {
+        _actionError = message;
+        if (!_isolated) ClientErrorLog.Write("updates", message);
+        Refresh();
+    }
     private void SessionChanged(object? sender, PropertyChangedEventArgs e) => Refresh();
     internal void RefreshLanguage() => Refresh();
     private static string FormatBytes(long bytes) => bytes >= 1024L * 1024 * 1024

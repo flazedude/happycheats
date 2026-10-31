@@ -50,7 +50,7 @@
             <ItemsControl ItemsSource="{Binding Choices}" Visibility="{Binding ChoicesVisibility}" ToolTip="{Binding ChoiceCaption}">
               <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
               <ItemsControl.ItemTemplate><DataTemplate>
-                <Button Content="{Binding Label}" Click="FeatureChoiceClicked" Tag="{Binding}" IsEnabled="{Binding CanUse}"
+                <Button Content="{Binding Label}" Click="FeatureChoiceClicked" Tag="{Binding}"
                         Background="{Binding Background}" BorderBrush="{Binding BorderBrush}" Foreground="{Binding Foreground}"
                         Padding="8,6" Margin="4,0,0,0" MinWidth="57" FontSize="11"/>
               </DataTemplate></ItemsControl.ItemTemplate>
@@ -58,7 +58,7 @@
             <StackPanel Width="178" Visibility="{Binding NumberVisibility}">
               <Grid>
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                <TextBox Text="{Binding NumberText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanUse}" MaxLength="32"
+                <TextBox Text="{Binding NumberText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" MaxLength="32"
                          AutomationProperties.Name="{Binding Name}" AutomationProperties.HelpText="{Binding NumberHint}"
                          Background="{DynamicResource InputBrush}" Foreground="{DynamicResource InkBrush}" BorderBrush="{DynamicResource StrongLineBrush}" CaretBrush="{DynamicResource InkBrush}" Padding="8,4" FontSize="12"
                          MinHeight="44" VerticalContentAlignment="Center" ToolTip="{Binding NumberHint}" ToolTipService.ShowOnDisabled="True"/>
@@ -73,7 +73,7 @@
           </Border>
           <TextBlock x:Name="FeatureState" Grid.Column="3" Text="{Binding StateLabel}" Foreground="{Binding StateBrush}" FontSize="10"
                      VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,12,0"/>
-          <Button x:Name="FeatureAction" Grid.Column="4" Content="{Binding ActionLabel}" Click="FeatureClicked" Tag="{Binding}" IsEnabled="{Binding CanUse}"
+          <Button x:Name="FeatureAction" Grid.Column="4" Content="{Binding ActionLabel}" Click="FeatureClicked" Tag="{Binding}"
                   AutomationProperties.Name="{Binding Name}" VerticalAlignment="Center" Padding="10,6" FontSize="11"
                   Background="{Binding ActionBrush}" BorderBrush="{Binding ActionBorderBrush}"/>
           <TextBlock Grid.Row="2" Grid.ColumnSpan="5" Text="{Binding NumberError}" Foreground="{DynamicResource ErrorBrush}" FontSize="11"
@@ -116,7 +116,7 @@
         <Border Grid.Row="1" Height="44" VerticalAlignment="Top" Background="{DynamicResource InputBrush}" CornerRadius="7" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1">
           <Grid Margin="11,0"><Grid.ColumnDefinitions><ColumnDefinition Width="22"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
             <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="12" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center"/>
-            <Grid Grid.Column="1"><TextBox x:Name="SearchBox" TextChanged="SearchChanged" IsEnabled="{Binding CanManage}" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource InkBrush}" CaretBrush="{DynamicResource InkBrush}" VerticalContentAlignment="Center" FontSize="12" Padding="0"/>
+            <Grid Grid.Column="1"><TextBox x:Name="SearchBox" TextChanged="SearchChanged" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource InkBrush}" CaretBrush="{DynamicResource InkBrush}" VerticalContentAlignment="Center" FontSize="12" Padding="0"/>
               <TextBlock Text="{Binding Labels[search]}" Foreground="{DynamicResource MutedBrush}" IsHitTestVisible="False" VerticalAlignment="Center" FontSize="12"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=SearchBox}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
             </Grid>
           </Grid>
@@ -129,14 +129,14 @@
             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
             <TextBlock Text="{Binding Labels[sortBy]}" FontSize="11" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center"/>
             <RadioButton x:Name="SortAscendingButton" Grid.Column="1" Content="A–Z" Tag="az" GroupName="LibrarySort" Style="{StaticResource LibrarySortButton}" Margin="0,0,4,0"
-                         IsChecked="{Binding LibrarySortAscending, Mode=OneWay}" IsEnabled="{Binding CanManage}" Checked="LibrarySortChanged"
+                         IsChecked="{Binding LibrarySortAscending, Mode=OneWay}" Checked="LibrarySortChanged"
                          AutomationProperties.Name="{Binding Labels[sortAscending]}" AutomationProperties.HelpText="{Binding Labels[sortHint]}"/>
             <RadioButton x:Name="SortDescendingButton" Grid.Column="2" Content="Z–A" Tag="za" GroupName="LibrarySort" Style="{StaticResource LibrarySortButton}"
-                         IsChecked="{Binding LibrarySortDescending, Mode=OneWay}" IsEnabled="{Binding CanManage}" Checked="LibrarySortChanged"
+                         IsChecked="{Binding LibrarySortDescending, Mode=OneWay}" Checked="LibrarySortChanged"
                          AutomationProperties.Name="{Binding Labels[sortDescending]}" AutomationProperties.HelpText="{Binding Labels[sortHint]}"/>
           </Grid>
         </Grid>
-        <ListBox x:Name="Library" Grid.Row="3" ItemsSource="{Binding Games}" IsEnabled="{Binding CanManage}" SelectionChanged="GameSelected" BorderThickness="0" Background="Transparent" Foreground="{DynamicResource InkBrush}" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.CanContentScroll="False" ScrollViewer.PanningMode="VerticalOnly" Padding="0">
+        <ListBox x:Name="Library" Grid.Row="3" ItemsSource="{Binding Games}" SelectionChanged="GameSelected" BorderThickness="0" Background="Transparent" Foreground="{DynamicResource InkBrush}" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.CanContentScroll="False" ScrollViewer.PanningMode="VerticalOnly" Padding="0">
           <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem">
             <Setter Property="Foreground" Value="{DynamicResource InkBrush}"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0,0,0,9"/>
@@ -149,7 +149,7 @@
         </ListBox>
         <Border Grid.Row="4" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0" Padding="2,10,0,0">
           <StackPanel>
-            <Button Click="UpdatesClicked" IsEnabled="{Binding CanManage}" Style="{StaticResource QuietButton}" HorizontalContentAlignment="Stretch" Padding="11,9">
+            <Button Click="UpdatesClicked" Style="{StaticResource QuietButton}" HorizontalContentAlignment="Stretch" Padding="11,9">
               <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="{Binding Labels[updates]}" FontSize="11"/><Border Grid.Column="1" Background="{DynamicResource SelectionBrush}" CornerRadius="4" Padding="5,1" Margin="8,0,0,0" Visibility="{Binding UpdateBadgeVisibility}"><TextBlock Text="{Binding UpdateBadgeLabel}" FontSize="8" Foreground="{DynamicResource SelectionInkBrush}"/></Border></Grid>
             </Button>
             <TextBlock Text="{Binding ClientVersionLabel}" Foreground="{DynamicResource MutedBrush}" FontSize="10" Margin="11,9,0,0"/>
@@ -189,14 +189,14 @@
             </Grid>
           </Border>
           <Grid Margin="0,10,0,12"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-            <WrapPanel><Button Content="{Binding LaunchLabel}" Style="{StaticResource GoldButton}" Click="LaunchClicked" IsEnabled="{Binding CanLaunch}" Padding="16,8"/><Button Content="{Binding InstallLabel}" Style="{StaticResource QuietButton}" Click="InstallClicked" IsEnabled="{Binding CanInstall}" Padding="16,8" Margin="9,0,0,0"/></WrapPanel>
+            <WrapPanel><Button Content="{Binding LaunchLabel}" Style="{StaticResource GoldButton}" Click="LaunchClicked" Padding="16,8"/><Button Content="{Binding InstallLabel}" Style="{StaticResource QuietButton}" Click="InstallClicked" Padding="16,8" Margin="9,0,0,0"/></WrapPanel>
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
               <StackPanel.Style><Style TargetType="StackPanel"><Setter Property="Grid.Column" Value="1"/><Setter Property="HorizontalAlignment" Value="Right"/><Style.Triggers><DataTrigger Binding="{Binding IsCompactLayout}" Value="True"><Setter Property="Grid.Row" Value="1"/><Setter Property="Grid.Column" Value="0"/><Setter Property="Grid.ColumnSpan" Value="2"/><Setter Property="HorizontalAlignment" Value="Left"/><Setter Property="Margin" Value="0,10,0,0"/></DataTrigger></Style.Triggers></Style></StackPanel.Style>
               <Ellipse Width="6" Height="6" Fill="{Binding ConnectionBrush}" Margin="0,0,8,0"/><TextBlock Text="{Binding ConnectionLabel}" Foreground="{Binding ConnectionBrush}" FontSize="11"/>
             </StackPanel>
           </Grid>
           <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0" Padding="0,12,0,0">
-            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><StackPanel Orientation="Horizontal"><TextBlock Text="{Binding Labels[controls]}" FontSize="21" FontWeight="SemiBold"/><Border Background="{DynamicResource RaisedBrush}" CornerRadius="4" Padding="6,2" Margin="11,4,0,3"><TextBlock Text="{Binding FeatureCount}" Foreground="{DynamicResource MutedBrush}" FontSize="10"/></Border></StackPanel><TextBlock Text="{Binding ControlsHint}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,7,0,0" TextWrapping="Wrap"/></StackPanel><Button Grid.Column="1" Content="{Binding Labels[disableAll]}" Style="{StaticResource QuietButton}" IsEnabled="{Binding CanDisableAll}" Click="DisableAllClicked" Padding="13,8" VerticalAlignment="Top" Margin="15,2,0,0"/></Grid>
+            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><StackPanel Orientation="Horizontal"><TextBlock Text="{Binding Labels[controls]}" FontSize="21" FontWeight="SemiBold"/><Border Background="{DynamicResource RaisedBrush}" CornerRadius="4" Padding="6,2" Margin="11,4,0,3"><TextBlock Text="{Binding FeatureCount}" Foreground="{DynamicResource MutedBrush}" FontSize="10"/></Border></StackPanel><TextBlock Text="{Binding ControlsHint}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,7,0,0" TextWrapping="Wrap"/></StackPanel><Button Grid.Column="1" Content="{Binding Labels[disableAll]}" Style="{StaticResource QuietButton}" Click="DisableAllClicked" Padding="13,8" VerticalAlignment="Top" Margin="15,2,0,0"/></Grid>
           </Border>
           <Border Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="9" Padding="14,10" Margin="0,14,0,0">
             <StackPanel>
@@ -216,7 +216,7 @@
           </Border>
           <TextBlock Text="{Binding ValuesLine}" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="4,13,0,0" Visibility="{Binding ValuesVisibility}"/>
           <Border Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="9" Padding="17,16" Margin="0,20,0,0">
-            <StackPanel><Grid><TextBlock Text="{Binding Labels[installation]}" FontSize="9" FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}"/><TextBlock Text="{Binding InstallationLabel}" Foreground="{DynamicResource MutedBrush}" FontSize="10" HorizontalAlignment="Right"/></Grid><TextBlock Text="{Binding InstallationPath}" Foreground="{DynamicResource InkBrush}" FontFamily="Consolas" FontSize="11" Margin="0,12,0,0" TextWrapping="Wrap"/><TextBlock Text="{Binding BuildLabel}" Foreground="{DynamicResource MutedBrush}" FontSize="10" Margin="0,7,0,0" TextWrapping="Wrap"/><Grid Margin="0,14,0,0"><StackPanel Orientation="Horizontal"><Button Content="{Binding Labels[browse]}" Click="BrowseClicked" Style="{StaticResource QuietButton}" IsEnabled="{Binding CanManage}" Padding="11,7" FontSize="10"/><Button Content="{Binding Labels[scan]}" Click="RescanClicked" Style="{StaticResource QuietButton}" IsEnabled="{Binding CanManage}" Padding="11,7" FontSize="10" Margin="8,0,0,0"/></StackPanel><Button Content="{Binding RemoveLabel}" Click="RemoveClicked" Style="{StaticResource QuietButton}" IsEnabled="{Binding CanRemove}" HorizontalAlignment="Right" Padding="11,7" FontSize="10"/></Grid></StackPanel>
+            <StackPanel><Grid><TextBlock Text="{Binding Labels[installation]}" FontSize="9" FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}"/><TextBlock Text="{Binding InstallationLabel}" Foreground="{DynamicResource MutedBrush}" FontSize="10" HorizontalAlignment="Right"/></Grid><TextBlock Text="{Binding InstallationPath}" Foreground="{DynamicResource InkBrush}" FontFamily="Consolas" FontSize="11" Margin="0,12,0,0" TextWrapping="Wrap"/><TextBlock Text="{Binding BuildLabel}" Foreground="{DynamicResource MutedBrush}" FontSize="10" Margin="0,7,0,0" TextWrapping="Wrap"/><Grid Margin="0,14,0,0"><StackPanel Orientation="Horizontal"><Button Content="{Binding Labels[browse]}" Click="BrowseClicked" Style="{StaticResource QuietButton}" Padding="11,7" FontSize="10"/><Button Content="{Binding Labels[scan]}" Click="RescanClicked" Style="{StaticResource QuietButton}" Padding="11,7" FontSize="10" Margin="8,0,0,0"/></StackPanel><Button Content="{Binding RemoveLabel}" Click="RemoveClicked" Style="{StaticResource QuietButton}" HorizontalAlignment="Right" Padding="11,7" FontSize="10"/></Grid></StackPanel>
           </Border>
         </StackPanel>
       </ScrollViewer>

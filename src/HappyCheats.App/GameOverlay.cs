@@ -34,8 +34,6 @@ internal sealed class GameOverlay : Window
     private GameItem? currentGame;
     private Button? disable;
     private int generation;
-    private bool busy;
-    private bool canDisableAll;
     private bool updatingGroups;
 
     internal string? CurrentGameId => currentGame?.Id;
@@ -120,8 +118,6 @@ internal sealed class GameOverlay : Window
         var items = features.Where(feature => feature.Definition.Id != "disable_all").ToArray();
         var changed = !ReferenceEquals(currentGame, game) || items.Length != featureRows.Count
             || items.Where((feature, index) => !ReferenceEquals(feature, featureRows[index].Feature)).Any();
-        this.busy = busy;
-        this.canDisableAll = canDisableAll;
         currentGame = game;
         Title = $"{game.Name} · HappyCheats";
         heading.Text = Title;
@@ -156,17 +152,15 @@ internal sealed class GameOverlay : Window
             disable.Margin = new Thickness(0, 12, 0, 0);
             disable.MinHeight = 38;
             disable.Click += async (_, _) => {
-                if (rowGeneration != generation || this.busy || !this.canDisableAll || currentGame == null) return;
+                if (rowGeneration != generation || currentGame == null) return;
                 await this.send(new FeatureDefinition("disable_all", "Disable all", "", ""));
             };
             rows.Children.Add(disable);
             scroll.ScrollToTop();
         }
-        rows.IsEnabled = !busy;
         if (disable != null)
         {
             disable.Content = Localization.Text("disableAll");
-            disable.IsEnabled = canDisableAll && !busy;
             AutomationProperties.SetName(disable, Localization.Text("disableAll"));
         }
         UpdateGroups(items);
@@ -196,7 +190,6 @@ internal sealed class GameOverlay : Window
                 button.Margin = new Thickness(0, 0, 5, 5);
                 button.Tag = choice;
                 button.SetBinding(ContentControl.ContentProperty, Bind(choice, nameof(FeatureChoiceItem.Label)));
-                button.SetBinding(IsEnabledProperty, Bind(choice, nameof(FeatureChoiceItem.CanUse)));
                 button.SetBinding(BackgroundProperty, Bind(choice, nameof(FeatureChoiceItem.Background)));
                 button.SetBinding(BorderBrushProperty, Bind(choice, nameof(FeatureChoiceItem.BorderBrush)));
                 button.SetBinding(ForegroundProperty, Bind(choice, nameof(FeatureChoiceItem.Foreground)));
@@ -205,7 +198,7 @@ internal sealed class GameOverlay : Window
                 accessibleName.Bindings.Add(Bind(choice, nameof(FeatureChoiceItem.Label)));
                 button.SetBinding(AutomationProperties.NameProperty, accessibleName);
                 button.Click += async (_, _) => {
-                    if (!CanDispatch(feature, rowGeneration) || !choice.CanUse) return;
+                    if (!CanDispatch(feature, rowGeneration)) return;
                     await selectChoice(choice);
                 };
                 choices.Children.Add(button);
@@ -227,7 +220,6 @@ internal sealed class GameOverlay : Window
             input.SetResourceReference(BorderBrushProperty, "StrongLineBrush");
             input.SetResourceReference(TextBox.CaretBrushProperty, "InkBrush");
             input.SetBinding(TextBox.TextProperty, new Binding(nameof(FeatureItem.NumberText)) { Source = feature, Mode = BindingMode.TwoWay, UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged });
-            input.SetBinding(IsEnabledProperty, Bind(feature, nameof(FeatureItem.CanUse)));
             input.SetBinding(ToolTipProperty, Bind(feature, nameof(FeatureItem.NumberHint)));
             input.SetBinding(AutomationProperties.NameProperty, Bind(feature, nameof(FeatureItem.Name)));
             input.SetBinding(AutomationProperties.HelpTextProperty, Bind(feature, nameof(FeatureItem.NumberHint)));
@@ -252,7 +244,6 @@ internal sealed class GameOverlay : Window
         action.MinHeight = 36;
         action.Margin = new Thickness(8, 0, 0, 0);
         action.SetBinding(ContentControl.ContentProperty, Bind(feature, nameof(FeatureItem.ActionLabel)));
-        action.SetBinding(IsEnabledProperty, Bind(feature, nameof(FeatureItem.CanUse)));
         action.SetBinding(BackgroundProperty, Bind(feature, nameof(FeatureItem.ActionBrush)));
         action.SetBinding(BorderBrushProperty, Bind(feature, nameof(FeatureItem.ActionBorderBrush)));
         action.SetBinding(AutomationProperties.NameProperty, Bind(feature, nameof(FeatureItem.Name)));
@@ -275,7 +266,7 @@ internal sealed class GameOverlay : Window
     }
 
     private bool CanDispatch(FeatureItem feature, int rowGeneration) => rowGeneration == generation && currentGame != null
-        && !busy && feature.CanUse && featureRows.Any(row => ReferenceEquals(row.Feature, feature));
+        && featureRows.Any(row => ReferenceEquals(row.Feature, feature));
 
     private void UpdateGroups(FeatureItem[] items)
     {
@@ -303,7 +294,6 @@ internal sealed class GameOverlay : Window
             if (groupSelector.SelectedIndex != selectedIndex) groupSelector.SelectedIndex = selectedIndex;
         }
         finally { updatingGroups = false; }
-        previous.IsEnabled = next.IsEnabled = groupSelector.Items.Count > 1;
         ApplyGroup();
     }
 

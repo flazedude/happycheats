@@ -449,7 +449,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void LibrarySortChanged(object sender, RoutedEventArgs e)
     {
-        if (sender is RadioButton { Tag: string sort } && sort != _librarySort && CanManage) SetLibrarySort(sort);
+        if (sender is RadioButton { Tag: string sort } && sort != _librarySort) SetLibrarySort(sort);
     }
 
     private async Task PollAsync()
@@ -505,15 +505,25 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async Task RunOperationAsync(Func<GameItem, Task> action, string working)
     {
-        if (_busy || _selected == null) return;
+        if (_busy) { ReportBusy(); return; }
+        if (_selected == null) { SetMessage(Localization.Choose("Select a game first.", "请先选择游戏。"), true); return; }
         var game = _selected;
         _controlEpoch++;
         _busy = true;
         SetMessage(working);
         RefreshBindings();
         try { await action(game); }
-        catch (Exception error) { SetMessage(error.Message, true); }
-        finally { _busy = false; RefreshBindings(); }
+        catch (Exception error)
+        {
+            if (game == _selected) SetMessage(error.Message, true);
+            else if (!_captureMode) ClientErrorLog.Write(game.Id, error.Message, Path.GetDirectoryName(_settingsPath));
+        }
+        finally
+        {
+            _busy = false;
+            if (game != _selected && _selected != null) SetMessage(_selected.Status.Message);
+            RefreshBindings();
+        }
     }
 
     private async Task DiscoverAsync(GameItem game, string? directory = null)
@@ -579,8 +589,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private Task SendOverlayFeatureAsync(FeatureDefinition feature)
     {
         if (_gameOverlay?.CurrentGameId != _selected?.Id) return Task.CompletedTask;
-        if (feature.Id == "disable_all") return CanDisableAll ? SendFeatureAsync(feature) : Task.CompletedTask;
-        return Features.Any(item => ReferenceEquals(item.Definition, feature) && item.CanUse)
+        if (feature.Id == "disable_all") return SendFeatureAsync(feature);
+        return Features.Any(item => ReferenceEquals(item.Definition, feature))
             ? SendFeatureAsync(feature) : Task.CompletedTask;
     }
 
@@ -665,7 +675,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async void InstallClicked(object sender, RoutedEventArgs e) => await RunOperationAsync(async game =>
     {
-        if (game.Installation == null) return;
+        if (game.Installation is not { IsInstalled: true }) throw new InvalidOperationException(Localization.Choose("Game installation not found. Choose Find in Steam or Browse folder.", "未找到游戏安装目录，请点击“在 Steam 中查找”或“浏览目录”。"));
         await game.Module.InstallAsync(game.Installation, new Progress<string>(text => SetMessage(text)));
         await DiscoverAsync(game, game.Installation.Directory);
         SetMessage(game.Id == "elden-ring" ? game.Status.Message : "Trainer installed. " + game.Status.Message);
@@ -673,7 +683,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async void RemoveClicked(object sender, RoutedEventArgs e) => await RunOperationAsync(async game =>
     {
-        if (game.Installation == null) return;
+        if (game.Installation is not { IsInstalled: true }) throw new InvalidOperationException(Localization.Choose("Game installation not found. Choose Find in Steam or Browse folder.", "未找到游戏安装目录，请点击“在 Steam 中查找”或“浏览目录”。"));
         await game.Module.RemoveAsync(game.Installation, new Progress<string>(text => SetMessage(text)));
         await DiscoverAsync(game, game.Installation.Directory);
         SetMessage(game.Id == "elden-ring" ? "Elden Ring trainer disconnected. Connect again to enable controls." : game.Installation!.TrainerInstalled
@@ -683,7 +693,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async void LaunchClicked(object sender, RoutedEventArgs e) => await RunOperationAsync(async game =>
     {
-        if (game.Installation == null) return;
+        if (game.Installation is not { IsInstalled: true }) throw new InvalidOperationException(Localization.Choose("Game installation not found. Choose Find in Steam or Browse folder.", "未找到游戏安装目录，请点击“在 Steam 中查找”或“浏览目录”。"));
         await game.Module.LaunchAsync(game.Installation);
         SetMessage(game.Id == "elden-ring" ? "Offline Elden Ring launch requested. Load a single-player save, then connect the trainer." : game.Id == "stardew" ? "Launching with SMAPI. Load a single-player save to connect." : "Launching through Steam. Load your game to connect the trainer.");
     }, _selected?.Id == "elden-ring" ? "Starting Elden Ring offline…" : _selected?.Id == "stardew" ? "Launching with SMAPI…" : "Opening your game in Steam…");
@@ -700,11 +710,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async Task SendChoiceAsync(FeatureChoiceItem choice)
     {
-        if (_busy || !choice.CanUse || !Features.Contains(choice.Owner)
-            || choice.IsSelected || _selected?.Module is not IFeatureChoiceModule) return;
+        if (!Features.Contains(choice.Owner)) return;
+        if (_selected?.Module is not IFeatureChoiceModule)
+        {
+            SetMessage(Localization.Choose("This trainer does not support changing this selection.", "此修改器不支持更改此选项。"), true);
+            return;
+        }
         await RunOperationAsync(async game =>
         {
-            if (game.Installation == null || game.Module is not IFeatureChoiceModule selector) return;
+            if (game.Installation is not { IsInstalled: true }) throw new InvalidOperationException(Localization.Choose("Game installation not found. Choose Find in Steam or Browse folder.", "未找到游戏安装目录，请点击“在 Steam 中查找”或“浏览目录”。"));
+            if (game.Module is not IFeatureChoiceModule selector) throw new InvalidOperationException("This trainer does not support changing this selection.");
             try
             {
                 await selector.SelectAsync(game.Installation, game.Status, choice.Owner.Definition.Id, choice.Definition.Value);
@@ -727,12 +742,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async Task SendFeatureAsync(FeatureDefinition feature)
     {
-        var cleanup = _selected?.Id is "dawnwalker" or "black-myth-wukong" or "phantom-blade-zero" or "red-dead-redemption-2" or "hotel-architect" or "civilization-vi" or "civilization-vii" or "witcher-3" or "elden-ring" or "astroneer" && _selected.Status.Connected
-            && (feature.Id == "disable_all" || feature.IsToggle && _selected.Status.Enabled.TryGetValue(feature.Id, out var activeCleanup) && activeCleanup);
-        cleanup |= GtaStorySession && (feature.Id == "disable_all" || feature.IsToggle && _selected!.Status.Enabled.TryGetValue(feature.Id, out var gtaActive) && gtaActive);
-        cleanup |= _selected?.Id == "crimson-desert" && _selected.Status.Connected
-            && feature.Id == "crimson_auto_teleport" && _selected.Status.Enabled.TryGetValue(feature.Id, out var crimsonActive) && crimsonActive;
-        if (_busy || _selected?.Status.Ready != true && !cleanup) return;
+        if (_busy) { ReportBusy(); return; }
         if (feature.Number != null)
         {
             var item = Features.FirstOrDefault(item => item.Definition.Id == feature.Id);
@@ -744,7 +754,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             await RunOperationAsync(async game =>
             {
-                if (game.Installation == null) return;
+                if (game.Installation is not { IsInstalled: true }) throw new InvalidOperationException(Localization.Choose("Game installation not found. Choose Find in Steam or Browse folder.", "未找到游戏安装目录，请点击“在 Steam 中查找”或“浏览目录”。"));
                 bool? enable = feature.IsToggle ? !(game.Status.Enabled.TryGetValue(feature.Id, out var active) && active) : null;
                 var requestSession = game.Status.SessionId;
                 await game.Module.SendAsync(game.Installation, game.Status, feature.Id, enable);
@@ -782,7 +792,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async Task SendNumberAsync(FeatureItem feature)
     {
-        if (_busy || !feature.CanUse || _selected?.Module is not IFeatureValueModule) return;
+        if (_busy) { ReportBusy(); return; }
+        if (_selected?.Module is not IFeatureValueModule)
+        {
+            SetMessage(Localization.Choose("This trainer does not support editing this value.", "此修改器不支持修改此数值。"), true);
+            return;
+        }
         if (!feature.TryGetNumber(out var value))
         {
             SetMessage(feature.NumberError, true);
@@ -790,7 +805,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
         await RunOperationAsync(async game =>
         {
-            if (game.Installation == null || game.Module is not IFeatureValueModule editor) return;
+            if (game.Installation is not { IsInstalled: true }) throw new InvalidOperationException(Localization.Choose("Game installation not found. Choose Find in Steam or Browse folder.", "未找到游戏安装目录，请点击“在 Steam 中查找”或“浏览目录”。"));
+            if (game.Module is not IFeatureValueModule editor) throw new InvalidOperationException("This trainer does not support editing this value.");
             try
             {
                 await editor.SetValueAsync(game.Installation, game.Status, feature.Definition.Id, value);
@@ -902,8 +918,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _localizedMessage = null;
         _message = message;
         _messageIsError = error;
+        if (error && !_captureMode) ClientErrorLog.Write(_selected?.Id ?? "client", message, Path.GetDirectoryName(_settingsPath));
         Notify(nameof(Message)); Notify(nameof(MessageBrush));
     }
+
+    private void ReportBusy() => SetMessage(Localization.Choose(
+        "An operation is still running. Try this control again when it finishes.",
+        "当前操作仍在进行，请完成后再次点击此功能。"), true);
 
     private void SetLocalizedMessage(Func<string> message)
     {

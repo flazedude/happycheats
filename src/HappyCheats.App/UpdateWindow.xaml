@@ -66,9 +66,9 @@
           <ProgressBar Height="5" Margin="0,10,0,0" IsIndeterminate="{Binding IndeterminateProgress}" Value="{Binding ProgressPercent, Mode=OneWay}" Minimum="0" Maximum="100" Foreground="{DynamicResource GoldBrush}" Background="{DynamicResource RaisedBrush}" BorderThickness="0"/>
         </StackPanel>
         <WrapPanel HorizontalAlignment="Right">
-          <Button Content="{Binding CheckLabel}" Click="CheckClicked" Style="{StaticResource QuietButton}" IsEnabled="{Binding CanCheck}" Padding="13,10" Margin="0,4,8,0"/>
-          <Button Content="{Binding CloseLabel}" Click="CloseClicked" Style="{StaticResource QuietButton}" IsEnabled="{Binding CanClose}" Padding="14,10" Margin="0,4,8,0"/>
-          <Button Content="{Binding PrimaryLabel}" Click="PrimaryClicked" Style="{StaticResource GoldButton}" Visibility="{Binding PrimaryVisibility}" IsEnabled="{Binding CanAct}" Padding="17,10" Margin="0,4,0,0"/>
+          <Button Content="{Binding CheckLabel}" Click="CheckClicked" Style="{StaticResource QuietButton}" Padding="13,10" Margin="0,4,8,0"/>
+          <Button Content="{Binding CloseLabel}" Click="CloseClicked" Style="{StaticResource QuietButton}" Padding="14,10" Margin="0,4,8,0"/>
+          <Button Content="{Binding PrimaryLabel}" Click="PrimaryClicked" Style="{StaticResource GoldButton}" Visibility="{Binding PrimaryVisibility}" Padding="17,10" Margin="0,4,0,0"/>
         </WrapPanel>
       </StackPanel>
     </Grid>

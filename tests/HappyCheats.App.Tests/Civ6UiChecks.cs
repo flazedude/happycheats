@@ -173,11 +173,11 @@ internal static class Civ6UiChecks
     private static void CheckRenderedControls(MainWindow main, HashSet<string> unsupported)
     {
         var buttons = Descendants<Button>(main).Where(b => b.Tag is FeatureItem).ToArray();
-        Check(buttons.Length == 19 && buttons.All(b => b.IsEnabled == ((FeatureItem)b.Tag).CanUse), "Civilization VI action buttons must bind to per-feature availability.");
+        Check(buttons.Length == 19 && buttons.All(b => b.IsEnabled), "Civilization VI action buttons must always remain clickable.");
         var inputs = Descendants<TextBox>(main).Where(t => t.DataContext is FeatureItem f && f.Definition.Number != null).ToArray();
-        Check(inputs.Length == 12 && inputs.All(t => t.IsEnabled == ((FeatureItem)t.DataContext).CanUse), "Civilization VI must render twelve guarded numeric inputs.");
-        Check(inputs.Where(t => unsupported.Contains(((FeatureItem)t.DataContext).Definition.Id)).All(t => !t.IsEnabled),
-            "The four unavailable raw editors must have disabled input fields.");
+        Check(inputs.Length == 12 && inputs.All(t => t.IsEnabled), "Civilization VI must render twelve editable numeric inputs.");
+        Check(inputs.Where(t => unsupported.Contains(((FeatureItem)t.DataContext).Definition.Id)).All(t => t.IsEnabled),
+            "The four unavailable raw editors must remain editable and report failures on use.");
     }
     private static IEnumerable<T> Descendants<T>(DependencyObject root) where T : DependencyObject
     {
