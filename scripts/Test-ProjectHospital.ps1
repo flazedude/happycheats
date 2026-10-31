@@ -11,6 +11,7 @@ $phAssembly = Join-Path $GameDirectory 'ProjectHospital_Data\Managed\Assembly-CS
 if (Test-Path -LiteralPath $phAssembly) {
     & (Join-Path $phRoot 'tools\InspectProjectHospital\Validate-GameBindings.ps1') -GameAssembly $phAssembly
     if ($LASTEXITCODE -ne 0) { throw 'Project Hospital static binding verification failed.' }
+    & (Join-Path $phRoot 'tools/InspectProjectHospital/Validate-RuntimeReferences.ps1') -GameDirectory $GameDirectory
 } else { Write-Host 'Installed Project Hospital assembly not found; live-build static binding inspection skipped (fixture and payload tests still run).' }
 $phPayload = Join-Path $phRoot 'payload\project-hospital'
 $phPackage = Get-Content -LiteralPath (Join-Path $phPayload 'package.json') -Raw | ConvertFrom-Json

@@ -45,14 +45,14 @@ namespace HappyCheats.ProjectHospital
         }
         internal static void Validate(TrainerCommand command, string filename, string session, long now)
         {
-            if (command == null || command.schema_version != 1) throw new InvalidDataException("Unsupported command schema.");
-            if (!IsGuid(command.request_id)) throw new InvalidDataException("request_id must be a GUID.");
-            if (!string.Equals(Path.GetFileNameWithoutExtension(filename), command.request_id, StringComparison.Ordinal)) throw new InvalidDataException("Command filename and request_id differ.");
-            if (!string.Equals(command.session_id, session, StringComparison.Ordinal)) throw new InvalidDataException("Command belongs to another game session.");
-            if (command.created_utc < now - 30 || command.created_utc > now + 5) throw new InvalidDataException("Command has expired or is dated in the future.");
-            if (!Actions.Contains(command.action ?? "")) throw new InvalidDataException("Unknown trainer action.");
-            if (Toggles.Contains(command.action) && !command.enabled.HasValue) throw new InvalidDataException("Toggle commands require enabled=true or false.");
-            if (!Toggles.Contains(command.action) && command.enabled.HasValue) throw new InvalidDataException("One-shot actions do not accept a toggle state.");
+            if (command == null || command.schema_version != 1) throw new IOException("Unsupported command schema.");
+            if (!IsGuid(command.request_id)) throw new IOException("request_id must be a GUID.");
+            if (!string.Equals(Path.GetFileNameWithoutExtension(filename), command.request_id, StringComparison.Ordinal)) throw new IOException("Command filename and request_id differ.");
+            if (!string.Equals(command.session_id, session, StringComparison.Ordinal)) throw new IOException("Command belongs to another game session.");
+            if (command.created_utc < now - 30 || command.created_utc > now + 5) throw new IOException("Command has expired or is dated in the future.");
+            if (!Actions.Contains(command.action ?? "")) throw new IOException("Unknown trainer action.");
+            if (Toggles.Contains(command.action) && !command.enabled.HasValue) throw new IOException("Toggle commands require enabled=true or false.");
+            if (!Toggles.Contains(command.action) && command.enabled.HasValue) throw new IOException("One-shot actions do not accept a toggle state.");
         }
         internal static long Now() { return (DateTime.UtcNow.Ticks - 621355968000000000L) / TimeSpan.TicksPerSecond; }
         internal static void WriteAtomic(string path, object value)
@@ -86,7 +86,7 @@ namespace HappyCheats.ProjectHospital
                 string result;
                 try
                 {
-                    if (raw == null) throw new InvalidDataException("Command exceeds the size limit.");
+                    if (raw == null) throw new IOException("Command exceeds the size limit.");
                     var command = JsonCodec.ReadCommand(raw);
                     Protocol.Validate(command, path, session, Protocol.Now());
                     result = execute(command);

@@ -485,7 +485,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             {
                 if (previous.Connected != game.Status.Connected || previous.Ready != game.Status.Ready
                     || game.Id is "crimson-desert" or "astroneer" && previous.SessionId != game.Status.SessionId
-                    || game.Id is "civilization-vi" or "civilization-vii" or "witcher-3" or "elden-ring" or "astroneer" && previous.Message != game.Status.Message) SetMessage(game.Status.Message);
+                    || game.Id is "civilization-vi" or "civilization-vii" or "witcher-3" or "elden-ring" or "astroneer" or "project-hospital" && previous.Message != game.Status.Message)
+                    SetMessage(game.Status.Message, game.Id == "project-hospital" && !game.Status.Connected
+                        && game.Status.Message.StartsWith("Project Hospital", StringComparison.Ordinal));
                 else if (game.Id == "crimson-desert" && game.Status.Connected
                     && game.Status.Values.TryGetValue("crimson_teleport_status", out var teleportStatus)
                     && (!previous.Values.TryGetValue("crimson_teleport_status", out var previousTeleport) || teleportStatus != previousTeleport))
@@ -785,7 +787,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 SetLocalizedMessage(() => feature.IsToggle
                     ? Localization.Choose($"{feature.Name}: request sent to the game.", $"{Localization.FeatureName(feature)}：请求已发送，等待游戏确认状态。")
                     : Localization.Choose($"{feature.Name}: applied in game.", $"{Localization.FeatureName(feature)}：已在游戏中应用。"));
-            }, _witcherControlPending ? "Control queued. Resume The Witcher 3 to apply it. Waiting for confirmation…" : "Applying trainer control…");
+            }, _witcherControlPending ? "Control queued. Resume The Witcher 3 to apply it. Waiting for confirmation…"
+                : _selected?.Id == "project-hospital" ? Localization.Choose("Control queued. Return to Project Hospital to apply it. Waiting for confirmation…", "指令已排队，请返回《医院计划》执行，正在等待确认…")
+                : "Applying trainer control…");
         }
         finally { _witcherControlPending = false; RefreshBindings(); }
     }
@@ -948,6 +952,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 && !pair.Key.StartsWith("available_", StringComparison.OrdinalIgnoreCase)
                 && !pair.Key.StartsWith("reason_", StringComparison.OrdinalIgnoreCase)
                 && !pair.Key.StartsWith("diagnostic_", StringComparison.OrdinalIgnoreCase)
+                && pair.Key != "bridge_waiting_for_game"
                 && !new[] { "dryMultiplier", "washAvailable", "dryAvailable", "shopAvailable", "collection_hook_registered", "collection_last_resource", "collection_scope", "soil_status", "selected_collection_multiplier", "selected_run_speed_multiplier", "witcher3_waiting_for_game" }.Contains(pair.Key))
             .Select(pair =>
             {

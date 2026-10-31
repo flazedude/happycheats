@@ -28,10 +28,10 @@ namespace HappyCheats.ProjectHospital
             if (value is float || value is double)
             {
                 var number = Convert.ToDouble(value, CultureInfo.InvariantCulture);
-                if (double.IsNaN(number) || double.IsInfinity(number)) throw new InvalidDataException("Non-finite JSON number.");
+                if (double.IsNaN(number) || double.IsInfinity(number)) throw new IOException("Non-finite JSON number.");
                 output.Append(number.ToString("R", CultureInfo.InvariantCulture)); return;
             }
-            if (stack.Count >= 32 || stack.Contains(value)) throw new InvalidDataException("Cyclic or over-nested JSON value.");
+            if (stack.Count >= 32 || stack.Contains(value)) throw new IOException("Cyclic or over-nested JSON value.");
             stack.Add(value);
             try
             {
@@ -41,7 +41,7 @@ namespace HappyCheats.ProjectHospital
                     output.Append('{'); var first = true;
                     foreach (DictionaryEntry entry in dictionary)
                     {
-                        if (!(entry.Key is string)) throw new InvalidDataException("JSON object keys must be strings.");
+                        if (!(entry.Key is string)) throw new IOException("JSON object keys must be strings.");
                         if (!first) output.Append(','); first = false;
                         Quote(output, (string)entry.Key); output.Append(':'); Write(output, entry.Value, stack);
                     }
@@ -107,24 +107,24 @@ namespace HappyCheats.ProjectHospital
                     case "request_id": command.request_id = Text(pair.Value); break;
                     case "action": command.action = Text(pair.Value); break;
                     case "enabled":
-                        if (pair.Value != null && !(pair.Value is bool)) throw new InvalidDataException("enabled must be boolean or null.");
+                        if (pair.Value != null && !(pair.Value is bool)) throw new IOException("enabled must be boolean or null.");
                         command.enabled = (bool?)pair.Value; break;
-                    default: throw new InvalidDataException("Unknown command field: " + pair.Key);
+                    default: throw new IOException("Unknown command field: " + pair.Key);
                 }
             }
             return command;
         }
-        private static long Integer(object value) { if (!(value is long)) throw new InvalidDataException("Expected integer command field."); return (long)value; }
-        private static string Text(object value) { if (value != null && !(value is string)) throw new InvalidDataException("Expected string command field."); return (string)value; }
+        private static long Integer(object value) { if (!(value is long)) throw new IOException("Expected integer command field."); return (long)value; }
+        private static string Text(object value) { if (value != null && !(value is string)) throw new IOException("Expected string command field."); return (string)value; }
 
         private sealed class Reader
         {
             private readonly string text;
             private int offset;
-            internal Reader(string text) { if (text == null || text.Length > 8192) throw new InvalidDataException("Invalid command length."); this.text = text; }
+            internal Reader(string text) { if (text == null || text.Length > 8192) throw new IOException("Invalid command length."); this.text = text; }
             private void Space() { while (offset < text.Length && (text[offset] == ' ' || text[offset] == '\t' || text[offset] == '\r' || text[offset] == '\n')) offset++; }
             private bool Take(char ch) { Space(); if (offset < text.Length && text[offset] == ch) { offset++; return true; } return false; }
-            private void Need(char ch) { if (!Take(ch)) throw new InvalidDataException("Malformed command JSON."); }
+            private void Need(char ch) { if (!Take(ch)) throw new IOException("Malformed command JSON."); }
             internal Dictionary<string, object> Object()
             {
                 var values = new Dictionary<string, object>(StringComparer.Ordinal);
@@ -134,29 +134,29 @@ namespace HappyCheats.ProjectHospital
                     do
                     {
                         var key = String(); Need(':');
-                        if (values.ContainsKey(key)) throw new InvalidDataException("Duplicate command field.");
+                        if (values.ContainsKey(key)) throw new IOException("Duplicate command field.");
                         values.Add(key, Value());
                         if (Take('}')) break;
                         Need(',');
                     } while (true);
                 }
-                Space(); if (offset != text.Length) throw new InvalidDataException("Trailing command JSON data.");
+                Space(); if (offset != text.Length) throw new IOException("Trailing command JSON data.");
                 return values;
             }
             private object Value()
             {
-                Space(); if (offset >= text.Length) throw new InvalidDataException("Missing command field value.");
+                Space(); if (offset >= text.Length) throw new IOException("Missing command field value.");
                 if (text[offset] == '"') return String();
                 if (Literal("true")) return true;
                 if (Literal("false")) return false;
                 if (Literal("null")) return null;
                 var start = offset;
                 if (text[offset] == '-') offset++;
-                if (offset >= text.Length || text[offset] < '0' || text[offset] > '9') throw new InvalidDataException("Expected primitive command field value.");
+                if (offset >= text.Length || text[offset] < '0' || text[offset] > '9') throw new IOException("Expected primitive command field value.");
                 if (text[offset] == '0') offset++;
                 else while (offset < text.Length && text[offset] >= '0' && text[offset] <= '9') offset++;
                 long number;
-                if (!long.TryParse(text.Substring(start, offset - start), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out number)) throw new InvalidDataException("Command integer overflow.");
+                if (!long.TryParse(text.Substring(start, offset - start), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out number)) throw new IOException("Command integer overflow.");
                 return number;
             }
             private bool Literal(string value)
@@ -171,9 +171,9 @@ namespace HappyCheats.ProjectHospital
                 {
                     var ch = text[offset++];
                     if (ch == '"') return value.ToString();
-                    if (ch < 32) throw new InvalidDataException("Unescaped JSON control character.");
+                    if (ch < 32) throw new IOException("Unescaped JSON control character.");
                     if (ch != '\\') { value.Append(ch); continue; }
-                    if (offset >= text.Length) throw new InvalidDataException("Incomplete JSON escape.");
+                    if (offset >= text.Length) throw new IOException("Incomplete JSON escape.");
                     switch (text[offset++])
                     {
                         case '"': value.Append('"'); break;
@@ -186,12 +186,12 @@ namespace HappyCheats.ProjectHospital
                         case 't': value.Append('\t'); break;
                         case 'u':
                             int code;
-                            if (text.Length - offset < 4 || !int.TryParse(text.Substring(offset, 4), NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out code)) throw new InvalidDataException("Invalid JSON Unicode escape.");
+                            if (text.Length - offset < 4 || !int.TryParse(text.Substring(offset, 4), NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out code)) throw new IOException("Invalid JSON Unicode escape.");
                             value.Append((char)code); offset += 4; break;
-                        default: throw new InvalidDataException("Unknown JSON escape.");
+                        default: throw new IOException("Unknown JSON escape.");
                     }
                 }
-                throw new InvalidDataException("Unterminated JSON string.");
+                throw new IOException("Unterminated JSON string.");
             }
         }
     }

@@ -10,7 +10,7 @@ public sealed class ProjectHospitalModule(string baseDirectory) : IGameModule
     public const string GameAssembly = "ProjectHospital_Data/Managed/Assembly-CSharp.dll";
     public const string SupportedAssemblyHash = "1120D899FB74D16F31115C5C27325EDBD1154B68E9419E6B7EA03CC3D43B6F24";
     public const string SupportedSteamBuild = "21161440";
-    public const string TrainerVersion = "0.1.0";
+    public const string TrainerVersion = "0.1.1";
     public const string IpcRoot = "BepInEx/HappyCheats/project-hospital/";
     private readonly string package = Path.Combine(baseDirectory, "payload", "project-hospital");
     private readonly SemaphoreSlim commandLock = new(1, 1);
@@ -62,14 +62,31 @@ public sealed class ProjectHospitalModule(string baseDirectory) : IGameModule
             var processes = Processes(installation.Directory, Executable);
             if (processes.Length != 1) return TrainerStatus.Offline();
             var path = SafePath(installation.Directory, IpcRoot + "status.json");
-            if (!File.Exists(path)) return TrainerStatus.Offline("Waiting for the trainer. First launch can take a moment.");
+            if (!File.Exists(path)) return TrainerStatus.Offline(StartupDiagnostic(installation.Directory, processes[0].Started));
             var modified = File.GetLastWriteTimeUtc(path);
-            if (!IsFreshHeartbeat(modified, processes[0].Started, DateTime.UtcNow)) return TrainerStatus.Offline("Waiting for a fresh trainer heartbeat.");
+            if (!IsFreshHeartbeat(modified, processes[0].Started, DateTime.UtcNow)) return TrainerStatus.Offline(StartupDiagnostic(installation.Directory, processes[0].Started));
             return ParseStatus(ReadJson(path), processes[0].Id);
         } catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException) {
-            return TrainerStatus.Offline("Waiting for trainer status...");
+            return TrainerStatus.Offline("Project Hospital status could not be read: " + ex.Message);
         }
     });
+
+    internal static string StartupDiagnostic(string root, DateTime processStarted)
+    {
+        var missing = ProjectHospitalInstaller.RequiredFiles.Where(file => !File.Exists(SafePath(root, file))).Take(3).ToArray();
+        if (missing.Length != 0) return "Project Hospital trainer files are missing: " + string.Join(", ", missing)
+            + ". Close the game, choose Install / update, then launch it again.";
+        var logPath = SafePath(root, "BepInEx/LogOutput.log");
+        if (!File.Exists(logPath) || File.GetLastWriteTimeUtc(logPath) < processStarted)
+            return "Project Hospital has started, but no loader log has appeared for this launch. Close the game, choose Install / update in its Steam game folder, then launch again. Expected log: " + logPath;
+        using var stream = new FileStream(logPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        stream.Position = Math.Max(0, stream.Length - 65536);
+        using var reader = new StreamReader(stream);
+        var error = reader.ReadToEnd().Split('\n').LastOrDefault(line =>
+            line.Contains("Exception", StringComparison.OrdinalIgnoreCase) || line.StartsWith("[Error", StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrWhiteSpace(error)) return "Project Hospital trainer startup failed: " + error.Trim()[..Math.Min(error.Trim().Length, 512)] + " Log: " + logPath;
+        return "Project Hospital's loader started, but the trainer has not published a heartbeat. Check " + logPath + ". Close the game and choose Install / update to apply the current trainer.";
+    }
 
     internal static bool IsFreshHeartbeat(DateTime modified, DateTime processStarted, DateTime now) =>
         modified >= processStarted && modified <= now + TimeSpan.FromSeconds(1) && now - modified <= TimeSpan.FromSeconds(6);
@@ -77,6 +94,8 @@ public sealed class ProjectHospitalModule(string baseDirectory) : IGameModule
     internal static TrainerStatus ParseStatus(JsonElement json, int processId)
     {
         var session = Text(json, "session_id");
+        if (Text(json, "version") != TrainerVersion)
+            return TrainerStatus.Offline("Project Hospital trainer version " + Text(json, "version", "unknown") + " does not match " + TrainerVersion + ". Close the game and choose Install / update.");
         if (Text(json, "schema_version") != "1" || Text(json, "version") != TrainerVersion ||
             Text(json, "process_id") != processId.ToString(System.Globalization.CultureInfo.InvariantCulture) || session.Length == 0 ||
             !string.Equals(Text(json, "assembly_sha256"), SupportedAssemblyHash, StringComparison.OrdinalIgnoreCase))
@@ -115,6 +134,7 @@ public sealed class ProjectHospitalModule(string baseDirectory) : IGameModule
         string? commandPath = null;
         try {
             var fresh = await ReadStatusAsync(installation);
+            if (!fresh.Connected) throw new IOException(fresh.Message);
             var id = Guid.NewGuid().ToString("N");
             var command = CreateCommand(status, fresh, id, featureId, enabled, DateTimeOffset.UtcNow.ToUnixTimeSeconds());
             commandPath = SafePath(installation.Directory, IpcRoot + "commands/" + id + ".json");

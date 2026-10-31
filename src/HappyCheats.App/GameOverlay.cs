@@ -2,8 +2,10 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Interop;
+using System.Windows.Input;
 using System.Windows.Media;
 using HappyCheats.Core;
 
@@ -18,14 +20,15 @@ internal sealed class GameOverlay : Window
     private readonly ScrollViewer scroll = new() {
         VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
         HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-        PanningMode = PanningMode.VerticalOnly
+        PanningMode = PanningMode.VerticalOnly,
+        Focusable = false
     };
     private readonly TextBlock heading = new() { FontSize = 15, FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
     private readonly TextBlock hint = new() { FontSize = 11, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 9, 0, 0) };
     private readonly TextBlock shortcuts = new() { FontSize = 11, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 9, 0, 0), Visibility = Visibility.Collapsed };
     private readonly TextBlock values = new() { FontSize = 11, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 12, 0, 0) };
     private readonly TextBlock status = new() { FontSize = 11, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 12, 0, 0) };
-    private readonly ComboBox groupSelector = new() { MinHeight = 36, VerticalContentAlignment = VerticalAlignment.Center, Margin = new Thickness(5, 0, 5, 0) };
+    private readonly ComboBox groupSelector = new() { MinHeight = 36, VerticalContentAlignment = VerticalAlignment.Center, Margin = new Thickness(5, 0, 5, 0), Focusable = false };
     private readonly Button previous = CreateButton("‹");
     private readonly Button next = CreateButton("›");
     private readonly Button close = CreateButton("×");
@@ -49,6 +52,7 @@ internal sealed class GameOverlay : Window
         WindowStyle = WindowStyle.None;
         WindowStartupLocation = WindowStartupLocation.Manual;
         ShowActivated = false;
+        Focusable = false;
         ShowInTaskbar = false;
         Topmost = true;
         AllowsTransparency = true;
@@ -106,11 +110,30 @@ internal sealed class GameOverlay : Window
         ThemeManager.Attach(this);
         SourceInitialized += (_, _) => {
             var handle = new WindowInteropHelper(this).Handle;
-            // TOOLWINDOW keeps the menu out of Alt+Tab. Intentionally allow
-            // activation: numeric text boxes need normal keyboard focus.
+            // Only explicit text editing may activate this companion window.
+            // Cheat buttons and mouse navigation must leave focus in the game.
             SetWindowLongPtr(handle, -20, new IntPtr(GetWindowLongPtr(handle, -20).ToInt64() | 0x00000080));
+            HwndSource.FromHwnd(handle)?.AddHook(WindowMessage);
         };
         Closed += (_, _) => { generation++; currentGame = null; };
+    }
+
+    private IntPtr WindowMessage(IntPtr window, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (message != 0x0021) return IntPtr.Zero; // WM_MOUSEACTIVATE
+        if (AllowsKeyboardActivation(InputHitTest(Mouse.GetPosition(this)) as DependencyObject)) return IntPtr.Zero;
+        handled = true;
+        return new IntPtr(3); // MA_NOACTIVATE: deliver the click without changing foreground windows.
+    }
+
+    internal static bool AllowsKeyboardActivation(DependencyObject? target)
+    {
+        while (target != null)
+        {
+            if (target is TextBoxBase) return true;
+            target = target is Visual ? VisualTreeHelper.GetParent(target) : LogicalTreeHelper.GetParent(target);
+        }
+        return false;
     }
 
     internal void Refresh(GameItem game, IEnumerable<FeatureItem> features, bool busy, bool canDisableAll, string message, string shortcutHint = "")
@@ -279,8 +302,8 @@ internal sealed class GameOverlay : Window
             if (existing.Length != keys.Length + 1 || keys.Where((key, index) => !Equals(existing[index + 1].Tag, key)).Any())
             {
                 groupSelector.Items.Clear();
-                groupSelector.Items.Add(new ComboBoxItem());
-                foreach (var key in keys) groupSelector.Items.Add(new ComboBoxItem { Tag = key });
+                groupSelector.Items.Add(new ComboBoxItem { Focusable = false });
+                foreach (var key in keys) groupSelector.Items.Add(new ComboBoxItem { Tag = key, Focusable = false });
             }
             foreach (ComboBoxItem item in groupSelector.Items)
             {
@@ -352,7 +375,7 @@ internal sealed class GameOverlay : Window
 
     private static Button CreateButton(string text)
     {
-        var button = new Button { Content = text, Padding = new Thickness(11, 7, 11, 7) };
+        var button = new Button { Content = text, Padding = new Thickness(11, 7, 11, 7), Focusable = false };
         button.SetResourceReference(BackgroundProperty, "ButtonBrush");
         button.SetResourceReference(ForegroundProperty, "InkBrush");
         button.SetResourceReference(BorderBrushProperty, "ButtonBorderBrush");

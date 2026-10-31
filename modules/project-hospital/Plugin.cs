@@ -15,13 +15,14 @@ namespace HappyCheats.ProjectHospital
     [BepInProcess("ProjectHospital.exe")]
     public sealed class Plugin : BaseUnityPlugin
     {
-        public const string Version = "0.1.0";
+        public const string Version = "0.1.1";
         public const string SupportedAssemblySha256 = "1120d899fb74d16f31115c5c27325edbd1154b68e9419e6b7ea03cc3d43b6f24";
         private string session = Guid.NewGuid().ToString("N");
         private readonly HashSet<string> handled = new HashSet<string>(StringComparer.Ordinal);
         private string ipcPath, commandsPath, responsesPath, assemblyHash = "", message = "Waiting for the game.", lastCommand, initializationError;
         private GameBindings bindings;
         private Harmony harmony;
+        private HeartbeatPublisher heartbeat;
         private object previousState;
         private float nextPoll, nextStatus;
         private int processId;
@@ -71,6 +72,7 @@ namespace HappyCheats.ProjectHospital
                 });
             }
             catch (Exception exception) { Logger.LogWarning(Explain(exception)); }
+            heartbeat = new HeartbeatPublisher(Path.Combine(ipcPath, "status.json"));
             Publish();
         }
 
@@ -132,7 +134,7 @@ namespace HappyCheats.ProjectHospital
             if (action == "disable_all") { if (bindings != null) bindings.DisableAll(); return "All continuous cheats are off."; }
             if (!bindingsValid || bindings == null) throw new InvalidOperationException("Trainer bindings are unavailable.");
             if (action == "max_money") return bindings.MaxMoney();
-            if (!Protocol.Toggles.Contains(action) || !enabled.HasValue) throw new InvalidDataException("Unknown action or missing toggle state.");
+            if (!Protocol.Toggles.Contains(action) || !enabled.HasValue) throw new IOException("Unknown action or missing toggle state.");
             if (action == "unlock_campaigns")
             {
                 if (enabled.Value && !bindings.ProfileReady) throw new InvalidOperationException("Wait for the game profile to load.");
@@ -170,13 +172,15 @@ namespace HappyCheats.ProjectHospital
         {
             try
             {
-                Protocol.WriteAtomic(Path.Combine(ipcPath, "status.json"), new TrainerStatus
+                var status = new TrainerStatus
                 {
                     session_id = session, process_id = processId, ready = !shuttingDown && bindingsValid && bindings != null && (bindings.ProfileReady || bindings.IsCurrentHospitalActive),
                     message = message, values = bindings == null ? new Dictionary<string, string>() : bindings.ReadValues(),
                     enabled = bindings == null ? new Dictionary<string, bool>() : bindings.ToggleValues(), last_command = lastCommand,
                     updated_utc = Protocol.Now(), assembly_sha256 = assemblyHash, bindings_valid = bindingsValid, initialization_error = initializationError
-                });
+                };
+                if (heartbeat != null) heartbeat.Publish(status);
+                else Protocol.WriteAtomic(Path.Combine(ipcPath, "status.json"), status);
             }
             catch (Exception exception) { Logger.LogWarning("Cannot publish trainer status: " + Explain(exception)); }
         }
@@ -186,6 +190,7 @@ namespace HappyCheats.ProjectHospital
         {
             if (shuttingDown) return;
             shuttingDown = true;
+            if (heartbeat != null) { heartbeat.Dispose(); heartbeat = null; }
             if (bindings != null) bindings.DisableAll();
             RuntimeHooks.Bindings = null;
             RuntimeHooks.ReportError = null;

@@ -1,6 +1,6 @@
 # Project Hospital
 
-HappyCheats **0.3.26** includes experimental Project Hospital trainer **0.1.0** for Windows Steam app **868360**, inspected build **21161440**. The module checks the SHA-256 of the installed game assembly before installation or connection. Other builds require inspection first.
+HappyCheats **0.3.63** includes experimental Project Hospital trainer **0.1.1** for Windows Steam app **868360**, inspected build **21161440**. It fixes the missing-runtime-type failure that prevented status publication and keeps a background heartbeat when the game pauses after losing focus. The module checks the SHA-256 of the installed game assembly before installation or connection. Other builds require inspection first.
 
 Close Project Hospital, select it in HappyCheats, choose **Install / update**, then launch the game. The package includes the pinned BepInEx **5.4.23.5 x64** loader and the trainer, so setup does not need an additional download. Load a hospital for hospital controls; campaign unlocking is available at the main menu once the profile is loaded. Reopen the campaign selection screen after toggling campaign unlocking to refresh its buttons.
 
@@ -27,7 +27,11 @@ Bindings were inspected read-only against the actual installed assembly:
 
 Offline validation covers payload compilation, game binding inspection, isolated trainer behavior, command/session gates, installation ownership and integrity, and bilingual desktop/handheld interface checks. The new payload is included in both the signed LAN update and the standalone EXE. Release evidence is retained under `artifacts/project-hospital/`.
 
-**The game was not launched, the trainer was not installed into the real game, and no game save was changed during development.** Loader startup, actual gameplay behavior, large-hospital performance and connectivity from a second PC remain unverified.
+On 31 October 2026, an authorized JACK-PC test reproduced the startup failure at the main menu: the stripped game libraries lack `System.IO.InvalidDataException`. Trainer 0.1.1 uses `IOException`, and a new framework-reference check rejects the previous payload against the actual game libraries. The corrected trainer produced a valid session, retained a fresh heartbeat while backgrounded, and acknowledged a queued **Disable all** after returning to the main menu. No hospital was loaded. Actual hospital gameplay, save-affecting controls, large-hospital performance and another PC remain unverified.
+
+After installing this client update, close the game and use **Install / update** to replace the old trainer with 0.1.1. A paused game can wait to execute queued commands until you return to it; its connection heartbeat remains alive. The background worker only republishes immutable status snapshots and never touches game objects or executes cheats.
+
+The client reports missing trainer files, missing current-launch loader logs, startup exceptions and version mismatches. Click-time errors are recorded in `%LOCALAPPDATA%/HappyCheats/client-errors.log`; loader details are in `BepInEx/LogOutput.log` under the selected game folder. Shared-menu buttons keep foreground focus with the game from 0.3.63; explicit numeric text editing still takes keyboard focus. Use windowed or borderless play.
 
 Build with PowerShell 7:
 

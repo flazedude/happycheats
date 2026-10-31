@@ -4,11 +4,11 @@ A Windows trainer library with 17 games, English / 中文, and one shared in-gam
 
 **[Download HappyCheats.exe](https://github.com/flazedude/happycheats/releases/latest/download/HappyCheats.exe)** · [Latest release](https://github.com/flazedude/happycheats/releases/latest) · [Changelog](CHANGELOG.md) · [中文说明](README.zh-CN.md)
 
-## Latest version · 0.3.62
+## Latest version · 0.3.63
 
-All controls stay clickable, including while disconnected or busy. Failed attempts show an error and write to the local client error log. The desktop and shared in-game menu use the same behavior across all 17 games; trainer payloads are unchanged.
+Project Hospital trainer 0.1.1 fixes startup and background connection failures. Shared-menu buttons keep focus with the game, and all controls remain clickable. Close Project Hospital and choose **Install / update** after updating the client. Main-menu connection and command acknowledgement were tested; hospital gameplay remains unverified.
 
-[Full release notes](docs/releases/0.3.62.en.txt)
+[Full release notes](docs/releases/0.3.63.en.txt)
 
 ![HappyCheats library and Stardew Valley trainer controls in the English dark theme](docs/images/happycheats-library.png)
 

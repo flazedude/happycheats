@@ -1,0 +1,13 @@
+HappyCheats 0.3.63
+
+Project Hospital trainer 0.1.1 fixes the startup TypeLoadException caused by InvalidDataException being absent from the game's stripped .NET runtime. Status and command serialization now use an available exception type. A build check resolves the plugin's framework types against the actual game libraries and rejects the previous failing payload.
+
+A background heartbeat republishes immutable main-thread snapshots when the game pauses after losing focus. The client stays connected and explains when returning to the game is needed to process queued controls. All game state inspection and cheat execution remain on the game's main thread.
+
+Shared-menu buttons, choices and mouse navigation no longer activate the companion window or take foreground focus from the game. Explicit numeric text editing still needs keyboard focus. Windowed/borderless play remains supported; exclusive-fullscreen support is not claimed. All controls remain clickable, as introduced in 0.3.62.
+
+Project Hospital now reports missing trainer files, absent current-launch loader logs, startup exceptions and mismatched trainer versions. Click-time failures are recorded in %LOCALAPPDATA%/HappyCheats/client-errors.log.
+
+After updating the client, CLOSE Project Hospital and choose Install / update to install trainer 0.1.1 before relaunching. Both complete distributions contain the rebuilt trainer and all seventeen games.
+
+Live validation on JACK-PC covered startup at the main menu, a persistent connection while the game was backgrounded, and a queued Disable all acknowledgement after returning to the main menu. No hospital was loaded. Hospital gameplay, save-affecting cheats, physical controllers and the other PC remain unverified. Offline tests cover runtime behavior, real-game framework references, diagnostic reporting and native shared-menu mouse-activation handling.

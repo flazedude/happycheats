@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.IO;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
@@ -279,6 +280,19 @@ internal static class GameOverlayChecks
             var originalChoices = Choices();
             var oldDisable = Disable();
             var editor = Inputs().Single();
+            Check(GameOverlay.AllowsKeyboardActivation(editor), "explicit numeric editing must retain keyboard focus support");
+            Check(!GameOverlay.AllowsKeyboardActivation(originalActions[0]) && !originalActions[0].Focusable
+                && !GameOverlay.AllowsKeyboardActivation(groups) && !groups.Focusable,
+                "menu actions or mouse navigation can steal game focus");
+            var activation = typeof(GameOverlay).GetMethod("WindowMessage", Private)!;
+            object[] activationArguments = { IntPtr.Zero, 0x0021, IntPtr.Zero, IntPtr.Zero, false };
+            var activationResult = (IntPtr)activation.Invoke(overlay, activationArguments)!;
+            Check(activationResult == new IntPtr(3) && (bool)activationArguments[4],
+                "mouse activation must deliver clicks without activating the companion window");
+            var foreground = GetForegroundWindow();
+            var nativeActivation = SendMessage(new WindowInteropHelper(overlay).Handle, 0x0021, IntPtr.Zero, new IntPtr(0x02010001));
+            Check(nativeActivation == new IntPtr(3) && GetForegroundWindow() == foreground,
+                "the native menu window did not retain foreground focus during mouse activation");
             var amount = (FeatureItem)editor.Tag;
             editor.SetCurrentValue(TextBox.TextProperty, "37");
             editor.GetBindingExpression(TextBox.TextProperty)!.UpdateSource();
@@ -472,6 +486,9 @@ internal static class GameOverlayChecks
         var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
         using var file = File.Create(path); encoder.Save(file);
     }
+
+    [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll", CharSet = CharSet.Auto)] private static extern IntPtr SendMessage(IntPtr window, int message, IntPtr wParam, IntPtr lParam);
 
     private sealed class FutureModule : IGameModule
     {

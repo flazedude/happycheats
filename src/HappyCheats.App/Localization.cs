@@ -803,6 +803,7 @@ public static class Localization
         ["Load a hospital before using this action."] = "请先载入医院，再使用此功能。",
         ["InvalidOperationException: Load a hospital before using this action."] = "请先载入医院，再使用此功能。",
         ["Trainer ready. Load a hospital for hospital actions; campaigns can be unlocked at the menu."] = "修改器已就绪。请载入医院使用经营功能；可在菜单中解锁战役。",
+        ["Trainer connected. Return to Project Hospital to process controls."] = "修改器已连接。请返回《医院计划》以执行指令。",
         ["Hospital closed. Campaign unlock is available at the menu."] = "医院已关闭。可在菜单中使用战役解锁功能。",
         ["Hospital loaded. Trainer ready."] = "医院已载入，修改器已就绪。",
         ["Hospital balance is at least 999,999,999."] = "医院资金已达到至少 999,999,999。",

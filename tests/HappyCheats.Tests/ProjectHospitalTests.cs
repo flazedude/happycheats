@@ -12,6 +12,20 @@ internal static class ProjectHospitalTests
 
     public static int RunAll()
     {
+        Run("Project Hospital startup diagnostics distinguish missing files logs and runtime failures", () => {
+            using var f = new Fixture();
+            Check(ProjectHospitalModule.StartupDiagnostic(f.Game, DateTime.UtcNow).Contains("files are missing"));
+            ProjectHospitalInstaller.Install(f.Package, f.Game, () => { });
+            var started = DateTime.UtcNow - TimeSpan.FromSeconds(1);
+            Check(ProjectHospitalModule.StartupDiagnostic(f.Game, started).Contains("no loader log"));
+            var log = SafePath(f.Game, "BepInEx/LogOutput.log");
+            File.WriteAllText(log, "[Warning] TypeLoadException: missing runtime type");
+            Check(ProjectHospitalModule.StartupDiagnostic(f.Game, started).Contains("startup failed"));
+            File.SetLastWriteTimeUtc(log, started - TimeSpan.FromSeconds(1));
+            Check(ProjectHospitalModule.StartupDiagnostic(f.Game, started).Contains("no loader log"));
+            File.WriteAllText(log, "[Message] Chainloader started");
+            Check(ProjectHospitalModule.StartupDiagnostic(f.Game, started).Contains("has not published a heartbeat"));
+        });
         Run("Project Hospital catalog has all five requested controls and staff hiring limit", () => {
             var module = ModuleCatalog.Create().Single(module => module.Definition.Id == "project-hospital");
             Check(module.Definition.AppId == "868360" && module is ProjectHospitalModule);

@@ -47,7 +47,7 @@ foreach ($phDll in @('HappyCheats.ProjectHospital.dll')) {
     $phPaths += $phRelative
 }
 [ordered]@{
-    schema_version = 1; game_id = 'project-hospital'; steam_app_id = 868360; version = '0.1.0'; build_id = '21161440'; game_assembly_sha256 = $phExpectedGameHash
+    schema_version = 1; game_id = 'project-hospital'; steam_app_id = 868360; version = '0.1.1'; build_id = '21161440'; game_assembly_sha256 = $phExpectedGameHash
     loader = Get-Content -LiteralPath (Join-Path $phRoot '.tools\bepinex\5.4.23.5-x64\provenance.json') -Raw | ConvertFrom-Json
     files = @($phPaths | ForEach-Object { [ordered]@{ path = $_.Replace('\', '/'); sha256 = (Get-FileHash -LiteralPath (Join-Path $phOutput $_) -Algorithm SHA256).Hash.ToLowerInvariant() } })
 } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $phOutput 'package.json') -Encoding utf8

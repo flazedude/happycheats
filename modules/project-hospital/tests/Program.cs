@@ -32,6 +32,7 @@ internal static class Program
             Check("A response write failure cannot replay an applied command", QueueResponseFailure);
             Check("Wire codec parses escapes and serializes invariant interoperable JSON", JsonRoundtrip);
             Check("Wire codec rejects ambiguous and malformed input", JsonRejects);
+            Check("Background heartbeat retains session without accessing live game objects", BackgroundHeartbeat);
             Console.WriteLine($"PASS: {passed} offline Project Hospital scenarios. Game execution and gameplay were not tested.");
             return 0;
         }
@@ -46,6 +47,28 @@ internal static class Program
         passed++;
         Console.WriteLine("PASS " + name);
     }
+    private static void BackgroundHeartbeat()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "HappyCheats-heartbeat-" + Guid.NewGuid().ToString("N") + ".json");
+        var now = DateTime.UtcNow;
+        var initial = new TrainerStatus { session_id = Session, ready = true, bindings_valid = true, message = "Main thread ready" };
+        using var publisher = new HeartbeatPublisher(path, false, () => now);
+        publisher.Publish(initial);
+        initial.session_id = "changed outside publisher";
+        initial.values["unowned"] = "must not leak";
+        now += TimeSpan.FromSeconds(10);
+        publisher.Pulse();
+        var status = Newtonsoft.Json.Linq.JObject.Parse(File.ReadAllText(path));
+        Expect((string)status["session_id"] == Session && (bool)status["ready"], "paused heartbeat lost its original session");
+        Expect((string)status["values"]["bridge_waiting_for_game"] == "True" && status["values"]["unowned"] == null, "snapshot ownership or pause hint failed");
+        Expect((long)status["updated_utc"] == (now.Ticks - 621355968000000000L) / TimeSpan.TicksPerSecond, "background heartbeat timestamp did not advance");
+        publisher.Dispose();
+        var stopped = File.ReadAllText(path);
+        now += TimeSpan.FromSeconds(10); publisher.Pulse();
+        Expect(File.ReadAllText(path) == stopped, "disposed heartbeat continued writing");
+        File.Delete(path);
+    }
+    private static void Expect(bool condition, string message) { if (!condition) throw new Exception(message); }
     private static void Reset()
     {
         Hospital.sm_instance = null;
@@ -295,23 +318,23 @@ internal static class Program
     }
     private static void InvalidCommands()
     {
-        Reject<InvalidDataException>(() => Protocol.Validate(null, "invalid.json", Session, Now));
-        Reject<InvalidDataException>(() => Validate(Command(time: Now - 31)));
-        Reject<InvalidDataException>(() => Validate(Command(time: Now + 6)));
-        var command = Command(); command.session_id = Guid.NewGuid().ToString("N"); Reject<InvalidDataException>(() => Validate(command));
-        command = Command(); command.schema_version = 2; Reject<InvalidDataException>(() => Validate(command));
-        command = Command(); Reject<InvalidDataException>(() => Protocol.Validate(command, Guid.NewGuid().ToString("N") + ".json", Session, Now));
+        Reject<IOException>(() => Protocol.Validate(null, "invalid.json", Session, Now));
+        Reject<IOException>(() => Validate(Command(time: Now - 31)));
+        Reject<IOException>(() => Validate(Command(time: Now + 6)));
+        var command = Command(); command.session_id = Guid.NewGuid().ToString("N"); Reject<IOException>(() => Validate(command));
+        command = Command(); command.schema_version = 2; Reject<IOException>(() => Validate(command));
+        command = Command(); Reject<IOException>(() => Protocol.Validate(command, Guid.NewGuid().ToString("N") + ".json", Session, Now));
         foreach (var invalidId in new[] { "../request", "", "123", "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\n", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" })
         {
-            command = Command(); command.request_id = invalidId; Reject<InvalidDataException>(() => Validate(command));
+            command = Command(); command.request_id = invalidId; Reject<IOException>(() => Validate(command));
         }
-        foreach (var action in Protocol.Toggles) Reject<InvalidDataException>(() => Validate(Command(action)));
-        Reject<InvalidDataException>(() => Validate(Command("MAX_MONEY")));
-        Reject<InvalidDataException>(() => Validate(Command(null)));
+        foreach (var action in Protocol.Toggles) Reject<IOException>(() => Validate(Command(action)));
+        Reject<IOException>(() => Validate(Command("MAX_MONEY")));
+        Reject<IOException>(() => Validate(Command(null)));
         foreach (var action in new[] { "max_money", "disable_all" })
         {
             command = Command(action); command.enabled = true;
-            Reject<InvalidDataException>(() => Validate(command));
+            Reject<IOException>(() => Validate(command));
         }
     }
     private static void AtomicStatus()
@@ -333,7 +356,7 @@ internal static class Program
             status.message = "replaced"; Protocol.WriteAtomic(path, status);
             Equal("replaced", JsonConvert.DeserializeObject<TrainerStatus>(File.ReadAllText(path)).message);
             var cycle = new Cycle(); cycle.Self = cycle;
-            Reject<InvalidDataException>(() => Protocol.WriteAtomic(path, cycle));
+            Reject<IOException>(() => Protocol.WriteAtomic(path, cycle));
             Equal("replaced", JsonConvert.DeserializeObject<TrainerStatus>(File.ReadAllText(path)).message);
             Equal(1, Directory.GetFiles(folder).Length);
         }
@@ -464,13 +487,13 @@ internal static class Program
             "{\"enabled\":[]}", "{\"enabled\":{}}", "{\"action\":\"\\x\"}", "{\"action\":\"\\uZZZZ\"}",
             "{\"action\":\"\\u001\"}", "{\"action\":\"line\nfeed\"}", "{\"action\":\"unfinished}",
             "{\"enabled\":true,}", "{\"enabled\":True}", "{\"created_utc\":+1}", "{\"enabled\":truefalse}"
-        }) Reject<InvalidDataException>(() => JsonCodec.ReadCommand(invalid));
-        Reject<InvalidDataException>(() => JsonCodec.ReadCommand(null));
-        Reject<InvalidDataException>(() => JsonCodec.ReadCommand(new string(' ', 8193)));
+        }) Reject<IOException>(() => JsonCodec.ReadCommand(invalid));
+        Reject<IOException>(() => JsonCodec.ReadCommand(null));
+        Reject<IOException>(() => JsonCodec.ReadCommand(new string(' ', 8193)));
         Reject<OverflowException>(() => JsonCodec.ReadCommand("{\"schema_version\":2147483648}"));
-        Reject<InvalidDataException>(() => JsonCodec.Serialize(double.NaN));
-        Reject<InvalidDataException>(() => JsonCodec.Serialize(double.PositiveInfinity));
-        Reject<InvalidDataException>(() => JsonCodec.Serialize(new System.Collections.Hashtable { [1] = "non-string key" }));
+        Reject<IOException>(() => JsonCodec.Serialize(double.NaN));
+        Reject<IOException>(() => JsonCodec.Serialize(double.PositiveInfinity));
+        Reject<IOException>(() => JsonCodec.Serialize(new System.Collections.Hashtable { [1] = "non-string key" }));
     }
     private sealed class Cycle { public Cycle Self { get; set; } }
 }

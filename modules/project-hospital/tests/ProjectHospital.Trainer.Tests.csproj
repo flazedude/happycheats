@@ -11,5 +11,6 @@
     <Compile Include="../GameBindings.cs" Link="GameBindings.cs" />
     <Compile Include="../Protocol.cs" Link="Protocol.cs" />
     <Compile Include="../JsonCodec.cs" Link="JsonCodec.cs" />
+    <Compile Include="../HeartbeatPublisher.cs" Link="HeartbeatPublisher.cs" />
   </ItemGroup>
 </Project>

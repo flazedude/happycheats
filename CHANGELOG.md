@@ -2,7 +2,17 @@
 
 **[Download the latest release / 下载最新版本](https://github.com/flazedude/happycheats/releases/latest)** · [Home](README.md) · [中文首页](README.zh-CN.md)
 
-## Latest · 0.3.62
+## Latest · 0.3.63
+
+- Fixes Project Hospital's startup runtime-type failure and keeps its heartbeat connected while the game is backgrounded. Includes trainer 0.1.1; close the game and choose Install / update.
+- Shared-menu button clicks and mouse navigation keep foreground focus with the game. Numeric text editing still needs keyboard focus; windowed/borderless support is unchanged.
+- Adds startup diagnostics and actual-game runtime-reference validation. Live main-menu startup, background connection and a queued cleanup acknowledgement passed; hospital gameplay remains unverified.
+
+修复《医院计划》启动及后台连接问题，统一菜单按钮不再夺取游戏焦点。更新客户端后关闭游戏并安装修改器 0.1.1。增加启动诊断及实际运行库引用检查，已验证主菜单连接和指令确认，未验证医院经营。
+
+[English](docs/releases/0.3.63.en.txt) · [中文](docs/releases/0.3.63.zh.txt)
+
+## 0.3.62
 
 - All client and shared-menu controls remain clickable, including when disconnected, unready, unavailable or busy.
 - Failed attempts show an error and write to `%LOCALAPPDATA%/HappyCheats/client-errors.log`. Existing operations report busy errors on repeated clicks.
