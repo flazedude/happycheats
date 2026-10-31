@@ -1,0 +1,7 @@
+HappyCheats 0.3.61 — Automatic update-history cleanup
+
+Normal client startup now cleans older completed update transactions in the background, keeping the current installation and the newest completed rollback. This removes redundant previous-client copies, downloaded archives and updater runners left by older successful updates.
+
+Cleanup preserves interrupted or unrecognized transactions, mismatched paths/configurations, linked folders and files in use. It retries briefly while another client or updater is active. Preview, screenshot and development data-root sessions do not clean user data. Standalone bundle installations, user settings, game files, desktop backups and published release archives are not automatically removed.
+
+All seventeen trainer payloads are unchanged and included in both complete distributions; no trainer reinstall is needed for this update. Validation uses offline regression fixtures and packaged-client preview smoke checks. It does not establish gameplay, physical-controller or second-PC validation.

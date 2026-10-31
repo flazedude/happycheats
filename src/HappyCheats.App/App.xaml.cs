@@ -3,11 +3,14 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using HappyCheats.Core.Updates;
 
 namespace HappyCheats.App;
 
 public partial class App : Application
 {
+    private readonly CancellationTokenSource _maintenanceLifetime = new();
+
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
@@ -34,6 +37,9 @@ public partial class App : Application
         window.Show();
         await window.InitializeAsync(e.Args.Contains("--preview") || e.Args.Contains("--updates-preview"));
         UpdateLauncher.ConfirmStartup(e.Args);
+        if (UpdateLauncher.CanInstall && !e.Args.Any(argument =>
+                argument is "--screenshot" or "--preview" or "--updates-preview" or "--data-root"))
+            _ = UpdateCacheCleanup.RunAfterStartupAsync(AppContext.BaseDirectory, UpdateLauncher.CurrentVersion, _maintenanceLifetime.Token);
         var languageIndex = Array.IndexOf(e.Args, "--language");
         if (languageIndex >= 0 && languageIndex + 1 < e.Args.Length) window.SetLanguage(e.Args[languageIndex + 1], persist: false);
         if (gameIndex >= 0 && gameIndex + 1 < e.Args.Length) window.SelectGame(e.Args[gameIndex + 1]);
@@ -75,5 +81,12 @@ public partial class App : Application
                 }
             }), DispatcherPriority.ApplicationIdle);
         }
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        _maintenanceLifetime.Cancel();
+        _maintenanceLifetime.Dispose();
+        base.OnExit(e);
     }
 }
