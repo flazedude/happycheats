@@ -16,6 +16,11 @@ try {
     [IO.File]::WriteAllBytes((Join-Path $hcFixture 'HappyCheats-1.2.3-win-x64.zip'), [byte[]](0..255))
     [IO.File]::WriteAllText((Join-Path $hcFixture 'secret.pem'), 'not public')
     [IO.File]::WriteAllText((Join-Path $hcFixture 'HappyCheats.exe'), 'bootstrap fixture')
+    $pkFixture = Join-Path $hcFixture 'proxyking'
+    New-Item -ItemType Directory -Path $pkFixture | Out-Null
+    [IO.File]::WriteAllText((Join-Path $pkFixture 'latest.json'), '{"version":"1.2.3"}')
+    [IO.File]::WriteAllBytes((Join-Path $pkFixture 'ProxyKing_1.2.3_x64-setup.exe'), [byte[]](0..255))
+    [IO.File]::WriteAllText((Join-Path $pkFixture 'secret.pem'), 'not public')
     $hcDll = Join-Path $hcRoot 'tools\HappyCheats.UpdateServer\bin\Release\net8.0\HappyCheats.UpdateServer.dll'
     $hcArgs = @(('"' + $hcDll + '"'),'--address','127.0.0.1','--port',$hcPort.ToString(),'--release-root',('"' + $hcFixture + '"'))
     $hcProcess = Start-Process -FilePath 'dotnet' -ArgumentList $hcArgs -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $hcFixture 'stdout.log') -RedirectStandardError (Join-Path $hcFixture 'stderr.log')
@@ -39,6 +44,14 @@ try {
     }
     $hcPost = Invoke-WebRequest "$hcBase/happycheats/latest.json" -Method Post -NoProxy -SkipHttpErrorCheck
     if ($hcPost.StatusCode -ne 405) { throw 'Server accepted a write request.' }
+    $pkFeed = Invoke-WebRequest "$hcBase/proxyking/latest.json" -NoProxy
+    if ($pkFeed.Content -ne '{"version":"1.2.3"}' -or $pkFeed.Headers['Cache-Control'] -notmatch 'no-cache') { throw 'ProxyKing feed/isolation failed.' }
+    $pkRange = Invoke-WebRequest "$hcBase/proxyking/ProxyKing_1.2.3_x64-setup.exe" -Headers @{Range='bytes=10-19'} -NoProxy
+    if ($pkRange.StatusCode -ne 206 -or $pkRange.RawContentLength -ne 10 -or $pkRange.Headers['Cache-Control'] -notmatch 'immutable') { throw 'ProxyKing range/cache failed.' }
+    foreach ($pkPath in @('/proxyking/secret.pem','/proxyking/HappyCheats.exe','/happycheats/ProxyKing_1.2.3_x64-setup.exe','/proxyking/%2e%2e%2flatest.json','/proxyking/latest.json.tmp','/proxyking/')) {
+        if ((Invoke-WebRequest ($hcBase + $pkPath) -NoProxy -SkipHttpErrorCheck).StatusCode -ne 404) { throw "Unexpected exposure at $pkPath" }
+    }
+    if ((Invoke-WebRequest "$hcBase/proxyking/latest.json" -Method Post -NoProxy -SkipHttpErrorCheck).StatusCode -ne 405) { throw 'ProxyKing accepted writes.' }
     Write-Host 'PASS LAN server: feed, cache policies, HEAD, range downloads, bootstrap, path isolation and read-only access.'
 } finally {
     if ($hcProcess -and !$hcProcess.HasExited) { Stop-Process -Id $hcProcess.Id; $hcProcess.WaitForExit() }

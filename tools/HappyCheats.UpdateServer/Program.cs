@@ -42,6 +42,28 @@ app.MapMethods("/happycheats/{name}", new[] { "GET", "HEAD" }, (string name, Htt
         fileDownloadName: name == "latest.json" ? null : name, enableRangeProcessing: true);
 });
 app.MapGet("/health", () => Results.Text("HappyCheats LAN update server"));
+// A separate, explicitly allowlisted namespace reuses this host and startup task.
+// ProxyKing keeps its own signing identity, manifests and immutable packages.
+app.MapMethods("/proxyking/{name}", new[] { "GET", "HEAD" }, (string name, HttpContext context) =>
+{
+    var version = @"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)";
+    var immutable = Regex.IsMatch(name, @"^ProxyKing_" + version + @"_x64-setup\.exe(\.sig)?$", RegexOptions.CultureInvariant)
+        || Regex.IsMatch(name, @"^proxyking-" + version + @"-source\.tar\.gz$", RegexOptions.CultureInvariant)
+        || name == "sing-box-1.14.2-source.tar.gz";
+    if (!immutable && name is not ("latest.json" or "ProxyKing-Setup.exe" or "GPL-3.0.txt" or "THIRD_PARTY_NOTICES.md"
+        or "sing-box-LICENSE.txt" or "engine-provenance.txt" or "npm-dependencies.json" or "rust-dependencies.json"))
+        return Results.NotFound();
+    var path = Path.Combine(directory, "proxyking", name);
+    if (!File.Exists(path)) return Results.NotFound();
+    try { CheckLinks(path); }
+    catch (IOException) { return Results.NotFound(); }
+    FileStream stream;
+    try { stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete, 65536, FileOptions.Asynchronous); }
+    catch (FileNotFoundException) { return Results.NotFound(); }
+    context.Response.Headers.CacheControl = immutable ? "public, max-age=31536000, immutable" : "no-cache, max-age=0, must-revalidate";
+    return Results.Stream(stream, name == "latest.json" ? "application/json" : "application/octet-stream",
+        fileDownloadName: name == "latest.json" ? null : name, enableRangeProcessing: true);
+});
 app.Run();
 
 static void CheckLinks(string path)

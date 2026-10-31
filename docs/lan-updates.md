@@ -83,6 +83,10 @@ On 30 October 2026, JACK-PC's `.76` mirror was enabled with the 300-second inter
 
 ## Files and troubleshooting
 
+### ProxyKing namespace
+
+The server can also serve ProxyKing at `/proxyking/` from the separate `public/proxyking` subdirectory. Only its feed, installer, signature, source and notice filenames are allowed. HappyCheats feeds, signing keys, packages, mirror refresh, startup task and port remain independent. ProxyKing uses its own established Tauri signing key; never use HappyCheats' key to sign it. ProxyKing's repository contains its publication and verified mirror instructions. Deploy the updated server executable on a host before claiming its ProxyKing namespace is available; older server builds return 404. This server-only change does not change the HappyCheats client or trainers.
+
 - `artifacts/lan-updates/server.json`: saved address, port and paths (not secret key material).
 - `artifacts/lan-updates/public/`: release ZIPs, signed feed and starter EXE.
 - `%LOCALAPPDATA%/HappyCheatsPublisher/publisher.json`: machine-local protected key paths; existing older key locations remain valid. Back up the private key; replacing it breaks existing clients' trust.
