@@ -139,7 +139,7 @@ int main() {
     componentAddress=component.address(); proxyAddress=proxy.address(); navAddress=nav.address();
     g_syncProxy=Sync; g_originalLoco=Loco; g_originalOuterMove=Outer;
 
-    // Exercise both statically remapped PE3462 classes in synthetic memory.
+    // Exercise both statically remapped PE3479 classes in synthetic memory.
     // ChildOnly was observed in Kliff's historical PE3424 session.
     for(const uintptr_t vtableRva:{uintptr_t{0x590C798},uintptr_t{0x590CCA0}}) {
         clientBody.owner.Put(0,g_game+vtableRva);

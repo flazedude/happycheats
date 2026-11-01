@@ -32,9 +32,9 @@ template<class PointerReader,class ByteReader> bool ResolveControlledClientAncho
     ClientAnchor candidate{};
     std::uintptr_t possessor{},pawn{};
     std::uint8_t local{};
-    // PE3462 ClientActor virtual +178 is the engine's local-control predicate:
+    // PE3479 ClientActor virtual +178 is the engine's local-control predicate:
     // owner+A0 equals this service's self-user (+58), and owner+94 is nonzero.
-    // Normal and ChildOnly share this exact method on PE3462. Kliff's owner
+    // Normal and ChildOnly share this exact method on PE3479. Kliff's owner
     // was observed as ChildOnly on PE3424; retain every local-self check.
     if(!ResolveClientAnchor(globalAddress,expectedVtable,pointer,candidate,expectedChildVtable) ||
         !pointer(candidate.service+0x58,candidate.selfUser) ||
@@ -85,7 +85,7 @@ template<class PointerReader,class DwordReader> bool ResolveStatusKey(std::uintp
     std::uint16_t reference,PointerReader pointer,DwordReader dword,std::uint32_t& key) {
     std::uintptr_t registry{},table{},row{},again{};
     std::uint32_t count{},candidate{},valueAgain{};
-    // Current engine getter 0x3DCF80 bounds a WORD table reference by +08,
+    // Current engine getter 0x3DD440 bounds a WORD table reference by +08,
     // then reads its loaded row from +58. Deserializer stores the stable key
     // at row+08. A missing cache row is rejected; never invoke the lazy loader.
     if(reference==0xFFFF || !pointer(globalAddress,registry) || !dword(registry+8,count) ||
