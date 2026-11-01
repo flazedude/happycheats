@@ -105,7 +105,7 @@ public sealed class CheatStore(string root, CheatFeedConfiguration trust)
         var ready = false;
         if (Directory.Exists(destination))
         {
-            try { var probe = LoadPackage(destination, release); probe.Deactivate(); ready = true; }
+            try { var probe = LoadPackage(destination, release); ReleaseModule(probe); ready = true; }
             catch (Exception error) when (error is IOException or InvalidDataException or BadImageFormatException) { /* Explicit repair retains the damaged package for recovery. */ }
         }
         if (!ready)
@@ -120,7 +120,7 @@ public sealed class CheatStore(string root, CheatFeedConfiguration trust)
                 VerifyArchive(archive, release);
                 Extract(archive, stage, release.Id);
                 var probe = LoadPackage(stage, release);
-                probe.Deactivate();
+                ReleaseModule(probe);
                 token.ThrowIfCancellationRequested();
                 Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
                 if (Directory.Exists(destination))
@@ -150,6 +150,13 @@ public sealed class CheatStore(string root, CheatFeedConfiguration trust)
     {
         if (new FileInfo(path).Length != release.PackageSize || !Hash(path).Equals(release.Sha256, StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException("Cheat package size or SHA-256 failed. No fallback was attempted.");
+    }
+
+    public static void ReleaseModule(IGameModule module)
+    {
+        module.Deactivate();
+        var context = AssemblyLoadContext.GetLoadContext(module.GetType().Assembly);
+        if (context?.IsCollectible == true) context.Unload();
     }
 
     private static IEnumerable<ZipArchiveEntry> Entries(ZipArchive zip, string id)
@@ -230,8 +237,8 @@ public sealed class CheatStore(string root, CheatFeedConfiguration trust)
         }
         foreach (var feature in game.Features)
             if (string.IsNullOrWhiteSpace(feature.Id) || string.IsNullOrWhiteSpace(feature.Name) || string.IsNullOrWhiteSpace(feature.Description)
-                || feature.Number is { } number && (number.Minimum > number.Maximum || number.DefaultValue < number.Minimum || number.DefaultValue > number.Maximum || number.Step <= 0)
-                || feature.Choices is { } choices && (choices.Count == 0 || choices.Select(x => x.Value).Distinct().Count() != choices.Count))
+                || feature.Number is { } number && (module is not IFeatureValueModule || number.Minimum > number.Maximum || number.DefaultValue < number.Minimum || number.DefaultValue > number.Maximum || number.Step <= 0)
+                || feature.Choices is { } choices && (module is not IFeatureChoiceModule || choices.Count == 0 || choices.Select(x => x.Value).Distinct().Count() != choices.Count))
                 throw new InvalidDataException("Cheat module has incomplete feature metadata.");
     }
 

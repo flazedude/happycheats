@@ -30,10 +30,11 @@ public partial class MainWindow
         {
             while (_polling) await Task.Delay(40, _updateLifetime.Token);
             await PrepareUpdateInstallAsync();
+            _cheatLoadError = null;
             var loaded = await Task.Run(() => _cheatStore.Load(ModuleCatalog.Create(), _bundledCheatVersions, UpdateLauncher.CurrentVersion,
                 error => { _cheatLoadError = error; ClientErrorLog.Write("cheat-load", error); }), _updateLifetime.Token);
             var selected = _selected?.Id;
-            foreach (var game in Games) game.Module.Deactivate();
+            foreach (var game in Games) CheatStore.ReleaseModule(game.Module);
             Games.Clear(); Features.Clear(); _selected = null;
             foreach (var module in loaded)
             {

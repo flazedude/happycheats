@@ -188,7 +188,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _pollTimer.Tick += async (_, _) => await PollAsync();
         _controllerTimer.Tick += async (_, _) => await PollControllerAsync();
         Closing += (_, e) => { if (_installingUpdate && !_updateHandoff) { e.Cancel = true; _updateWindow?.Activate(); } };
-        Closed += (_, _) => { ThemeManager.Changed -= ThemeChanged; _pollTimer.Stop(); _controllerTimer.Stop(); _updateTimer.Stop(); _civ6KeyboardHook?.Dispose(); _gameOverlay?.Close(); _updateLifetime.Cancel(); _updates?.Dispose(); foreach (var game in Games) game.Module.Deactivate(); };
+        Closed += (_, _) => { ThemeManager.Changed -= ThemeChanged; _pollTimer.Stop(); _controllerTimer.Stop(); _updateTimer.Stop(); _civ6KeyboardHook?.Dispose(); _gameOverlay?.Close(); _updateLifetime.Cancel(); _updates?.Dispose(); foreach (var game in Games) CheatStore.ReleaseModule(game.Module); };
     }
 
     public async Task InitializeAsync(bool preview = false)
