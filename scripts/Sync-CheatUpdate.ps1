@@ -3,9 +3,9 @@
 param([string]$ConfigPath, [switch]$LockHeld)
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'CheatUpdates.Common.ps1')
-$hcRoot=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-$hcState=Join-Path $hcRoot 'artifacts/lan-updates'
-if (!$ConfigPath) { $ConfigPath=Join-Path $hcState 'server.json' }
+$hcLocations=Resolve-HcMirrorLocations $PSScriptRoot $ConfigPath
+$ConfigPath=$hcLocations.ConfigPath
+$hcState=$hcLocations.StateRoot
 $hcConfig=Get-HcLanMirrorVerificationConfiguration (Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json)
 $null=Get-HcLanFeedAsset $hcConfig.BaseUrl
 $hcLock=$null; $hcHttp=[Net.Http.HttpClient]::new(); $hcHttp.Timeout=[TimeSpan]::FromSeconds(60)

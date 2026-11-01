@@ -1,8 +1,9 @@
 [CmdletBinding()]
-param([string]$Address, [ValidateRange(0,65535)][int]$Port = 0, [switch]$OpenFirewall)
+param([string]$Address, [ValidateRange(0,65535)][int]$Port = 0, [switch]$OpenFirewall, [string]$HostRoot)
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'LanUpdateConfiguration.Common.ps1')
 $hcRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+if ($HostRoot) { $hcRoot = [IO.Path]::GetFullPath($HostRoot) }
 $hcStateRoot = Join-Path $hcRoot 'artifacts\lan-updates'
 $hcConfigPath = Join-Path $hcStateRoot 'server.json'
 New-Item -ItemType Directory -Force -Path $hcStateRoot | Out-Null

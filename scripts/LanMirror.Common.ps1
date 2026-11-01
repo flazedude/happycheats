@@ -1,4 +1,9 @@
 # Signed, version-pinned mirror assets. This file never discovers or reads a private key.
+function Resolve-HcMirrorLocations([string]$ScriptDirectory, [string]$ConfigPath) {
+    if (!$ConfigPath) { $ConfigPath = Join-Path ([IO.Path]::GetFullPath((Join-Path $ScriptDirectory '..'))) 'artifacts/lan-updates/server.json' }
+    $hcFullConfig = [IO.Path]::GetFullPath($ConfigPath)
+    return [pscustomobject]@{ConfigPath=$hcFullConfig;StateRoot=[IO.Path]::GetDirectoryName($hcFullConfig)}
+}
 function Get-HcOfficialFeedUrls([string]$Repository = 'flazedude/happycheats') {
     if ($Repository -cnotmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') { throw 'Invalid GitHub repository.' }
     return @('http://192.168.2.76:17845/happycheats/latest.json', 'http://192.168.2.59:17845/happycheats/latest.json', "https://github.com/$Repository/releases/latest/download/latest.json")

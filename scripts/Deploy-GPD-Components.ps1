@@ -1,31 +1,43 @@
 #requires -Version 7.0
 [CmdletBinding()]
-param([switch]$PrepareOnly)
+param([switch]$PrepareOnly, [string]$HostRoot)
 $ErrorActionPreference = 'Stop'
 # This is a local GPD operation, never a remote key/configuration transfer.
 if (!(Get-NetIPAddress -AddressFamily IPv4 | Where-Object IPAddress -eq '192.168.2.59')) { throw 'Run this helper on GPD-PC (192.168.2.59). No server was changed.' }
 $hcIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
 if (!([Security.Principal.WindowsPrincipal]::new($hcIdentity)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { throw 'Run this helper in Administrator PowerShell 7 on GPD-PC.' }
 $hcRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+$hcSourceRoot = $hcRoot
+if ($HostRoot) { $hcRoot = [IO.Path]::GetFullPath($HostRoot) }
 . (Join-Path $PSScriptRoot 'CheatUpdates.Common.ps1')
 . (Join-Path $PSScriptRoot 'LanMirrorSupervisor.Common.ps1')
 $hcState = Join-Path $hcRoot 'artifacts/lan-updates'
 $hcConfigPath = Join-Path $hcState 'server.json'
 $hcConfig = Get-Content -LiteralPath $hcConfigPath -Raw | ConvertFrom-Json
 if ($hcConfig.Address -cne '192.168.2.59' -or $hcConfig.Port -ne 17845 -or $hcConfig.BaseUrl -cne 'http://192.168.2.59:17845/happycheats') { throw 'This checkout is not the existing GPD .59 host. Its configuration was preserved.' }
-$hcRemote = & git -C $hcRoot remote get-url origin
+$hcRemote = & git -C $hcSourceRoot remote get-url origin
 if ($LASTEXITCODE -ne 0 -or $hcRemote -notmatch '^(https://github\.com/|git@github\.com:)flazedude/happycheats(\.git)?/?$') { throw 'Use the official HappyCheats checkout.' }
-$hcBranch = & git -C $hcRoot branch --show-current
-if ($LASTEXITCODE -ne 0 -or $hcBranch -cne 'main') { throw 'Deploy from clean integrated main. Preserve task-branch work and integrate it first.' }
-$hcSource = & git -C $hcRoot rev-parse HEAD
-if ($LASTEXITCODE -ne 0 -or (& git -C $hcRoot status --porcelain --untracked-files=all)) { throw 'Source has unfinished work. It was preserved; no server was changed.' }
+$hcSource = & git -C $hcSourceRoot rev-parse HEAD
+if ($LASTEXITCODE -ne 0 -or (& git -C $hcSourceRoot status --porcelain --untracked-files=all)) { throw 'Deployment source must be clean. Development work was preserved; no server was changed.' }
+& git -C $hcSourceRoot merge-base --is-ancestor $hcSource refs/remotes/origin/main
+if ($LASTEXITCODE -ne 0) { throw 'Deployment source is not integrated into official main.' }
 $hcServerDirectory = Join-Path $hcRoot 'artifacts/lan-update-server'
 $hcServerExe = Join-Path $hcServerDirectory 'HappyCheats.UpdateServer.exe'
 foreach ($hcPath in @($hcConfigPath, $hcServerExe, $hcConfig.PublicDirectory)) { Assert-HcMirrorSafePath $hcPath }
 if (!(Test-Path -LiteralPath $hcServerExe -PathType Leaf)) { throw 'The existing GPD server binary is missing.' }
 $hcTask = Get-ScheduledTask -TaskName 'HappyCheats LAN Update Server' -ErrorAction Stop
-$hcExpectedArguments = '-NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + (Join-Path $PSScriptRoot 'Run-LanUpdateServer.ps1') + '"'
-if ($hcTask.Actions.Count -ne 1 -or $hcTask.Actions[0].Arguments -ine $hcExpectedArguments -or
+$hcArgumentPrefix = '-NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "'
+$hcOriginalArguments = $hcArgumentPrefix + (Join-Path $hcRoot 'scripts/Run-LanUpdateServer.ps1') + '"'
+$hcExpectedArguments = $hcArgumentPrefix + (Join-Path $PSScriptRoot 'Run-LanUpdateServer.ps1') + '" -HostRoot "' + $hcRoot + '"'
+$hcAllowedArguments = @($hcOriginalArguments, $hcExpectedArguments)
+$hcDeploymentRecord = Join-Path $hcState 'deployed-components.json'
+Assert-HcMirrorSafePath $hcDeploymentRecord
+if (Test-Path -LiteralPath $hcDeploymentRecord) {
+    $hcPreviousDeployment = Get-Content -LiteralPath $hcDeploymentRecord -Raw | ConvertFrom-Json
+    if ($hcPreviousDeployment.hostRoot -cne $hcRoot -or !$hcPreviousDeployment.sourceRoot) { throw 'Existing deployment record belongs to another host.' }
+    $hcAllowedArguments += $hcArgumentPrefix + (Join-Path $hcPreviousDeployment.sourceRoot 'scripts/Run-LanUpdateServer.ps1') + '" -HostRoot "' + $hcRoot + '"'
+}
+if ($hcTask.Actions.Count -ne 1 -or $hcTask.Actions[0].Arguments -notin $hcAllowedArguments -or
     [IO.Path]::GetFileName($hcTask.Actions[0].Execute) -ine 'powershell.exe' -or $hcTask.State -eq 'Disabled') {
     throw 'The startup task points to another checkout, uses another launcher, or is disabled. It was preserved. Report its action before repairing it.'
 }
@@ -48,9 +60,9 @@ $hcStage = Join-Path $hcRoot ('artifacts/gpd-component-stage/' + [Guid]::NewGuid
 $hcStageServer = Join-Path $hcStage 'server'
 Assert-HcMirrorSafePath $hcStage
 Write-Host 'Building new server in isolation; the current server stays running...'
-& dotnet publish (Join-Path $hcRoot 'tools/HappyCheats.UpdateServer') -c Release -r win-x64 --self-contained true --artifacts-path (Join-Path $hcStage 'build') -o $hcStageServer --nologo -v minimal
+& dotnet publish (Join-Path $hcSourceRoot 'tools/HappyCheats.UpdateServer') -c Release -r win-x64 --self-contained true --artifacts-path (Join-Path $hcStage 'build') -o $hcStageServer --nologo -v minimal
 if ($LASTEXITCODE -ne 0 -or !(Test-Path -LiteralPath (Join-Path $hcStageServer 'HappyCheats.UpdateServer.exe'))) { throw 'Server staging failed. The running server was not changed.' }
-if ((& git -C $hcRoot rev-parse HEAD) -cne $hcSource -or (& git -C $hcRoot status --porcelain --untracked-files=all)) { throw 'Source changed during staging. No server was changed; retry after reviewing it.' }
+if ((& git -C $hcSourceRoot rev-parse HEAD) -cne $hcSource -or (& git -C $hcSourceRoot status --porcelain --untracked-files=all)) { throw 'Deployment source changed during staging. No server was changed.' }
 if ($PrepareOnly) { Write-Host "Staged server: $hcStageServer. No task, firewall, configuration or active binary was changed."; return }
 $hcBackup = Join-Path $hcState ('component-backups/' + [Guid]::NewGuid().ToString('N'))
 Assert-HcMirrorSafePath $hcBackup
@@ -62,8 +74,9 @@ try {
     Copy-Item -LiteralPath $hcServerDirectory -Destination $hcBackup -Recurse
     Copy-Item -LiteralPath $hcConfigPath -Destination (Join-Path $hcBackup 'server.json')
     Export-ScheduledTask -TaskName $hcTask.TaskName | Set-Content -LiteralPath (Join-Path $hcBackup 'startup-task.xml') -Encoding utf8NoBOM
+    if (Test-Path -LiteralPath $hcDeploymentRecord) { Copy-Item -LiteralPath $hcDeploymentRecord -Destination (Join-Path $hcBackup 'deployed-components.json') }
     $hcStopped = $true
-    & (Join-Path $PSScriptRoot 'Stop-LanUpdateServer.ps1')
+    & (Join-Path $PSScriptRoot 'Stop-LanUpdateServer.ps1') -HostRoot $hcRoot
     # Also handle a manually started copy, but only the exact preflight-verified process.
     $hcRemaining = Get-Process -Id $hcExistingId -ErrorAction SilentlyContinue
     if ($hcRemaining) {
@@ -76,35 +89,45 @@ try {
     $hcRuntime = $hcConfig.SyncPowerShellPath
     if (!$hcRuntime -or !(Test-Path -LiteralPath $hcRuntime -PathType Leaf)) { $hcRuntime = (Get-Process -Id $PID).Path }
     Enable-HcLanMirrorConfiguration -ConfigPath $hcConfigPath -PowerShellPath $hcRuntime -IntervalSeconds (Get-HcLanMirrorIntervalSeconds $hcConfig)
+    # Change only the action; keep the existing principal, triggers and settings.
+    $hcNewAction = New-ScheduledTaskAction -Execute $hcTask.Actions[0].Execute -Argument $hcExpectedArguments -WorkingDirectory $hcRoot
+    Set-ScheduledTask -TaskName $hcTask.TaskName -Action $hcNewAction | Out-Null
+    [ordered]@{hostRoot=$hcRoot;sourceRoot=$hcSourceRoot;commit=$hcSource} | ConvertTo-Json | Set-Content -LiteralPath $hcDeploymentRecord -Encoding utf8NoBOM
 } catch {
     $hcFailure = $_
     if ($hcReplaced) {
         Copy-Item -Path (Join-Path $hcBackup 'lan-update-server/*') -Destination $hcServerDirectory -Recurse -Force
         Copy-Item -LiteralPath (Join-Path $hcBackup 'server.json') -Destination $hcConfigPath -Force
+        Set-ScheduledTask -TaskName $hcTask.TaskName -Action $hcTask.Actions | Out-Null
+        if (Test-Path -LiteralPath (Join-Path $hcBackup 'deployed-components.json')) { Copy-Item -LiteralPath (Join-Path $hcBackup 'deployed-components.json') -Destination $hcDeploymentRecord -Force }
+        elseif (Test-Path -LiteralPath $hcDeploymentRecord) { Remove-Item -LiteralPath $hcDeploymentRecord }
         Write-Warning "Restored the previous server and configuration. Backup: $hcBackup"
     }
 } finally {
     if ($hcLock) { $hcLock.Dispose() }
 }
 if ($hcStopped) {
-    try { & (Join-Path $PSScriptRoot 'Start-LanUpdateServer.ps1') }
+    try { & (Join-Path $PSScriptRoot 'Start-LanUpdateServer.ps1') -HostRoot $hcRoot }
     catch {
         $hcStartupFailure = $_
         if (!$hcFailure -and $hcReplaced) {
             Write-Warning 'The new server did not start. Restoring the previous host before reporting the failure.'
-            & (Join-Path $PSScriptRoot 'Stop-LanUpdateServer.ps1')
+            & (Join-Path $PSScriptRoot 'Stop-LanUpdateServer.ps1') -HostRoot $hcRoot
             $hcRestoreLock = [IO.File]::Open((Join-Path $hcState 'publish.lock'), [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::Write, [IO.FileShare]::None)
             try {
                 Copy-Item -Path (Join-Path $hcBackup 'lan-update-server/*') -Destination $hcServerDirectory -Recurse -Force
                 Copy-Item -LiteralPath (Join-Path $hcBackup 'server.json') -Destination $hcConfigPath -Force
+                Set-ScheduledTask -TaskName $hcTask.TaskName -Action $hcTask.Actions | Out-Null
+                if (Test-Path -LiteralPath (Join-Path $hcBackup 'deployed-components.json')) { Copy-Item -LiteralPath (Join-Path $hcBackup 'deployed-components.json') -Destination $hcDeploymentRecord -Force }
+                elseif (Test-Path -LiteralPath $hcDeploymentRecord) { Remove-Item -LiteralPath $hcDeploymentRecord }
             } finally { $hcRestoreLock.Dispose() }
-            & (Join-Path $PSScriptRoot 'Start-LanUpdateServer.ps1')
+            & (Join-Path $PSScriptRoot 'Start-LanUpdateServer.ps1') -HostRoot $hcRoot
         }
         throw "Server startup needs attention. Backup: $hcBackup. $($hcStartupFailure.Exception.Message)"
     }
 }
 if ($hcFailure) { throw $hcFailure }
-# The unchanged startup task launches the updated sync helper automatically.
+# The same task, principal, triggers and settings now use the retained clean source.
 $hcReady = $false; $hcDeadline = [DateTime]::UtcNow.AddSeconds(45)
 do {
     try {
