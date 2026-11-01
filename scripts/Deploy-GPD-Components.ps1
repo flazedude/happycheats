@@ -1,6 +1,6 @@
 #requires -Version 7.0
 [CmdletBinding()]
-param([switch]$PrepareOnly, [string]$HostRoot)
+param([switch]$PrepareOnly, [string]$HostRoot, [string]$ExpectedCommit)
 $ErrorActionPreference = 'Stop'
 # This is a local GPD operation, never a remote key/configuration transfer.
 if (!(Get-NetIPAddress -AddressFamily IPv4 | Where-Object IPAddress -eq '192.168.2.59')) { throw 'Run this helper on GPD-PC (192.168.2.59). No server was changed.' }
@@ -19,8 +19,14 @@ $hcRemote = & git -C $hcSourceRoot remote get-url origin
 if ($LASTEXITCODE -ne 0 -or $hcRemote -notmatch '^(https://github\.com/|git@github\.com:)flazedude/happycheats(\.git)?/?$') { throw 'Use the official HappyCheats checkout.' }
 $hcSource = & git -C $hcSourceRoot rev-parse HEAD
 if ($LASTEXITCODE -ne 0 -or (& git -C $hcSourceRoot status --porcelain --untracked-files=all)) { throw 'Deployment source must be clean. Development work was preserved; no server was changed.' }
-& git -C $hcSourceRoot merge-base --is-ancestor $hcSource refs/remotes/origin/main
-if ($LASTEXITCODE -ne 0) { throw 'Deployment source is not integrated into official main.' }
+if ($ExpectedCommit) {
+    if ($ExpectedCommit -cnotmatch '^[0-9a-f]{40}$' -or $hcSource -cne $ExpectedCommit) { throw 'Deployment source does not match the verified pinned commit.' }
+    $hcTrustedCommit = & git -C $hcSourceRoot rev-parse ('refs/happycheats/deployments/' + $ExpectedCommit)
+    if ($LASTEXITCODE -ne 0 -or $hcTrustedCommit -cne $ExpectedCommit) { throw 'The verified deployment source reference is missing.' }
+} else {
+    & git -C $hcSourceRoot merge-base --is-ancestor $hcSource refs/remotes/origin/main
+    if ($LASTEXITCODE -ne 0) { throw 'Deployment source is not integrated into official main.' }
+}
 $hcServerDirectory = Join-Path $hcRoot 'artifacts/lan-update-server'
 $hcServerExe = Join-Path $hcServerDirectory 'HappyCheats.UpdateServer.exe'
 foreach ($hcPath in @($hcConfigPath, $hcServerExe, $hcConfig.PublicDirectory)) { Assert-HcMirrorSafePath $hcPath }

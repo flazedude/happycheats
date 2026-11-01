@@ -29,6 +29,13 @@ try {
     Assert-HcIsolation ((& git -C $hcRepo branch --show-current) -ceq 'codex/unfinished-game') 'Development branch changed'
     Assert-HcIsolation ([IO.File]::ReadAllText((Join-Path $hcSnapshot 'work.txt')) -ceq 'committed source') 'Snapshot used unfinished code'
     Assert-HcIsolation (!(& git -C $hcSnapshot status --porcelain --untracked-files=all)) 'Snapshot is not clean'
+    $hcBundle=Join-Path $hcFixture 'source.bundle'
+    & git -C $hcRepo bundle create $hcBundle refs/heads/main
+    if($LASTEXITCODE -ne 0){throw 'Fixture bundle creation failed'}
+    & git -C $hcRepo fetch --no-tags $hcBundle ('refs/heads/main:refs/happycheats/deployments/'+$hcCommit)
+    if($LASTEXITCODE -ne 0){throw 'Offline bundle import failed'}
+    Assert-HcIsolation (((& git -C $hcRepo status --porcelain --untracked-files=all)|Out-String) -ceq $hcBeforeStatus) 'Offline bundle import changed unfinished work'
+    Assert-HcIsolation ((& git -C $hcRepo rev-parse ('refs/happycheats/deployments/'+$hcCommit)) -ceq $hcCommit) 'Offline deployment pin differs'
     $hcHostConfig=Join-Path $hcRepo 'artifacts/lan-updates/server.json'
     $hcPaths=Resolve-HcMirrorLocations (Join-Path $hcSnapshot 'scripts') $hcHostConfig
     Assert-HcIsolation ($hcPaths.StateRoot -ceq [IO.Path]::GetDirectoryName($hcHostConfig)) 'Explicit host state ignored'
