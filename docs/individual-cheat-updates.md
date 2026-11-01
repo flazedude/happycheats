@@ -56,4 +56,10 @@ The publishing PC exposes `cheats.json` and identical game ZIPs alongside its ex
 
 ## Validation
 
+### Deploy the updated GPD host
+
+On GPD-PC, receive shared `main` through `scripts/Sync-Source.ps1`, then run `scripts/Deploy-GPD-Components.ps1` in Administrator PowerShell 7 from its existing checkout. This host-only deployment does not change the HappyCheats client version or publish new trainer bytes. The helper checks the `.59` identity, clean source, existing task action, corrected firewall application path, listening process and established public signing key. It stages an isolated server build before stopping anything, retains server/configuration/task backups, preserves the existing task and firewall scope, and enables the existing signed mirror mechanism. A failed binary/configuration replacement restores the backup and restarts the previous host. An active publisher/mirror causes a retryable busy error before service interruption. `-PrepareOnly` builds a stage without replacing the active host.
+
+The task must already point to this checkout's `Run-LanUpdateServer.ps1`; an old task action, missing task or intentionally disabled task stops deployment for deliberate repair. Private keys, credentials, LAN addresses, existing public packages and custom refresh intervals are preserved. The first automatic refresh may still be pending when the helper returns; verify `cheats.json` and its package hashes from the other PC before claiming both hosts work. No reboot validation is implied.
+
 The regression suites load a signed synthetic game absent from the built-in catalog, dispatch toggle/value/choice interfaces, exercise its shared overlay, and verify modeless/busy UI behavior. They cover signatures, compatibility, package corruption, repair, cancellation, mutation locks, stale LAN selection, exact-package fallback and integrity-stop behavior. HTTP server tests cover the allowlisted independent feed/package URLs, ranges, caching and write rejection. These are offline/synthetic checks and do not establish gameplay, physical-controller behavior, exclusive-fullscreen support, peer availability or a reboot test.
