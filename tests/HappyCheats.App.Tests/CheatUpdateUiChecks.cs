@@ -119,12 +119,16 @@ internal static class CheatUpdateUiChecks
     }
     private static void CheckWarnings(MainWindow main, Button update, Action<bool,string> check, string? artifacts)
     {
+        var showActivated = main.ShowActivated;
         var game = main.Games.First();
         var installation = game.Installation; var status = game.Status;
         var loaded = game.LoadedCheatVersion; var downloaded = game.DownloadedCheatVersion; var available = game.AvailableCheatVersion;
         var library = (ListBox)main.FindName("Library"); var selected = library.SelectedItem;
         try
         {
+            // These are foreground button clicks, including reopening an activated window.
+            // WPF rejects Show() for a maximized window with ShowActivated=false.
+            main.ShowActivated = true;
             game.Installation = new("synthetic", "123", true, true, false, true, "Compatible build");
             game.Status = TrainerStatus.Offline();
             game.LoadedCheatVersion = game.DownloadedCheatVersion = game.AvailableCheatVersion = "1.0.0";
@@ -193,6 +197,7 @@ internal static class CheatUpdateUiChecks
         }
         finally
         {
+            main.ShowActivated = showActivated;
             game.Installation = installation; game.Status = status;
             game.LoadedCheatVersion = loaded; game.DownloadedCheatVersion = downloaded; game.AvailableCheatVersion = available; game.Changed();
         }
