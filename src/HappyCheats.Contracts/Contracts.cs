@@ -33,4 +33,3 @@ public interface IFeatureValueModule
 {
     Task SetValueAsync(GameInstallation installation, TrainerStatus status, string featureId, decimal value);
 }
-

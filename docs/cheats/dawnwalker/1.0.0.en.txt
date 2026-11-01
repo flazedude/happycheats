@@ -1,0 +1,7 @@
+Dawnwalker independent package 1.0.0
+
+Initial independently distributed module package for HappyCheats 0.3.65 or later. Contains the existing Dawnwalker trainer 0.4.2, its module logic, complete installation payload and dependency notices. No new gameplay behavior is introduced by this packaging release.
+
+Download through Update beside Library Sort. This package can be repaired independently of the client EXE. Later Dawnwalker package updates will increase this package version without changing the HappyCheats client version when compatible.
+
+Validation is offline and synthetic. No game was started; actual gameplay and physical-controller behavior are unverified.
