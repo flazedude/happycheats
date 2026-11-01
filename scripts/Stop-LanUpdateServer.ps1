@@ -1,8 +1,9 @@
 [CmdletBinding()]
-param()
+param([string]$HostRoot)
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'LanMirrorSupervisor.Common.ps1')
 $hcRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+if ($HostRoot) { $hcRoot = [IO.Path]::GetFullPath($HostRoot) }
 $hcPidPath = Join-Path $hcRoot 'artifacts\lan-updates\process.json'
 $hcStartupTask = Get-ScheduledTask -TaskName 'HappyCheats LAN Update Server' -ErrorAction SilentlyContinue
 if ($hcStartupTask -and $hcStartupTask.State -eq 'Running') { Stop-ScheduledTask -TaskName $hcStartupTask.TaskName }

@@ -1,8 +1,10 @@
 [CmdletBinding()]
-param([string]$Address, [ValidateRange(0,65535)][int]$Port = 0, [switch]$OpenFirewall)
+param([string]$Address, [ValidateRange(0,65535)][int]$Port = 0, [switch]$OpenFirewall, [string]$HostRoot)
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'LanUpdateConfiguration.Common.ps1')
 $hcRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+$hcSourceRoot = $hcRoot
+if ($HostRoot) { $hcRoot = [IO.Path]::GetFullPath($HostRoot) }
 $hcStateRoot = Join-Path $hcRoot 'artifacts\lan-updates'
 $hcConfigPath = Join-Path $hcStateRoot 'server.json'
 New-Item -ItemType Directory -Force -Path $hcStateRoot | Out-Null
@@ -50,7 +52,7 @@ if (!$hcExisting) {
         } while (!$hcExisting -and [DateTime]::UtcNow -lt $hcDeadline)
         if (!$hcExisting) { throw "Startup task is still waiting or failed. Check Task Scheduler and $hcStateRoot\startup-error.log" }
     } else {
-    & dotnet publish (Join-Path $hcRoot 'tools\HappyCheats.UpdateServer') -c Release -r win-x64 --self-contained true -o $hcServerDirectory --nologo -v minimal
+    & dotnet publish (Join-Path $hcSourceRoot 'tools\HappyCheats.UpdateServer') -c Release -r win-x64 --self-contained true -o $hcServerDirectory --nologo -v minimal
     if ($LASTEXITCODE -ne 0) { throw 'LAN server build failed.' }
     New-Item -ItemType Directory -Force -Path $hcConfig.PublicDirectory | Out-Null
     $hcServerArgs = @('--address', $Address, '--port', $Port.ToString(), '--release-root', ('"' + $hcConfig.PublicDirectory + '"'))

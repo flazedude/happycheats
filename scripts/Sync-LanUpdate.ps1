@@ -3,9 +3,9 @@
 param([string]$ConfigPath, [string]$GitHubRepository = 'flazedude/happycheats')
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'LanMirror.Common.ps1')
-$hcRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-$hcStateRoot = Join-Path $hcRoot 'artifacts/lan-updates'
-if (!$ConfigPath) { $ConfigPath = Join-Path $hcStateRoot 'server.json' }
+$hcLocations = Resolve-HcMirrorLocations $PSScriptRoot $ConfigPath
+$ConfigPath = $hcLocations.ConfigPath
+$hcStateRoot = $hcLocations.StateRoot
 $hcConfig = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
 $hcConfig = Get-HcLanMirrorVerificationConfiguration $hcConfig
 $hcFeedName = Get-HcLanFeedAsset $hcConfig.BaseUrl
@@ -95,6 +95,11 @@ try {
     New-Item -ItemType Directory -Path $hcStateRoot -Force | Out-Null
     Assert-HcMirrorSafePath (Join-Path $hcStateRoot 'publish.lock')
     $hcLock = [IO.File]::Open((Join-Path $hcStateRoot 'publish.lock'), [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::Write, [IO.FileShare]::None)
+    # Game packages are independent: expose verified cheats before a potentially
+    # large client download, and still attempt the client if the cheat feed fails.
+    $hcCheatFailure = $null
+    try { & (Join-Path $PSScriptRoot 'Sync-CheatUpdate.ps1') -ConfigPath $ConfigPath -LockHeld }
+    catch { $hcCheatFailure = $_.Exception.Message; Write-Warning ('Independent cheat refresh failed; retaining its previous feed: ' + $hcCheatFailure) }
     $hcKey = Read-HcMirrorPublicKey $hcConfig.PublicKeyPath
     $hcHandler = [Net.Http.HttpClientHandler]::new(); $hcHandler.AllowAutoRedirect = $false
     $hcClient = [Net.Http.HttpClient]::new($hcHandler); $hcClient.Timeout = [TimeSpan]::FromSeconds(60)
@@ -126,6 +131,5 @@ try {
     }
     $hcVersion = Install-HcLanMirror -Config $hcConfig -Directory $hcVersionDirectory -Repository $GitHubRepository -BackupDirectory (Join-Path $hcStateRoot 'mirror-backups')
     Write-Host "LAN mirror verified and current: $($hcConfig.BaseUrl), version $hcVersion."
-    # Independent cheat publication never changes releases/latest. Refresh its own signed feed too.
-    & (Join-Path $PSScriptRoot 'Sync-CheatUpdate.ps1') -ConfigPath $ConfigPath -LockHeld
+    if ($hcCheatFailure) { throw ('Client mirror is current, but independent cheat refresh needs a retry: ' + $hcCheatFailure) }
 } finally { if ($hcClient) { $hcClient.Dispose() }; if ($hcKey) { $hcKey.Dispose() }; if ($hcLock) { $hcLock.Dispose() } }

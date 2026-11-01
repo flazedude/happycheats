@@ -1,10 +1,11 @@
 # Foreground task entry point. Compatible with the Windows-bundled PowerShell 5.1.
 # Builds, signing and firewall changes deliberately stay in the interactive setup scripts.
 [CmdletBinding()]
-param()
+param([string]$HostRoot)
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'LanMirrorSupervisor.Common.ps1')
 $hcRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+if ($HostRoot) { $hcRoot = [IO.Path]::GetFullPath($HostRoot) }
 $hcStateRoot = Join-Path $hcRoot 'artifacts\lan-updates'
 $hcServerDirectory = Join-Path $hcRoot 'artifacts\lan-update-server'
 $hcServerExe = Join-Path $hcServerDirectory 'HappyCheats.UpdateServer.exe'

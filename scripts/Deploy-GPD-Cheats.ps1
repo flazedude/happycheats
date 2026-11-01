@@ -1,7 +1,7 @@
 #requires -Version 7.0
 [CmdletBinding()]
 param([string]$RepositoryPath = 'D:\Coding\happycheats', [switch]$AdminPhase, [string]$ExpectedCommit,
-    [string]$ExpectedUserSid, [string]$ResultPath)
+    [string]$ExpectedUserSid, [string]$ResultPath, [string]$DeploymentSource)
 $ErrorActionPreference = 'Stop'
 $hcExpectedBase = 'http://192.168.2.59:17845/happycheats'
 
@@ -24,7 +24,7 @@ function Get-HcGpdConfiguration([string]$Root) {
     }
     return $hcConfig
 }
-function Assert-HcGpdRepository([string]$Root, [string]$Commit) {
+function Assert-HcGpdRepository([string]$Root, [string]$Commit, [switch]$AllowUnfinished, [switch]$AllowDetached) {
     $hcTop = & git -C $Root rev-parse --show-toplevel
     if ($LASTEXITCODE -ne 0 -or [IO.Path]::GetFullPath($hcTop).TrimEnd('\','/') -ine [IO.Path]::GetFullPath($Root).TrimEnd('\','/')) {
         throw 'Select the root of GPD-PC''s existing HappyCheats checkout.'
@@ -34,9 +34,9 @@ function Assert-HcGpdRepository([string]$Root, [string]$Commit) {
         throw 'The checkout does not use the expected HappyCheats GitHub repository.'
     }
     $hcDirty = & git -C $Root status --porcelain --untracked-files=all
-    if ($LASTEXITCODE -ne 0 -or $hcDirty) { throw 'The checkout has unfinished work. It was preserved; finish or integrate it before running setup again.' }
+    if ($LASTEXITCODE -ne 0 -or ($hcDirty -and !$AllowUnfinished)) { throw 'Deployment source is not clean. Development work was preserved.' }
     $null = & git -C $Root symbolic-ref --quiet HEAD
-    if ($LASTEXITCODE -ne 0) { throw 'The checkout has a detached HEAD. Select its normal development branch before setup.' }
+    if ($LASTEXITCODE -ne 0 -and !$AllowDetached) { throw 'Select the intended deployment source before setup.' }
     if ($Commit) {
         $hcHead = & git -C $Root rev-parse HEAD
         if ($LASTEXITCODE -ne 0 -or $hcHead -cne $Commit) { throw 'Source changed during setup. Run the launcher again after the other work finishes.' }
@@ -69,13 +69,14 @@ if ($AdminPhase) {
             throw 'Approve administrator access for the same Windows account that owns the GPD-PC checkout.'
         }
         $hcConfig = Get-HcGpdConfiguration $RepositoryPath
-        Assert-HcGpdRepository $RepositoryPath $ExpectedCommit
-        . (Join-Path $RepositoryPath 'scripts/LanMirror.Common.ps1')
+        Assert-HcGpdRepository $RepositoryPath -AllowUnfinished -AllowDetached
+        Assert-HcGpdRepository $DeploymentSource $ExpectedCommit -AllowDetached
+        . (Join-Path $DeploymentSource 'scripts/LanMirror.Common.ps1')
         $hcKey = Read-HcMirrorPublicKey $hcConfig.PublicKeyPath
         $hcKey.Dispose()
         $hcStartedAt = [DateTimeOffset]::UtcNow
         $hcInstallerStarted = $true
-        & (Join-Path $RepositoryPath 'scripts/Deploy-GPD-Components.ps1') *> ($ResultPath + '.log')
+        & (Join-Path $DeploymentSource 'scripts/Deploy-GPD-Components.ps1') -HostRoot $RepositoryPath *> ($ResultPath + '.log')
         $hcConfig = Get-HcGpdConfiguration $RepositoryPath
         $hcTask = Get-ScheduledTask -TaskName 'HappyCheats LAN Update Server'
         $hcHealth = Invoke-WebRequest -Uri 'http://192.168.2.59:17845/health' -NoProxy -TimeoutSec 5
@@ -103,14 +104,14 @@ if ($AdminPhase) {
         if ($hcTask.State -ne 'Running') { throw 'The startup task stopped during verification. Inspect the local setup log.' }
         [ordered]@{ success=$true; computer=$env:COMPUTERNAME; host='192.168.2.59'; mirrorEnabled=$true;
             intervalSeconds=$hcConfig.MirrorIntervalSeconds; taskState=[string]$hcTask.State; refreshStatus=$hcRefresh; sourceCommit=$ExpectedCommit;
-            repository=$RepositoryPath; completedAt=[DateTimeOffset]::UtcNow.ToString('o') } |
+            repository=$RepositoryPath; deploymentSource=$DeploymentSource; completedAt=[DateTimeOffset]::UtcNow.ToString('o') } |
             ConvertTo-Json | Set-Content -LiteralPath $ResultPath
         exit 0
     } catch {
         $hcFailure = $_.Exception.Message
         if ($hcInstallerStarted) {
             try {
-                & (Join-Path $RepositoryPath 'scripts/Start-LanUpdateServer.ps1') *>> ($ResultPath + '.log')
+                & (Join-Path $DeploymentSource 'scripts/Start-LanUpdateServer.ps1') -HostRoot $RepositoryPath *>> ($ResultPath + '.log')
                 $hcRecovery = 'Existing LAN server restarted or remained available.'
             } catch { $hcRecovery = 'Server restart needs attention: ' + $_.Exception.Message }
         }
@@ -125,17 +126,20 @@ try {
     if (!$RepositoryPath) { $RepositoryPath = Find-HcGpdRepository }
     $RepositoryPath = [IO.Path]::TrimEndingDirectorySeparator([IO.Path]::GetFullPath($RepositoryPath))
     $null = Get-HcGpdConfiguration $RepositoryPath
-    Assert-HcGpdRepository $RepositoryPath
-    Write-Host 'Updating GPD-PC''s existing HappyCheats source from GitHub...'
-    $hcBranch = & git -C $RepositoryPath branch --show-current
-    Write-Host "Current source branch: $hcBranch"
-    if ($LASTEXITCODE -ne 0 -or $hcBranch -cne 'main') { throw "The existing checkout is on '$hcBranch', not main. No branch or unfinished work was changed. Report this result so source can be integrated deliberately." }
-    & (Join-Path $RepositoryPath 'scripts/Sync-Source.ps1')
-    $ExpectedCommit = & git -C $RepositoryPath rev-parse HEAD
+    Assert-HcGpdRepository $RepositoryPath -AllowUnfinished -AllowDetached
+    Write-Host 'Fetching a clean deployment snapshot; the current branch and unfinished files stay unchanged...'
+    & git -C $RepositoryPath fetch --no-tags origin 'refs/heads/main:refs/remotes/origin/main'
+    if ($LASTEXITCODE -ne 0) { throw 'GitHub source fetch failed. The server and development files were not changed.' }
+    $ExpectedCommit = & git -C $RepositoryPath rev-parse refs/remotes/origin/main
     if ($LASTEXITCODE -ne 0 -or $ExpectedCommit -cnotmatch '^[0-9a-f]{40}$') { throw 'Cannot pin the received source commit.' }
-    Assert-HcGpdRepository $RepositoryPath $ExpectedCommit
+    $hcSourceParent = Join-Path $env:LOCALAPPDATA 'HappyCheatsPublisher/HostDeployments'
+    New-Item -ItemType Directory -Force -Path $hcSourceParent | Out-Null
+    $DeploymentSource = Join-Path $hcSourceParent ('GPD-' + [Guid]::NewGuid().ToString('N'))
+    & git -C $RepositoryPath worktree add --detach $DeploymentSource $ExpectedCommit
+    if ($LASTEXITCODE -ne 0) { throw 'Cannot create the isolated deployment worktree. Development files and server were not changed.' }
+    Assert-HcGpdRepository $DeploymentSource $ExpectedCommit -AllowDetached
     foreach ($hcName in @('Deploy-GPD-Components.ps1','Sync-LanUpdate.ps1','Sync-CheatUpdate.ps1','CheatUpdates.Common.ps1','LanMirror.Common.ps1','LanMirrorSupervisor.Common.ps1')) {
-        if (!(Test-Path -LiteralPath (Join-Path $RepositoryPath ('scripts/' + $hcName)) -PathType Leaf)) { throw "Required setup script is missing: $hcName" }
+        if (!(Test-Path -LiteralPath (Join-Path $DeploymentSource ('scripts/' + $hcName)) -PathType Leaf)) { throw "Required setup script is missing: $hcName" }
     }
     # Stage locally before elevation: mapped V: and share credentials may not
     # be available to the elevated token. No key or server.json is copied.
@@ -149,7 +153,7 @@ try {
     $hcProcess = Start-Process -FilePath (Get-Process -Id $PID).Path -Verb RunAs -WindowStyle Hidden -PassThru -Wait -ArgumentList @(
         '-NoLogo','-NoProfile','-ExecutionPolicy','Bypass','-File',('"'+$hcLocalHelper+'"'),'-AdminPhase',
         '-RepositoryPath',('"'+$RepositoryPath+'"'),'-ExpectedCommit',$ExpectedCommit,'-ExpectedUserSid',$hcSid,
-        '-ResultPath',('"'+$ResultPath+'"'))
+        '-ResultPath',('"'+$ResultPath+'"'),'-DeploymentSource',('"'+$DeploymentSource+'"'))
     if (!(Test-Path -LiteralPath $ResultPath)) { throw "Setup did not produce a result. Local diagnostics: $hcLocalDirectory" }
     $hcResult = Get-Content -LiteralPath $ResultPath -Raw | ConvertFrom-Json
     $hcResultName = 'GPD-cheat-deployment-result-' + [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss') + '.json'
