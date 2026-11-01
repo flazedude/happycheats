@@ -76,7 +76,7 @@ if ($AdminPhase) {
         $hcKey.Dispose()
         $hcStartedAt = [DateTimeOffset]::UtcNow
         $hcInstallerStarted = $true
-        & (Join-Path $DeploymentSource 'scripts/Deploy-GPD-Components.ps1') -HostRoot $RepositoryPath *> ($ResultPath + '.log')
+        & (Join-Path $DeploymentSource 'scripts/Deploy-GPD-Components.ps1') -HostRoot $RepositoryPath -ExpectedCommit $ExpectedCommit *> ($ResultPath + '.log')
         $hcConfig = Get-HcGpdConfiguration $RepositoryPath
         $hcTask = Get-ScheduledTask -TaskName 'HappyCheats LAN Update Server'
         $hcHealth = Invoke-WebRequest -Uri 'http://192.168.2.59:17845/health' -NoProxy -TimeoutSec 5
@@ -127,10 +127,29 @@ try {
     $RepositoryPath = [IO.Path]::TrimEndingDirectorySeparator([IO.Path]::GetFullPath($RepositoryPath))
     $null = Get-HcGpdConfiguration $RepositoryPath
     Assert-HcGpdRepository $RepositoryPath -AllowUnfinished -AllowDetached
-    Write-Host 'Fetching a clean deployment snapshot; the current branch and unfinished files stay unchanged...'
-    & git -C $RepositoryPath fetch --no-tags origin 'refs/heads/main:refs/remotes/origin/main'
-    if ($LASTEXITCODE -ne 0) { throw 'GitHub source fetch failed. The server and development files were not changed.' }
-    $ExpectedCommit = & git -C $RepositoryPath rev-parse refs/remotes/origin/main
+    $hcBundleManifest = Join-Path $PSScriptRoot 'Deploy-GPD-Cheats-source.json'
+    if (Test-Path -LiteralPath $hcBundleManifest) {
+        $hcBundle = Get-Content -LiteralPath $hcBundleManifest -Raw | ConvertFrom-Json
+        if ($hcBundle.commit -cnotmatch '^[0-9a-f]{40}$' -or $hcBundle.sha256 -cnotmatch '^[0-9a-f]{64}$' -or
+            $hcBundle.file -cne ('HappyCheats-GPD-source-' + $hcBundle.commit + '.bundle')) { throw 'Invalid deployment bundle identity.' }
+        $hcBundlePath = Join-Path $PSScriptRoot $hcBundle.file
+        if ((Get-FileHash -LiteralPath $hcBundlePath).Hash -ine $hcBundle.sha256) { throw 'Deployment bundle failed SHA-256 verification.' }
+        Write-Host 'Using the verified shared-drive source bundle; no GitHub fetch is needed...'
+        & git -C $RepositoryPath bundle verify $hcBundlePath
+        if ($LASTEXITCODE -ne 0) { throw 'Git rejected the deployment source bundle. Development files were not changed.' }
+        $ExpectedCommit = $hcBundle.commit
+        & git -C $RepositoryPath fetch --no-tags $hcBundlePath ('refs/heads/main:refs/happycheats/deployments/' + $ExpectedCommit)
+        if ($LASTEXITCODE -ne 0) { throw 'Cannot import the verified source bundle. Development files were not changed.' }
+    } else {
+        Write-Host 'Fetching a clean deployment snapshot; the current branch and unfinished files stay unchanged...'
+        & git -C $RepositoryPath -c http.version=HTTP/1.1 -c http.sslBackend=openssl fetch --no-tags origin 'refs/heads/main:refs/remotes/origin/main'
+        if ($LASTEXITCODE -ne 0) { throw 'GitHub source fetch failed. The server and development files were not changed.' }
+        $ExpectedCommit = & git -C $RepositoryPath rev-parse refs/remotes/origin/main
+        if ($LASTEXITCODE -eq 0 -and $ExpectedCommit -cmatch '^[0-9a-f]{40}$') {
+            & git -C $RepositoryPath update-ref ('refs/happycheats/deployments/' + $ExpectedCommit) $ExpectedCommit
+            if ($LASTEXITCODE -ne 0) { throw 'Could not pin the fetched deployment source.' }
+        }
+    }
     if ($LASTEXITCODE -ne 0 -or $ExpectedCommit -cnotmatch '^[0-9a-f]{40}$') { throw 'Cannot pin the received source commit.' }
     $hcSourceParent = Join-Path $env:LOCALAPPDATA 'HappyCheatsPublisher/HostDeployments'
     New-Item -ItemType Directory -Force -Path $hcSourceParent | Out-Null
