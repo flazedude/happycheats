@@ -86,7 +86,7 @@ public sealed class CheatUpdateClient(HttpClient http, CheatFeedConfiguration co
     private CancellationTokenSource Timeout(string url, CancellationToken token)
     {
         var source = CancellationTokenSource.CreateLinkedTokenSource(token);
-        source.CancelAfter(networkTimeout ?? (IsLocalUrl(url) ? TimeSpan.FromSeconds(4) : TimeSpan.FromMinutes(10)));
+        source.CancelAfter(networkTimeout ?? (IsLocalUrl(url) ? TimeSpan.FromSeconds(4) : TimeSpan.FromSeconds(60)));
         return source;
     }
 
@@ -102,7 +102,7 @@ public sealed class CheatUpdateClient(HttpClient http, CheatFeedConfiguration co
         await using var input = await response.Content.ReadAsStreamAsync(timeout.Token).ConfigureAwait(false);
         using var output = new MemoryStream(); var buffer = new byte[8192];
         int count;
-        while ((count = await input.ReadAsync(buffer, timeout.Token).ConfigureAwait(false)) != 0)
+        while ((count = await ReadChunkAsync(input, buffer, url, timeout.Token).ConfigureAwait(false)) != 0)
         {
             if (output.Length + count > maximum) throw new InvalidDataException("Cheat feed exceeds its size limit.");
             output.Write(buffer, 0, count);
@@ -112,15 +112,17 @@ public sealed class CheatUpdateClient(HttpClient http, CheatFeedConfiguration co
 
     private async Task DownloadAsync(string url, string destination, CheatRelease release, IProgress<UpdateProgress>? progress, CancellationToken token)
     {
-        using var timeout = Timeout(url, token);
-        using var response = await http.GetAsync(UpdateAddress.Validate(url, "Cheat package"), HttpCompletionOption.ResponseHeadersRead, timeout.Token).ConfigureAwait(false);
+        using var headersTimeout = Timeout(url, token);
+        using var response = await http.GetAsync(UpdateAddress.Validate(url, "Cheat package"), HttpCompletionOption.ResponseHeadersRead, headersTimeout.Token).ConfigureAwait(false);
         response.EnsureSuccessStatusCode(); ValidateRedirect(response, url);
         if (response.Content.Headers.ContentLength is { } size && size != release.PackageSize) throw new InvalidDataException("Cheat download size does not match the signed catalog.");
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
+        timeout.CancelAfter(TimeSpan.FromMinutes(30));
         await using var input = await response.Content.ReadAsStreamAsync(timeout.Token).ConfigureAwait(false);
         await using var output = new FileStream(destination, FileMode.CreateNew, FileAccess.Write, FileShare.None, 65536, true);
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         var buffer = new byte[65536]; long received = 0; int count;
-        while ((count = await input.ReadAsync(buffer, timeout.Token).ConfigureAwait(false)) != 0)
+        while ((count = await ReadChunkAsync(input, buffer, url, timeout.Token).ConfigureAwait(false)) != 0)
         {
             received += count;
             if (received > release.PackageSize) throw new InvalidDataException("Cheat download exceeds its signed size.");
@@ -136,6 +138,13 @@ public sealed class CheatUpdateClient(HttpClient http, CheatFeedConfiguration co
     {
         var final = UpdateAddress.Validate(response.RequestMessage?.RequestUri?.AbsoluteUri ?? original, "Cheat redirect");
         if (original.StartsWith("https:", StringComparison.OrdinalIgnoreCase) && final.Scheme != "https") throw new InvalidDataException("Cheat download redirected to insecure HTTP.");
+    }
+
+    private async Task<int> ReadChunkAsync(Stream input, byte[] buffer, string url, CancellationToken token)
+    {
+        using var inactivity = Timeout(url, token);
+        try { return await input.ReadAsync(buffer, inactivity.Token).ConfigureAwait(false); }
+        catch (IOException error) { throw new HttpRequestException("The cheat transfer connection was interrupted.", error); }
     }
 
     private static bool IsLocalUrl(string value) => Uri.TryCreate(value, UriKind.Absolute, out var uri)

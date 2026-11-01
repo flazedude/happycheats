@@ -92,6 +92,18 @@ internal static class CheatUpdateTests
             var check=await client.CheckAsync(f.Store.Root); await Fails(()=>client.InstallAsync(check,f.Release,f.Store,"0.3.65"));
             Assert(handler.Requests.Count(x=>x.EndsWith(".zip"))==1 && !handler.Requests.Contains(f.Release.PackageUrl));
         });
+        Run("interrupted or stalled matching LAN transfer can use the next exact source", async () =>
+        {
+            foreach (var stall in new[] { false, true })
+            {
+                using var f = new CheatFixture();
+                using var handler = new Handler(url => !url.EndsWith(".zip") ? Bytes(f.Proof()) : url.Contains("192.168.2.76")
+                    ? new(HttpStatusCode.OK) { Content = new StreamContent(new InterruptedStream(f.Archive, stall)) } : Bytes(f.Archive));
+                using var http = new HttpClient(handler); var client = new CheatUpdateClient(http, f.Configuration, TimeSpan.FromMilliseconds(100));
+                var check = await client.CheckAsync(f.Store.Root); await client.InstallAsync(check, f.Release, f.Store, "0.3.65");
+                Assert(handler.Requests.Count(x => x.EndsWith(".zip")) == 2 && !handler.Requests.Contains(f.Release.PackageUrl));
+            }
+        });
         Run("conflicting signed feeds rejected", async () =>
         {
             using var f = new CheatFixture(); var conflict=f.Proof(f.Release with { Sha256=new('d',64) },revision:2);
@@ -112,5 +124,13 @@ internal static class CheatUpdateTests
         public List<string> Requests { get; } = new();
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken token)
         { var url=request.RequestUri!.AbsoluteUri; Requests.Add(url); var result=response(url); result.RequestMessage=request; return Task.FromResult(result); }
+    }
+    private sealed class InterruptedStream(byte[] bytes, bool stall) : MemoryStream(bytes)
+    {
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken token = default)
+        {
+            if (stall) await Task.Delay(Timeout.InfiniteTimeSpan, token);
+            throw new IOException("Synthetic disconnected transfer");
+        }
     }
 }
