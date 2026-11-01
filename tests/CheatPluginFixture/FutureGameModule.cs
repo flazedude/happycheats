@@ -10,8 +10,18 @@ public sealed class FutureGameModule(string directory) : IGameModule, IFeatureCh
         new("future_speed", "Speed", "Synthetic choice control.", "", Choices: [new("1", "1×"), new("2", "2×")], ChoiceValueKey: "speed")]);
     private readonly Dictionary<string, bool> enabled = new();
     private readonly Dictionary<string, string> values = new();
-    public Task<GameInstallation> DiscoverAsync(string? path = null) => Task.FromResult(new GameInstallation(path ?? directory, "synthetic", true, true, false, true, "Synthetic fixture"));
-    public Task InstallAsync(GameInstallation installation, IProgress<string>? progress = null) => Task.CompletedTask;
+    public Task<GameInstallation> DiscoverAsync(string? path = null)
+    {
+        var root = path ?? directory;
+        return Task.FromResult(new GameInstallation(root, "synthetic", !File.Exists(Path.Combine(root, "simulate-missing")),
+            File.Exists(Path.Combine(root, "installed-trainer.txt")), File.Exists(Path.Combine(root, "simulate-running")), true, "Synthetic fixture"));
+    }
+    public Task InstallAsync(GameInstallation installation, IProgress<string>? progress = null)
+    {
+        if (File.Exists(Path.Combine(installation.Directory, "simulate-install-error"))) throw new IOException("Synthetic installation failed; retry Update.");
+        File.Copy(Path.Combine(directory, "payload/future-game/fixture.txt"), Path.Combine(installation.Directory, "installed-trainer.txt"), true);
+        return Task.CompletedTask;
+    }
     public Task RemoveAsync(GameInstallation installation, IProgress<string>? progress = null) => Task.CompletedTask;
     public Task LaunchAsync(GameInstallation installation) => Task.CompletedTask;
     public Task<TrainerStatus> ReadStatusAsync(GameInstallation installation) => Task.FromResult(new TrainerStatus(true, true, "Synthetic", "future-session", enabled, values));

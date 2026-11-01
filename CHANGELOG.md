@@ -2,7 +2,17 @@
 
 **[Download the latest release / 下载最新版本](https://github.com/flazedude/happycheats/releases/latest)** · [Home](README.md) · [中文首页](README.zh-CN.md)
 
-## Latest · 0.3.66
+## Latest · 0.3.67
+
+- One-click per-game Update downloads, verifies, repairs, loads and installs the trainer. No separate Repair or Reload library action is needed.
+- Verifies installation before completion, reports actionable errors and retries unfinished setup through the same action. Other game modules stay loaded.
+- Complete distributions include all seventeen payloads, with the previously published Chinese Parents 0.1.1 and Crimson Desert 0.2.9 trainers. Offline/synthetic validation only.
+
+按游戏一键完成下载、验证、修复、加载和安装，无需单独修复或重新加载修改器库。安装验证通过后才报告完成，失败可直接重试。仅离线及合成验证。
+
+[English](docs/releases/0.3.67.en.txt) · [中文](docs/releases/0.3.67.zh.txt)
+
+## 0.3.66
 
 - Adds red per-game sidebar warnings for reported trainer compatibility/runtime mismatches and newer signed packages, with a game-specific update check.
 - Checks signed trainer catalogs at startup and every 30 minutes; retains warnings for downloaded packages until Library reload. Client Updates stays separate.

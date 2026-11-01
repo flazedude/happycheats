@@ -30,7 +30,8 @@ public partial class MainWindow
             return;
         }
         var window = new CheatUpdateWindow(_cheatConfiguration, _cheatStore, _bundledCheatVersions,
-            Games.Select(g => (g.Id, g.Name)), _cheatLoadError, _isolatedUpdates, ReloadCheatsAsync, _updateLifetime.Token,
+            Games.Select(g => (g.Id, g.Name)), _cheatLoadError, _isolatedUpdates,
+            (release, download) => ApplyCheatUpdateAsync(_cheatStore!, release, download), _updateLifetime.Token,
             checkForUpdates: CheckCheatCatalogAsync)
             { Owner = this, ShowActivated = ShowActivated };
         _cheatWindow = window;
@@ -82,42 +83,87 @@ public partial class MainWindow
         catch (Exception error) { _cheatLoadError = error.Message; ClientErrorLog.Write("cheat-version-inventory", error.Message); }
     }
 
-    private async Task ReloadCheatsAsync()
+    internal async Task<string> ApplyCheatUpdateAsync(CheatStore store, CheatRelease release, Func<Task> download)
     {
-        if (_cheatStore == null || _isolatedUpdates) throw new IOException(Localization.Choose("Use a configured release client to load downloaded cheats.", "请使用已配置的发布客户端加载下载的修改器。"));
-        if (_busy || _installingUpdate) throw new InvalidOperationException(Localization.Choose("Wait for the current trainer operation, then retry.", "请等待当前修改器操作完成后重试。"));
+        if (_busy || _installingUpdate || _updateHandoff) throw new InvalidOperationException(Localization.Choose("Wait for the current trainer operation, then retry Update.", "请等待当前修改器操作完成后重新点击“更新”。"));
         _busy = true; _controlEpoch++; _pollTimer.Stop(); _controllerTimer.Stop(); _gameOverlay?.Hide();
         RefreshBindings();
+        IGameModule? replacement = null;
+        var previous = Games.SingleOrDefault(g => g.Id == release.Id);
+        var transferred = false;
         try
         {
             while (_polling) await Task.Delay(40, _updateLifetime.Token);
-            await PrepareUpdateInstallAsync();
-            _cheatLoadError = null;
-            var loaded = await Task.Run(() => _cheatStore.Load(ModuleCatalog.Create(), _bundledCheatVersions, UpdateLauncher.CurrentVersion,
-                error => { _cheatLoadError = error; ClientErrorLog.Write("cheat-load", error); }), _updateLifetime.Token);
-            var selected = _selected?.Id;
-            foreach (var game in Games) CheatStore.ReleaseModule(game.Module);
-            Games.Clear(); Features.Clear(); _selected = null;
-            foreach (var module in loaded)
+            var path = previous?.Installation?.IsInstalled == true ? previous.Installation.Directory : _paths.GetValueOrDefault(release.Id);
+            if (previous != null)
             {
-                var item = new GameItem(module);
-                try
-                {
-                    item.Installation = await module.DiscoverAsync(_paths.GetValueOrDefault(item.Id));
-                    item.Status = item.Installation.IsInstalled ? await module.ReadStatusAsync(item.Installation) : TrainerStatus.Offline(item.Installation.Message);
-                }
-                catch (Exception error) { item.Status = TrainerStatus.Offline(error.Message); ClientErrorLog.Write("cheat-discovery", error.Message); }
-                Games.Add(item);
+                var before = await previous.Module.DiscoverAsync(path);
+                RequireClosed(before, previous.Name);
             }
-            RefreshCheatVersions(loaded: true);
+            await download();
+            replacement = await Task.Run(() => store.LoadInstalled(release, UpdateLauncher.CurrentVersion), _updateLifetime.Token);
+            var installation = await replacement.DiscoverAsync(path);
+            if (!installation.IsInstalled && path != null) installation = await replacement.DiscoverAsync();
+            if (!installation.IsInstalled)
+            {
+                if (previous == null)
+                {
+                    Games.Add(new GameItem(replacement) { Installation = installation,
+                        LoadedCheatVersion = release.Version, Status = TrainerStatus.Offline(installation.Message) });
+                    transferred = true;
+                }
+                throw new IOException(Localization.Choose(
+                $"{release.Name} downloaded, but its game folder was not found. Select the game in Library, use Find in Steam or Browse folder, then click Update again to finish.",
+                $"《{release.Name}》修改器已下载，但未找到游戏目录。请在游戏库中选择游戏，点击“在 Steam 中查找”或“浏览目录”，然后再次点击“更新”完成安装。"));
+            }
+            RequireClosed(installation, release.Name);
+            if (!installation.Compatible) throw new IOException(Localization.Message(installation.Message));
+            _updateLifetime.Token.ThrowIfCancellationRequested();
+            // Updating one game never reloads/deactivates unrelated modules.
+            previous?.Module.Deactivate();
+            if (release.Id != "elden-ring")
+            {
+                // Elden Ring's Install is a live offline-memory connection, not file setup.
+                // Updating it prepares the module; connection remains an explicit action after launch.
+                await replacement.InstallAsync(installation, new Progress<string>(text => SetMessage(text)));
+                installation = await replacement.DiscoverAsync(installation.Directory);
+                if (!installation.TrainerInstalled || !installation.Compatible || TrainerVersionWarning.InstallationMismatch(installation))
+                    throw new IOException(Localization.Choose("Trainer installation did not verify. ", "修改器安装验证未通过。") + Localization.Message(installation.Message));
+            }
+            var item = new GameItem(replacement) { Installation = installation,
+                Status = await replacement.ReadStatusAsync(installation), LoadedCheatVersion = release.Version };
+            var selected = _selected == previous && previous != null;
+            if (previous != null) Games[Games.IndexOf(previous)] = item;
+            else Games.Add(item);
+            transferred = true;
+            _cheatLoadError = null;
+            if (previous != null) CheatStore.ReleaseModule(previous.Module);
+            if (!_captureMode) { _paths[item.Id] = installation.Directory; SaveSettings(); }
+            RefreshCheatVersions();
+            item.DownloadedCheatVersion = release.Version;
+            item.Changed();
             CollectionViewSource.GetDefaultView(Games).Refresh();
-            Library.SelectedItem = Games.FirstOrDefault(g => g.Id == selected) ?? Games.FirstOrDefault();
-            SetLocalizedMessage(() => Localization.Choose("Cheat library reloaded. Use Install / update in the affected game to apply its trainer files.", "修改器库已重新加载。请在受影响的游戏中点击“安装 / 更新”以应用修改器文件。"));
+            if (selected) Library.SelectedItem = item;
+            var message = release.Id == "elden-ring" ? Localization.Choose(
+                "Elden Ring trainer updated. Use Offline launch, then Connect trainer after loading your game.", "艾尔登法环修改器已更新。请离线启动游戏，加载后点击“连接修改器”。")
+                : Localization.Choose($"{release.Name} {release.Version} updated and installed. Ready to play — launch the game from Library.",
+                    $"《{release.Name}》修改器 {release.Version} 已更新并安装。准备就绪，请从游戏库启动游戏。");
+            SetMessage(message);
+            return message;
         }
         finally
         {
+            if (!transferred && replacement != null) CheatStore.ReleaseModule(replacement);
+            RefreshCheatVersions();
             _busy = false; RefreshBindings();
             if (!_captureMode && !_updateLifetime.IsCancellationRequested) { _pollTimer.Start(); _controllerTimer.Start(); }
         }
+    }
+
+    private static void RequireClosed(GameInstallation installation, string name)
+    {
+        if (installation.IsRunning) throw new IOException(Localization.Choose(
+            $"Close {name}, then click Update again. No game was closed automatically.",
+            $"请关闭《{name}》后再次点击“更新”。程序不会自动关闭游戏。"));
     }
 }

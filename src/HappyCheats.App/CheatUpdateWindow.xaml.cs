@@ -17,7 +17,8 @@ public partial class CheatUpdateWindow : Window, INotifyPropertyChanged
     private readonly IReadOnlyDictionary<string, string> _bundled;
     private readonly Dictionary<string, string> _names;
     private readonly bool _isolated;
-    private readonly Func<Task> _reload;
+    private readonly Func<CheatRelease, Func<Task>, Task<string>> _apply;
+    private readonly HashSet<string> _completed = new(StringComparer.Ordinal);
     private readonly CancellationToken _lifetime;
     private readonly Func<Task<CheatUpdateCheck>>? _checkForUpdates;
     private string? _gameId;
@@ -29,20 +30,19 @@ public partial class CheatUpdateWindow : Window, INotifyPropertyChanged
     public string WindowTitle => Localization.Choose("Cheat updates", "修改器更新")
         + (_gameId == null ? "" : " · " + _names.GetValueOrDefault(_gameId, _gameId));
     public string FocusReason => _focusReason;
-    public string Introduction => Localization.Choose($"HappyCheats {UpdateLauncher.CurrentVersion} · Each game has its own cheat version. Download only the game you choose. Client updates remain under Updates.",
-        $"HappyCheats {UpdateLauncher.CurrentVersion} · 每款游戏拥有独立的修改器版本。仅下载所选游戏的更新。客户端更新仍位于“客户端更新”。");
+    public string Introduction => Localization.Choose("Close the game, then click Update. HappyCheats downloads, repairs and installs its trainer for you. When it finishes, launch the game and play.",
+        "关闭游戏后点击“更新”。HappyCheats 会自动下载、修复并安装修改器。完成后即可启动游戏游玩。");
     public string CheckLabel => _gameId == null ? Localization.Choose("Check for updates", "检查更新")
         : Localization.Choose("Check this game", "检查此游戏更新");
-    public string ReloadLabel => Localization.Choose("Reload library", "重新加载修改器库");
     public string Status => _status;
     public string Error => _error;
 
     internal CheatUpdateWindow(CheatFeedConfiguration? configuration, CheatStore? store, IReadOnlyDictionary<string, string> bundled,
-        IEnumerable<(string Id, string Name)> games, string? startupError, bool isolated, Func<Task> reload, CancellationToken lifetime,
+        IEnumerable<(string Id, string Name)> games, string? startupError, bool isolated, Func<CheatRelease, Func<Task>, Task<string>> apply, CancellationToken lifetime,
         HttpClient? http = null, Func<Task<CheatUpdateCheck>>? checkForUpdates = null)
     {
         _store = store; _bundled = bundled; _names = games.ToDictionary(x => x.Id, x => x.Name);
-        _isolated = isolated; _reload = reload; _lifetime = lifetime;
+        _isolated = isolated; _apply = apply; _lifetime = lifetime;
         _checkForUpdates = checkForUpdates;
         if (configuration != null) _client = new(http ?? Http, configuration);
         _error = startupError ?? "";
@@ -66,7 +66,8 @@ public partial class CheatUpdateWindow : Window, INotifyPropertyChanged
         foreach (var id in ids.OrderBy(id => _names.GetValueOrDefault(id, _check?.Catalog.Games.FirstOrDefault(x => x.Id == id)?.Name ?? id), StringComparer.CurrentCultureIgnoreCase))
         {
             var release = _check?.Catalog.Games.SingleOrDefault(x => x.Id == id);
-            Rows.Add(new(id, _names.GetValueOrDefault(id, release?.Name ?? id), installed.GetValueOrDefault(id), release));
+            Rows.Add(new(id, _names.GetValueOrDefault(id, release?.Name ?? id), installed.GetValueOrDefault(id), release,
+                release != null && _completed.Contains(id + "/" + release.Version)));
         }
     }
 
@@ -77,10 +78,8 @@ public partial class CheatUpdateWindow : Window, INotifyPropertyChanged
         _check = _checkForUpdates != null ? await _checkForUpdates() : await _client!.CheckAsync(_store!.Root, _lifetime);
         Populate();
         var count = Rows.Count(x => x.IsUpdate);
-        _status = _gameId != null && count == 0 ? Localization.Choose(
-            "No newer trainer package is published for this game. For a runtime mismatch, close the game, reload the Library and use Install / update. An unsupported game build still needs a compatible trainer release.",
-            "此游戏尚无更新的修改器包。若运行中的修改器不匹配，请关闭游戏、重新加载修改器库并点击“安装 / 更新”。不受支持的游戏版本仍需等待兼容的修改器发布。")
-            : count == 0 ? Localization.Choose("No newer trainer packages are published. Local compatibility warnings may still need attention.", "尚无更新的修改器包，本地兼容性警告仍可能需要处理。")
+        _status = count == 0 ? Localization.Choose("No newer trainer packages. Click Install to install or repair the current trainer. Unsupported game builds still need a compatible trainer release.",
+                "暂无更新的修改器包。点击“安装”即可安装或修复当前修改器。不受支持的游戏版本仍需等待兼容的修改器发布。")
             : Localization.Choose($"{count} game updates available. Choose a game below.", $"有 {count} 款游戏的修改器可更新。请在下方选择游戏。");
     });
 
@@ -93,16 +92,31 @@ public partial class CheatUpdateWindow : Window, INotifyPropertyChanged
     internal Task InstallAsync(CheatUpdateRow row) => OperateAsync(async () =>
     {
         RequireConfigured();
-        if (_check == null || row.Release == null) throw new IOException(Localization.Choose("Check for updates first, then choose this game again.", "请先检查更新，再选择此游戏。"));
+        if (_check == null || row.Release == null)
+        {
+            _check = _checkForUpdates != null ? await _checkForUpdates() : await _client!.CheckAsync(_store!.Root, _lifetime);
+            Populate();
+            row = Rows.Single(x => x.Id == row.Id);
+        }
+        if (row.Release == null) throw new IOException(Localization.Choose("No trainer package is published for this game yet. Use Install / update in its Library page.", "此游戏尚未发布独立修改器包，请在游戏页面点击“安装 / 更新”。"));
+        if (row.InstalledVersion != null && ReleaseVersion.Parse(row.InstalledVersion).CompareTo(ReleaseVersion.Parse(row.Release.Version)) > 0)
+            throw new IOException(Localization.Choose("Your bundled trainer is newer than this package. Use Install / update in its Library page.", "内置修改器比此包更新，请在游戏页面点击“安装 / 更新”。"));
         CheatStore.RequireCompatible(row.Release, UpdateLauncher.CurrentVersion);
         _status = Localization.Choose($"Downloading {row.Name}…", $"正在下载《{row.Name}》的修改器……"); Refresh();
-        await _client!.InstallAsync(_check, row.Release, _store!, UpdateLauncher.CurrentVersion,
-            new Progress<UpdateProgress>(p => { _status = Localization.Choose($"{row.Name}: {p.BytesReceived / 1048576d:F1} / {p.TotalBytes / 1048576d:F1} MB", $"{row.Name}：{p.BytesReceived / 1048576d:F1} / {p.TotalBytes / 1048576d:F1} MB"); Refresh(); }), _lifetime);
-        Populate();
-        PackageInstalled?.Invoke();
-        _focusReason = "";
-        _status = Localization.Choose($"{row.Name} {row.Release.Version} verified. Close supported games, choose Reload library, then use the game's Install / update action if it installs trainer files. HappyCheats stays at {UpdateLauncher.CurrentVersion}.",
-            $"《{row.Name}》修改器 {row.Release.Version} 已通过验证。请关闭支持的游戏，点击“重新加载修改器库”，随后按需在游戏页面点击“安装 / 更新”。HappyCheats 版本保持 {UpdateLauncher.CurrentVersion}。");
+        _completed.Remove(row.Id + "/" + row.Release.Version);
+        try
+        {
+            _status = await _apply(row.Release, async () =>
+            {
+                await _client!.InstallAsync(_check!, row.Release, _store!, UpdateLauncher.CurrentVersion,
+                    new Progress<UpdateProgress>(p => { _status = Localization.Choose($"{row.Name}: {p.BytesReceived / 1048576d:F1} / {p.TotalBytes / 1048576d:F1} MB", $"{row.Name}：{p.BytesReceived / 1048576d:F1} / {p.TotalBytes / 1048576d:F1} MB"); Refresh(); }), _lifetime);
+                _status = Localization.Choose($"Installing {row.Name} trainer…", $"正在安装《{row.Name}》的修改器……"); Refresh();
+            });
+            _completed.Add(row.Id + "/" + row.Release.Version);
+            _error = "";
+            _focusReason = "";
+        }
+        finally { Populate(); PackageInstalled?.Invoke(); }
     });
 
     private async Task OperateAsync(Func<Task> action)
@@ -125,29 +139,24 @@ public partial class CheatUpdateWindow : Window, INotifyPropertyChanged
     {
         if (sender is Button { Tag: CheatUpdateRow row })
         {
-            if (row.Release == null) await CheckAsync();
-            else await InstallAsync(row);
+            await InstallAsync(row);
         }
     }
-    private async void ReloadClicked(object sender, RoutedEventArgs e) => await OperateAsync(async () =>
-    {
-        RequireConfigured(); await _reload();
-        _focusReason = "";
-        _status = Localization.Choose("Cheat library reloaded. Apply the updated trainer from its game page. The client version is unchanged.", "修改器库已重新加载，请在对应游戏页面应用更新后的修改器。客户端版本保持不变。");
-    });
     public void RefreshLanguage() { try { Populate(); } catch (Exception error) { Report(error); } Refresh(); }
     private void Refresh() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(""));
     public event PropertyChangedEventHandler? PropertyChanged;
     internal event Action? PackageInstalled;
 }
 
-public sealed record CheatUpdateRow(string Id, string Name, string? InstalledVersion, CheatRelease? Release)
+public sealed record CheatUpdateRow(string Id, string Name, string? InstalledVersion, CheatRelease? Release, bool Applied = false)
 {
     public bool IsUpdate => Release != null && (InstalledVersion == null || ReleaseVersion.Parse(Release.Version).CompareTo(ReleaseVersion.Parse(InstalledVersion)) > 0);
-    public string Versions => Localization.Choose($"Installed: {InstalledVersion ?? "Not installed"}   ·   Available: {Release?.Version ?? "Check for updates"}",
-        $"已安装：{InstalledVersion ?? "未安装"}   ·   可用版本：{Release?.Version ?? "请检查更新"}");
+    public string Versions => Localization.Choose($"Current: {InstalledVersion ?? "Not installed"}   ·   Available: {Release?.Version ?? "Check for updates"}",
+        $"当前版本：{InstalledVersion ?? "未安装"}   ·   可用版本：{Release?.Version ?? "请检查更新"}")
+        + (Applied ? Localization.Choose(" · Trainer installed", " · 修改器已安装") : "");
     public string Notes => Release == null ? "" : Localization.Choose(Release.NotesEnglish, string.IsNullOrWhiteSpace(Release.NotesChinese) ? Release.NotesEnglish : Release.NotesChinese);
     public string ActionLabel => Release != null && (Release.ContractVersion != 1 || ReleaseVersion.Parse(Release.MinimumClientVersion).CompareTo(ReleaseVersion.Parse(UpdateLauncher.CurrentVersion)) > 0)
-        ? Localization.Choose("Client needed", "需更新客户端") : Localization.Choose(Release == null ? "Check first" : InstalledVersion == null ? "Add game" : IsUpdate ? "Update" : "Repair", Release == null ? "请先检查" : InstalledVersion == null ? "添加游戏" : IsUpdate ? "更新" : "修复");
+        ? Localization.Choose("Client needed", "需更新客户端") : Applied ? Localization.Choose("Reinstall", "重新安装")
+        : Localization.Choose(IsUpdate ? "Update" : "Install", IsUpdate ? "更新" : "安装");
     public string AccessibleAction => Name + " · " + ActionLabel;
 }

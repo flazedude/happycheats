@@ -1,0 +1,9 @@
+HappyCheats 0.3.67 — One-click trainer updates
+
+Close the affected game and click Update. The client now verifies the download, repairs damaged cached files, loads that game's module and installs its trainer files automatically. No separate Repair or Reload library step is required. Reinstall applies the current trainer again, even when its download cache is already healthy.
+
+Progress, installation verification and actionable errors replace silent completion. An unfinished installation can be retried using the same action. Other game modules stay loaded. Elden Ring still uses its explicit offline-launch/Connect flow for live memory sessions.
+
+This one-time client update changes the update experience. Future compatible game-only releases continue updating independently without changing the HappyCheats EXE or client version. Both complete formats include all seventeen payloads, including the already published Chinese Parents 0.1.1 and Crimson Desert 0.2.9 trainers.
+
+Validation: signed synthetic package download, cache repair, module replacement, trainer-file installation, retry/error handling, running-game refusal, shared overlay and normal offline regression checks. No games were launched, saves changed, or live gameplay/physical-controller/reboot behavior validated.

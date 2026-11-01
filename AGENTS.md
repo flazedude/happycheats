@@ -1,5 +1,9 @@
 # HappyCheats project instructions
 
+## Trainer update experience (1 November 2026)
+
+Keep each game's update as one operation: download and verify its package, repair the cache if needed, load only that game's module, then install/repair its trainer files through the existing module installer. Do not require a separate Repair or Reload library step. Report completion only after installation verifies; show progress and an actionable error on failure, with the same Update/Install action retrying unfinished setup. Require the affected game to be closed before file changes; never launch or close it automatically. Preserve unrelated games and shared menu/controller behavior. Elden Ring's live Connect action remains explicit after offline launch because it is a memory session, not trainer-file installation. This preference supersedes the manual reload/install instructions below.
+
 ## Independent cheat updates (1 November 2026)
 
 The user now wants each game's cheat to update independently. After the one-time client upgrade introducing this support, keep the HappyCheats client version and EXE unchanged for compatible game-only fixes and newly added games. Advance only that game's package version in `modules/cheat-versions.json`. Put the individual-cheat update control beside Library Sort; keep client Updates separate. This latest preference supersedes older requirements below to rebuild/release the entire client and standalone EXE for every changed or new cheat.

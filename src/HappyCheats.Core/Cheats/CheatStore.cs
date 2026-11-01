@@ -86,6 +86,17 @@ public sealed class CheatStore(string root, CheatFeedConfiguration trust)
             throw new InvalidOperationException($"Update HappyCheats to {release.MinimumClientVersion} or later before installing this cheat (module API {release.ContractVersion}).");
     }
 
+    /// <summary>Load just the verified game being applied; leave other games' sessions untouched.</summary>
+    public IGameModule LoadInstalled(CheatRelease release, string clientVersion)
+    {
+        var catalog = CheatSigning.Verify(File.ReadAllBytes(Active(release.Id)), trust.PublicKeyPem, trust.Channel);
+        var active = catalog.Games.SingleOrDefault(x => x.Id == release.Id);
+        if (active == null || !CheatSigning.SamePackage(active, release))
+            throw new InvalidDataException("The downloaded trainer changed. Check for updates and try again.");
+        RequireCompatible(active, clientVersion);
+        return LoadPackage(Package(active), active);
+    }
+
     public async Task InstallAsync(CheatRelease release, byte[] proof, Func<string, Task> download, string clientVersion, CancellationToken token)
     {
         var verified = CheatSigning.Verify(proof, trust.PublicKeyPem, trust.Channel).Games.SingleOrDefault(x => x.Id == release.Id);

@@ -1021,8 +1021,8 @@ public sealed class GameItem : INotifyPropertyChanged
         || TrainerVersionWarning.InstallationMismatch(Installation) || TrainerVersionWarning.RuntimeMismatch(Status);
     public Visibility TrainerWarningVisibility => HasTrainerWarning ? Visibility.Visible : Visibility.Collapsed;
     public string TrainerWarningReason => NeedsCheatReload
-        ? Localization.Choose($"Trainer {DownloadedCheatVersion} downloaded. Close supported games and reload the Library, then use Install / update if needed.",
-            $"修改器 {DownloadedCheatVersion} 已下载。请关闭支持的游戏并重新加载修改器库，随后按需点击“安装 / 更新”。")
+        ? Localization.Choose($"Trainer {DownloadedCheatVersion} downloaded. Close this game and click Update to finish installing it.",
+            $"修改器 {DownloadedCheatVersion} 已下载。请关闭此游戏并点击“更新”完成安装。")
         : HasCheatUpdate ? Localization.Choose($"Trainer update available: {LoadedCheatVersion} → {AvailableCheatVersion}.", $"修改器有可用更新：{LoadedCheatVersion} → {AvailableCheatVersion}。")
         : TrainerVersionWarning.InstallationMismatch(Installation) ? Localization.Message(Installation!.Message)
         : TrainerVersionWarning.RuntimeMismatch(Status) ? Localization.Message(Status.Message) : "";

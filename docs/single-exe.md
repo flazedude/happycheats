@@ -1,10 +1,12 @@
 # Single-EXE distribution
 
+Release **0.3.67** completes individual trainer updates in one click: download, automatic repair, module loading and trainer-file installation. No separate Repair or Reload library step is required. Both complete formats include all seventeen payloads. See [release notes](releases/0.3.67.en.txt).
+
 Release **0.3.66** adds red per-game sidebar warnings and a focused trainer update check. Both complete distributions include the updated client with unchanged trainer payloads. See [release notes](releases/0.3.66.en.txt).
 
 Release **0.3.65** introduces [independent cheat updates](individual-cheat-updates.md). Install this complete client upgrade once. Thereafter, compatible per-game fixes and newly added games download through **Update** beside Library Sort without replacing this EXE or changing its client version. Client Updates remains separate. Validation is offline/synthetic; see [release notes](releases/0.3.65.en.txt).
 
-Give users **`dist/HappyCheats-0.3.66-win-x64-single-exe.zip`**. Extract **`HappyCheats.exe`** from the ZIP, then run it. The ZIP contains only that executable, and its SHA-256 checksum is provided separately. The raw **`dist/HappyCheats.exe`** is also available for direct distribution.
+Give users **`dist/HappyCheats-0.3.67-win-x64-single-exe.zip`**. Extract **`HappyCheats.exe`** from the ZIP, then run it. The ZIP contains only that executable, and its SHA-256 checksum is provided separately. The raw **`dist/HappyCheats.exe`** is also available for direct distribution.
 
 This self-contained Windows x64 file bundles the complete release: the client, all seventeen trainer payloads, updater, runtime files and documentation. Stardew's payload includes the official SMAPI 4.5.2 installer, corresponding source and redistribution notices. It can be copied to another folder or PC by itself. The launcher does not require a separate .NET installation, installation wizard or administrator permission.
 
