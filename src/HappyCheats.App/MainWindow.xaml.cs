@@ -48,6 +48,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private readonly CheatFeedConfiguration? _cheatConfiguration;
     private readonly CheatStore? _cheatStore;
     private string? _cheatLoadError;
+    private Task<CheatUpdateCheck>? _cheatCheckTask;
+    private CheatCatalog? _cheatCatalog;
     private bool _updateHandoff;
     private bool _installingUpdate;
     private bool _busy, _polling, _initialized;
@@ -168,6 +170,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (_cheatStore != null) initialModules = _cheatStore.Load(initialModules, _bundledCheatVersions, UpdateLauncher.CurrentVersion,
             error => { _cheatLoadError = error; ClientErrorLog.Write("cheat-load", error); });
         foreach (var module in initialModules) Games.Add(new GameItem(module));
+        RefreshCheatVersions(loaded: true);
         InitializeComponent();
         if (!captureMode) WindowLayout.Attach(this);
         SizeChanged += (_, _) => { Notify(nameof(IsCompactLayout)); Notify(nameof(SidebarWidth)); };
@@ -235,9 +238,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
         if (_updates != null)
         {
-            _updateTimer.Tick += async (_, _) => await _updates.CheckAndDownloadAsync();
-            _updateTimer.Start();
             _ = _updates.CheckAndDownloadAsync();
+        }
+        if (!_isolatedUpdates)
+        {
+            _updateTimer.Tick += async (_, _) =>
+            {
+                if (_updates != null) _ = _updates.CheckAndDownloadAsync();
+                await CheckCheatsInBackgroundAsync();
+            };
+            _updateTimer.Start();
+            _ = CheckCheatsInBackgroundAsync();
         }
     }
 
@@ -486,7 +497,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             {
                 var discovered = await game.Module.DiscoverAsync(installation.Directory);
                 if (_busy || epoch != _controlEpoch) return;
-                game.Installation = discovered; game.Changed();
+                game.Installation = discovered; installation = discovered; game.Changed();
             }
             var previous = game.Status;
             var current = await game.Module.ReadStatusAsync(installation);
@@ -503,6 +514,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 }
             }
             game.Status = current;
+            game.Changed();
             if (game == _selected)
             {
                 if (previous.Connected != game.Status.Connected || previous.Ready != game.Status.Ready
@@ -522,6 +534,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             if (epoch != _controlEpoch) return;
             if (game == _selected) { _controllerProcessIds.Clear(); _gameWindow = IntPtr.Zero; }
             game.Status = TrainerStatus.Offline(error.Message);
+            game.Changed();
             if (game == _selected) { SetMessage(error.Message, true); RefreshBindings(); }
         }
         finally { _polling = false; }
@@ -999,6 +1012,22 @@ public sealed class GameItem : INotifyPropertyChanged
     public IGameModule Module { get; }
     public GameInstallation? Installation { get; set; }
     public TrainerStatus Status { get; set; } = TrainerStatus.Offline();
+    public string? LoadedCheatVersion { get; internal set; }
+    public string? DownloadedCheatVersion { get; internal set; }
+    public string? AvailableCheatVersion { get; internal set; }
+    public bool NeedsCheatReload => TrainerVersionWarning.Newer(DownloadedCheatVersion, LoadedCheatVersion);
+    public bool HasCheatUpdate => TrainerVersionWarning.Newer(AvailableCheatVersion, LoadedCheatVersion);
+    public bool HasTrainerWarning => HasCheatUpdate || NeedsCheatReload
+        || Installation is { IsInstalled: true, Compatible: false } || TrainerVersionWarning.RuntimeMismatch(Status);
+    public Visibility TrainerWarningVisibility => HasTrainerWarning ? Visibility.Visible : Visibility.Collapsed;
+    public string TrainerWarningReason => NeedsCheatReload
+        ? Localization.Choose($"Trainer {DownloadedCheatVersion} downloaded. Close supported games and reload the Library, then use Install / update if needed.",
+            $"修改器 {DownloadedCheatVersion} 已下载。请关闭支持的游戏并重新加载修改器库，随后按需点击“安装 / 更新”。")
+        : HasCheatUpdate ? Localization.Choose($"Trainer update available: {LoadedCheatVersion} → {AvailableCheatVersion}.", $"修改器有可用更新：{LoadedCheatVersion} → {AvailableCheatVersion}。")
+        : Installation is { IsInstalled: true, Compatible: false } installation ? Localization.Message(installation.Message)
+        : TrainerVersionWarning.RuntimeMismatch(Status) ? Localization.Message(Status.Message) : "";
+    public string TrainerWarningHint => Name + " · " + TrainerWarningReason + " "
+        + Localization.Choose("Check for updates for this game.", "检查此游戏的修改器更新。");
     public string Id => Module.Definition.Id;
     public string Name => Localization.GameName(Module.Definition);
     public string SortName => Module.Definition.Name;

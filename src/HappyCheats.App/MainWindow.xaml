@@ -144,9 +144,13 @@
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0,0,0,9"/>
             <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem"><Border x:Name="item" CornerRadius="9" BorderThickness="1" BorderBrush="Transparent" Background="Transparent" Padding="10,12"><ContentPresenter/></Border><ControlTemplate.Triggers><Trigger Property="IsSelected" Value="True"><Setter TargetName="item" Property="Background" Value="{DynamicResource SelectionBrush}"/><Setter TargetName="item" Property="BorderBrush" Value="{DynamicResource SelectionBorderBrush}"/></Trigger><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="item" Property="Background" Value="{DynamicResource RaisedBrush}"/></Trigger><Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="item" Property="BorderBrush" Value="{DynamicResource GoldBrush}"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
           </Style></ListBox.ItemContainerStyle>
-          <ListBox.ItemTemplate><DataTemplate><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="48"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+          <ListBox.ItemTemplate><DataTemplate><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="48"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
             <Border Width="40" Height="40" Background="{DynamicResource ArtworkBrush}" CornerRadius="6" HorizontalAlignment="Left" VerticalAlignment="Center"><Image Source="{Binding IconUri}" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" AutomationProperties.Name="{Binding Name}"/></Border>
-            <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="12" TextWrapping="Wrap"/><TextBlock Text="{Binding LibraryDetail}" Foreground="{DynamicResource MutedBrush}" FontSize="10" Margin="0,5,0,0"/></StackPanel>
+            <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="12" TextWrapping="Wrap"/><TextBlock Text="{Binding LibraryDetail}" Foreground="{DynamicResource MutedBrush}" FontSize="10" Margin="0,5,0,0" TextTrimming="CharacterEllipsis"/></StackPanel>
+            <Button x:Name="TrainerWarningButton" Grid.Column="2" Content="!" Tag="{Binding}" Click="TrainerWarningClicked"
+                    Visibility="{Binding TrainerWarningVisibility}" Foreground="#FFFFFF" Background="#C52F3D" BorderBrush="#C52F3D"
+                    FontWeight="Bold" FontSize="18" MinWidth="30" MinHeight="44" Padding="5,2" Margin="5,0,0,0" VerticalAlignment="Center"
+                    ToolTip="{Binding TrainerWarningHint}" AutomationProperties.Name="{Binding TrainerWarningHint}"/>
           </Grid></DataTemplate></ListBox.ItemTemplate>
         </ListBox>
         <Border Grid.Row="4" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0" Padding="2,10,0,0">

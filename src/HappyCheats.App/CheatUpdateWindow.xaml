@@ -9,6 +9,7 @@
     <StackPanel Margin="0,0,0,14">
       <TextBlock Text="{Binding WindowTitle}" FontSize="25" FontWeight="SemiBold"/>
       <TextBlock Text="{Binding Introduction}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+      <TextBlock Text="{Binding FocusReason}" Foreground="{DynamicResource ErrorBrush}" TextWrapping="Wrap" Margin="0,8,0,0"/>
     </StackPanel>
     <Border Grid.Row="1" Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="7" Padding="12" Margin="0,0,0,14">
       <StackPanel>

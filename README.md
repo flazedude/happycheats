@@ -4,11 +4,11 @@ A Windows trainer library with 17 games, English / 中文, and one shared in-gam
 
 **[Download HappyCheats.exe](https://github.com/flazedude/happycheats/releases/latest/download/HappyCheats.exe)** · [Latest release](https://github.com/flazedude/happycheats/releases/latest) · [Changelog](CHANGELOG.md) · [中文说明](README.zh-CN.md)
 
-## Latest version · 0.3.65
+## Latest version · 0.3.66
 
-Adds **Update** beside Library Sort for independently versioned game cheats. Compatible game updates and new games can now download separately while the HappyCheats client version stays unchanged. Install this client upgrade once; see [individual cheat updates](docs/individual-cheat-updates.md). Offline/synthetic validation only.
+Adds a red **!** beside games with trainer compatibility warnings or newer signed trainer packages. Click it to check and update that game. Independent trainer updates remain beside Library Sort; client Updates stays separate. Offline/synthetic validation only.
 
-[Full release notes](docs/releases/0.3.65.en.txt)
+[Full release notes](docs/releases/0.3.66.en.txt)
 
 ![HappyCheats library and Stardew Valley trainer controls in the English dark theme](docs/images/happycheats-library.png)
 

@@ -2,7 +2,17 @@
 
 **[Download the latest release / 下载最新版本](https://github.com/flazedude/happycheats/releases/latest)** · [Home](README.md) · [中文首页](README.zh-CN.md)
 
-## Latest · 0.3.65
+## Latest · 0.3.66
+
+- Adds red per-game sidebar warnings for reported trainer compatibility/runtime mismatches and newer signed packages, with a game-specific update check.
+- Checks signed trainer catalogs at startup and every 30 minutes; retains warnings for downloaded packages until Library reload. Client Updates stays separate.
+- Offline/synthetic signed-package and WPF validation; no games launched or saves changed.
+
+新增按游戏显示的红色版本 / 兼容性警告，点击即可检查该游戏的独立修改器更新。下载后保留重新加载提示；客户端更新保持独立。仅离线 / 合成验证。
+
+[English](docs/releases/0.3.66.en.txt) · [中文](docs/releases/0.3.66.zh.txt)
+
+## 0.3.65
 
 - Adds independent signed per-game module/payload updates, including new games, through Update beside Library Sort. Client version stays unchanged for compatible cheat-only releases.
 - Adds per-game package versions, reload without replacing the EXE, compatibility errors, repair and separate GitHub/LAN publishing/mirroring.
