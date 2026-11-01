@@ -1018,13 +1018,13 @@ public sealed class GameItem : INotifyPropertyChanged
     public bool NeedsCheatReload => TrainerVersionWarning.Newer(DownloadedCheatVersion, LoadedCheatVersion);
     public bool HasCheatUpdate => TrainerVersionWarning.Newer(AvailableCheatVersion, LoadedCheatVersion);
     public bool HasTrainerWarning => HasCheatUpdate || NeedsCheatReload
-        || Installation is { IsInstalled: true, Compatible: false } || TrainerVersionWarning.RuntimeMismatch(Status);
+        || TrainerVersionWarning.InstallationMismatch(Installation) || TrainerVersionWarning.RuntimeMismatch(Status);
     public Visibility TrainerWarningVisibility => HasTrainerWarning ? Visibility.Visible : Visibility.Collapsed;
     public string TrainerWarningReason => NeedsCheatReload
         ? Localization.Choose($"Trainer {DownloadedCheatVersion} downloaded. Close supported games and reload the Library, then use Install / update if needed.",
             $"修改器 {DownloadedCheatVersion} 已下载。请关闭支持的游戏并重新加载修改器库，随后按需点击“安装 / 更新”。")
         : HasCheatUpdate ? Localization.Choose($"Trainer update available: {LoadedCheatVersion} → {AvailableCheatVersion}.", $"修改器有可用更新：{LoadedCheatVersion} → {AvailableCheatVersion}。")
-        : Installation is { IsInstalled: true, Compatible: false } installation ? Localization.Message(installation.Message)
+        : TrainerVersionWarning.InstallationMismatch(Installation) ? Localization.Message(Installation!.Message)
         : TrainerVersionWarning.RuntimeMismatch(Status) ? Localization.Message(Status.Message) : "";
     public string TrainerWarningHint => Name + " · " + TrainerWarningReason + " "
         + Localization.Choose("Check for updates for this game.", "检查此游戏的修改器更新。");

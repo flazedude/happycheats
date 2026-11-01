@@ -1,6 +1,6 @@
 HappyCheats 0.3.66 — Trainer version warnings
 
-The Library sidebar now shows a red ! beside a game when its module reports a compatibility/runtime mismatch, a newer signed trainer package is available, or a downloaded trainer still needs a Library reload. Ordinary disconnected or waiting-for-heartbeat states do not create a version warning. Hover the mark to see the reason.
+The Library sidebar now shows a red ! beside a game when its module reports a compatibility/runtime mismatch or installed trainer files needing an update, a newer signed trainer package is available, or a downloaded trainer still needs a Library reload. Ordinary disconnected or waiting-for-heartbeat states do not create a version warning. Hover the mark to see the reason.
 
 Click ! to open Cheat updates for that game only, with Check this game and its Update / Repair action. Update beside Library Sort still opens all games; client Updates remains separate. Checks verify the existing signed catalogs from both LAN hosts and GitHub at startup, every 30 minutes and on request. No trainer package is downloaded automatically by this check.
 

@@ -87,10 +87,20 @@ internal static class CheatUpdateUiChecks
             game.Installation = game.Installation with { Compatible = false, Message = "Unsupported game build" };
             check(game.HasTrainerWarning && game.TrainerWarningReason.Contains("Unsupported"), "unsupported build did not explain its warning");
             game.Installation = game.Installation with { Compatible = true };
+            foreach (var message in new[] { "Trainer update required · installed files differ from module 0.4.0",
+                "The Blood of Dawnwalker trainer update required. Installed files differ from the current module.",
+                "Stardew Valley trainer update required. Installed mod files differ from this module." })
+            {
+                game.Installation = game.Installation with { Message = message };
+                check(game.HasTrainerWarning && game.TrainerWarningReason == Localization.Message(message), "installed payload mismatch was missed");
+            }
+            game.Installation = game.Installation with { Message = "Compatible build" };
             foreach (var message in new[] {"Restart the game to load the current trainer module.", "Restart The Blood of Dawnwalker to load the current trainer module.",
                 "Project Hospital trainer version 0.0.1 does not match 0.1.0. Close the game and choose Install / update.",
                 "Invalid Civilization VI trainer status schema or runtime version.", "Restart Stardew Valley with the current HappyCheats SMAPI mod.",
-                "Crimson Desert trainer identity or heartbeat is invalid. Reconnect or restart the game."})
+                "Crimson Desert trainer identity or heartbeat is invalid. Reconnect or restart the game.",
+                "Restart Red Dead Redemption 2 to load the current Story Mode trainer module.",
+                "Invalid Witcher 3 trainer status. Restart after installing the current trainer."})
             {
                 game.Status = TrainerStatus.Offline(message);
                 check(game.HasTrainerWarning, "runtime mismatch omitted: " + message);
