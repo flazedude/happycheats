@@ -1,5 +1,11 @@
 # Signed independent game packages. This helper contains no credentials or private-key discovery.
 . (Join-Path $PSScriptRoot 'LanMirror.Common.ps1')
+function Write-HcCheatWebContent([string]$Path, [object]$Content) {
+    Assert-HcMirrorSafePath $Path
+    $hcBytes = if ($Content -is [byte[]]) { $Content } else { [Text.Encoding]::UTF8.GetBytes([string]$Content) }
+    if ($hcBytes.Length -gt 524288) { throw 'Cheat catalog is too large.' }
+    [IO.File]::WriteAllBytes($Path, [byte[]]$hcBytes)
+}
 function Read-HcCheatCatalog([string]$Path, [Security.Cryptography.RSA]$Key) {
     Assert-HcMirrorSafePath $Path
     if ((Get-Item -LiteralPath $Path).Length -gt 524288) { throw 'Cheat catalog is too large.' }

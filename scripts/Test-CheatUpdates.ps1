@@ -19,6 +19,11 @@ try {
     $hcCatalog=[ordered]@{schemaVersion=1;channel='stable';revision=1L;games=@($hcGame)}
     $hcFeed=Join-Path $hcFixture 'cheats.json';Write-HcCheatProof $hcFeed $hcCatalog
     Test-HcCheat ((Read-HcCheatCatalog $hcFeed $hcKey).games.Count -eq 1) 'signed catalog accepted'
+    foreach ($hcWebContent in @([IO.File]::ReadAllBytes($hcFeed), [IO.File]::ReadAllText($hcFeed))) {
+        $hcWebCopy=Join-Path $hcFixture ('web-'+[Guid]::NewGuid().ToString('N')+'.json')
+        Write-HcCheatWebContent $hcWebCopy $hcWebContent
+        Test-HcCheat ((Read-HcCheatCatalog $hcWebCopy $hcKey).revision -eq 1) 'binary and text PowerShell web responses preserve signed catalog bytes'
+    }
     & dotnet run --project (Join-Path $hcRoot 'tools/HappyCheats.CheatRelease') -c Release -- verify --catalog $hcFeed --public-key $hcPublicKey
     Test-HcCheat ($LASTEXITCODE -eq 0) 'PowerShell proof verifies in client implementation'
     $hcCache=Join-Path $hcFixture 'cache';[IO.File]::WriteAllBytes((Join-Path $hcCache $hcName),$hcBytes)

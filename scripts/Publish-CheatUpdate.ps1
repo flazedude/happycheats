@@ -85,7 +85,7 @@ try {
         if ($hcPeer.StatusCode -ne 200) { Write-Host "Cheat peer feed unavailable (HTTP $($hcPeer.StatusCode)): $hcLanBase"; continue }
         if ($hcPeer.RawContentLength -gt 524288) { throw 'LAN cheat catalog exceeds its limit.' }
         $hcPeerPath=Join-Path $hcStage ('peer-'+[Guid]::NewGuid().ToString('N')+'.json')
-        [IO.File]::WriteAllText($hcPeerPath,[string]$hcPeer.Content)
+        Write-HcCheatWebContent $hcPeerPath $hcPeer.Content
         $hcPeerCatalog=Read-HcCheatCatalog $hcPeerPath $hcKey
         Assert-HcCheatCatalogAdvance $hcPeerCatalog $hcNext
         Write-Host "Verified cheat peer revision $($hcPeerCatalog.revision): $hcLanBase"
