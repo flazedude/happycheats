@@ -18,6 +18,7 @@ internal static class CheatUpdateUiChecks
     {
         var checks=0;
         var originalContext=SynchronizationContext.Current;
+        var originalSelection=((ListBox)main.FindName("Library")).SelectedItem;
         void Check(bool condition,string message) { checks++; if (!condition) throw new Exception("Cheat update UI: "+message); }
         var update=(Button)main.FindName("CheatUpdatesButton");
         Check(update.IsEnabled && Grid.GetColumn(update)==3 && update.ActualHeight>=44,"Library update button is missing, disabled or not beside Sort");
@@ -110,7 +111,7 @@ internal static class CheatUpdateUiChecks
         finally
         {
             gate.TrySetResult(); window.Close();
-            ((ListBox)main.FindName("Library")).SelectedItem=other;
+            ((ListBox)main.FindName("Library")).SelectedItem=originalSelection;
             var game=main.Games.SingleOrDefault(x=>x.Id=="future-game");
             if(game!=null){HappyCheats.Core.Cheats.CheatStore.ReleaseModule(game.Module);main.Games.Remove(game);}
             SynchronizationContext.SetSynchronizationContext(originalContext);
