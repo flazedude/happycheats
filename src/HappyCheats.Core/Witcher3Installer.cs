@@ -10,9 +10,9 @@ namespace HappyCheats.Core;
 public static class Witcher3Installer
 {
     public const string Executable = "bin/x64_dx12/witcher3.exe";
-    public const string SupportedExecutableSha256 = "C272B2C2E61F84C758E28FAB69AB2915944DD1E539DBB435FAE9FC67494C7E25";
+    public const string SupportedExecutableSha256 = "05948D7238E1C9620A1CB9B3125520F1C143CE04A8E5718A3735120C37D7BAE0";
     public const string VanillaScript = "content/content0/scripts/game/r4game.ws";
-    public const string SupportedVanillaSha256 = "D800CAAF40FFF71901F7C056B2FA1397B573710563A27EF766E466D5A2469431";
+    public const string SupportedVanillaSha256 = "045CDDDFF8FFF73A68B2C3EA37E8BF6BF2DA47C40B2A09DFE82D4FA97548EC9B";
     public const string ModRoot = "Mods/modHappyCheats/content/";
     public const string MainScript = ModRoot + "scripts/local/happycheats.ws";
     public const string PatchedScript = ModRoot + "scripts/game/r4game.ws";
@@ -27,6 +27,13 @@ public static class Witcher3Installer
     public sealed record Receipt(int SchemaVersion, string Module, List<Entry> Files);
     internal sealed record BuildProfile(string ExecutableSha256, string VanillaSha256);
     internal static readonly BuildProfile SupportedBuild = new(SupportedExecutableSha256, SupportedVanillaSha256);
+    internal static readonly BuildProfile OriginalBuild = new("C272B2C2E61F84C758E28FAB69AB2915944DD1E539DBB435FAE9FC67494C7E25", "D800CAAF40FFF71901F7C056B2FA1397B573710563A27EF766E466D5A2469431");
+    internal static BuildProfile? MatchBuild(string executableHash, string scriptHash) =>
+        new[] { SupportedBuild, OriginalBuild }.FirstOrDefault(profile =>
+            profile.ExecutableSha256.Equals(executableHash, StringComparison.OrdinalIgnoreCase)
+            && profile.VanillaSha256.Equals(scriptHash, StringComparison.OrdinalIgnoreCase));
+    private static BuildProfile ResolveBuild(string root) => MatchBuild(Hash(SafePath(root, Executable)), Hash(SafePath(root, VanillaScript)))
+        ?? throw new IOException("Unsupported Witcher 3 executable or vanilla scripts. Game files were preserved.");
     private sealed record Change(string Relative, byte[]? Before, string? AfterHash);
     private sealed record Generated(string Relative, byte[] Bytes);
     private static readonly string[] InstalledFiles = { MainScript, PatchedScript };
@@ -67,11 +74,11 @@ public static class Witcher3Installer
     }
 
     public static bool Installed(string root) => InstalledFiles.Concat(DynamicFiles).All(path => File.Exists(SafePath(root, path)));
-    public static bool MatchesPackage(string package, string root) => MatchesPackage(package, root, SupportedBuild);
+    public static bool MatchesPackage(string package, string root) => Installed(root) && MatchesPackage(package, root, ResolveBuild(root));
     internal static bool MatchesPackage(string package, string root, BuildProfile profile) => Installed(root) && Generate(package, root, profile)
         .All(file => Matches(SafePath(root, file.Relative), HashBytes(file.Bytes)));
 
-    public static void VerifySupportedGame(string root) => VerifySupportedGame(root, SupportedBuild);
+    public static void VerifySupportedGame(string root) => VerifySupportedGame(root, ResolveBuild(root));
     private static byte[] VerifySupportedGame(string root, BuildProfile profile)
     {
         if (!Matches(SafePath(root, Executable), profile.ExecutableSha256))
@@ -169,7 +176,7 @@ public static class Witcher3Installer
     }
 
     public static void Install(string package, string root, Action checkGameClosed, IProgress<string>? progress = null) =>
-        Install(package, root, checkGameClosed, progress, SupportedBuild);
+        Install(package, root, checkGameClosed, progress, ResolveBuild(root));
 
     internal static void Install(string package, string root, Action checkGameClosed, IProgress<string>? progress, BuildProfile profile)
     {

@@ -1,6 +1,8 @@
 # The Witcher 3: Wild Hunt — Remastered
 
-HappyCheats includes an experimental trainer for the Windows Steam edition of [The Witcher 3: Wild Hunt — Remastered, app 292030](https://store.steampowered.com/app/292030/). The target is the inspected Steam build **25575366**, executable **5.0.0.1041720**, using **DirectX 12**. The older 4.x edition and DirectX 11 executable are unsupported.
+HappyCheats includes an experimental trainer for the Windows Steam edition of [The Witcher 3: Wild Hunt — Remastered, app 292030](https://store.steampowered.com/app/292030/). Independent package **1.0.1** supports the inspected current Steam build **26238013**, executable **5.0.0.1090142**, using **DirectX 12**, and retains the original build **25575366 / 5.0.0.1041720**. Each executable must match its own verified base script; mixed or modified files are rejected. The older 4.x edition and DirectX 11 executable are unsupported.
+
+Close the game and use **Update** beside Library Sort to install the Witcher package. Client **0.3.67+** downloads, loads and installs it in one operation; compatible **0.3.65–0.3.66** clients require Reload library and then the game's Install / update. This game-only update does not change the client EXE or version. Its original WitcherScript payload/protocol **0.1.1** and eight controls are unchanged. The installer regenerates the hook from the matching local game script, without distributing vanilla source. The new build's 22 used API signatures and integration points were inspected offline; startup, native communication and cheat effects on this build remain unverified.
 
 The trainer is included in the full client update package and complete standalone EXE. A real ready heartbeat from the user's running game confirms script startup. Actual cheat effects remain unverified.
 
@@ -51,7 +53,7 @@ dotnet run --project .\tests\HappyCheats.App.Tests -c Release -- --data-root .
 
 ## 中文说明
 
-此实验性修改器面向 Steam《巫师 3：狂猎 重制版》，对应构建 **25575366**、程序 **5.0.0.1041720** 的 **DirectX 12** 版本；不支持旧版 4.x 或 DirectX 11。完整客户端更新包与单文件 EXE 均包含此修改器。
+独立软件包 **1.0.1** 新增对 Steam《巫师 3：狂猎 重制版》当前构建 **26238013**、程序 **5.0.0.1090142** 的 **DirectX 12** 版本支持，并保留原构建 **25575366 / 5.0.0.1041720**。程序和基础脚本必须属于同一已校验组合；混用或修改过的文件会被拒绝。不支持旧版 4.x 或 DirectX 11。关闭游戏后，在游戏库排序旁点击“更新”，更新巫师软件包；0.3.67+ 客户端会一次完成下载、加载与安装。客户端 EXE 和版本不变，脚本及通信版本仍为 0.1.1，八项功能不变。新构建已通过 22 项脚本 API 与集成位置的离线检查，实际启动、原生通信和作弊效果仍待验证。
 
 请关闭游戏，在 HappyCheats 中选择本游戏并点击 **安装 / 更新**。安装程序会校验版本，并保留游戏基础文件。如果其他模组覆盖了 `r4game.ws`，安装会拒绝冲突，不会自动合并或覆盖；请先禁用或移除冲突的覆盖文件再重试。之后启动 DirectX 12 版游戏并载入杰洛特存档，等待连接就绪。
 

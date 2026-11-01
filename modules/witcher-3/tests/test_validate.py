@@ -49,8 +49,14 @@ class InstalledEvidenceTests(unittest.TestCase):
         self.assertIn('executable is missing', output.getvalue())
 
     def test_explicit_unknown_executable_still_fails_the_existing_hash_pin(self):
-        with self.assertRaisesRegex(ValueError, 'Installed executable differs from verified Steam build 25575366'):
+        with self.assertRaisesRegex(ValueError, 'Installed executable differs from verified Steam builds'):
             validate.validate_installed_evidence(self.game, {'GetEngineTime'}, explicit=True)
+
+    def test_both_exact_profiles_reject_mixed_or_modified_base_scripts(self):
+        for executable, (_, script) in validate.BUILDS.items():
+            with self.subTest(executable=executable), patch.object(validate, 'sha', side_effect=[executable, '0' * 64]):
+                with self.assertRaisesRegex(ValueError, 'verified executable/script pair'):
+                    validate.validate_game(self.game, set())
 
     def test_explicit_missing_executable_still_fails(self):
         self.executable.unlink()

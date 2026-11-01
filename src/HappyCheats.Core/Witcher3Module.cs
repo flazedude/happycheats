@@ -11,7 +11,7 @@ public sealed class Witcher3Module(string baseDirectory) : IGameModule
 {
     public IReadOnlyList<string> GameExecutables { get; } = [Witcher3Installer.Executable];
     public const string TrainerVersion = "0.1.1";
-    public const string SupportedSteamBuild = "25575366";
+    public const string SupportedSteamBuild = "26238013";
     public const string StatusPath = "bin/config/base/modsHappyCheatsWitcher3.ini";
     private readonly string package = Path.Combine(baseDirectory, "payload", "witcher-3");
     private readonly SemaphoreSlim gate = new(1, 1);
@@ -38,7 +38,7 @@ public sealed class Witcher3Module(string baseDirectory) : IGameModule
         if (!exe.Exists || !script.Exists) return false;
         lock (inspectionGate) {
             if (!force && inspection is { } p && p.Root == root && p.ExeSize == exe.Length && p.ExeTime == exe.LastWriteTimeUtc && p.ScriptSize == script.Length && p.ScriptTime == script.LastWriteTimeUtc) return p.Valid;
-            var valid = Hash(exe.FullName) == Witcher3Installer.SupportedExecutableSha256 && Hash(script.FullName) == Witcher3Installer.SupportedVanillaSha256;
+            var valid = Witcher3Installer.MatchBuild(Hash(exe.FullName), Hash(script.FullName)) != null;
             inspection = (root, exe.Length, exe.LastWriteTimeUtc, script.Length, script.LastWriteTimeUtc, valid);
             return valid;
         }

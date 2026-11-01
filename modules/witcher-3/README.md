@@ -1,7 +1,10 @@
 # The Witcher 3: Wild Hunt — Remastered
 
-Original WitcherScript trainer for Steam app **292030**, installed build
-**25575366**, `bin/x64_dx12/witcher3.exe` version **5.0.0.1041720**.
+Original WitcherScript trainer for Steam app **292030**. Independent package
+**1.0.1** supports installed build **26238013**, `bin/x64_dx12/witcher3.exe`
+version **5.0.0.1090142**, retaining build **25575366 / 5.0.0.1041720**.
+Executable and `r4game.ws` hashes are paired, never independently allowlisted.
+The script/protocol stays **0.1.1**; no gameplay behavior changes.
 This installed Remastered build has no DX11 executable. Classic 1.32 and earlier
 next-gen 4.x builds are not covered by the executable pin.
 
@@ -92,6 +95,12 @@ for this one binary, and are **not** memory-write or hook targets used by the mo
   It updates the requested key, marks the INI dirty and flushes through
   `0x1426FC7E0`. The expected output is
   `bin/config/base/modsHappyCheatsWitcher3.ini`, section `[MODS]`, key `Snapshot`.
+
+The current build's 22 used source API signatures were rechecked read-only,
+along with the exact base-script hash and unique class/OnTick integration points.
+The native addresses above apply only to the original executable; they were not
+re-established on build 26238013. Runtime compilation, native communication and
+cheat effects on that build remain unverified.
 
 The original trainer produced a real ready heartbeat in a user-started game,
 confirming that script integration ran. Native inspection establishes the

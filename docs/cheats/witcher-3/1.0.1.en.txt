@@ -1,0 +1,7 @@
+The Witcher 3 independent package 1.0.1
+
+Adds exact compatibility for installed Steam build 26238013 / DX12 executable 5.0.0.1090142 and its current base script. Retains the original 25575366 / 5.0.0.1041720 pair. Mixed builds, unknown executables and modified base scripts remain rejected. Regenerates the trainer hook from the user's matching local script; preserves unrelated mods and base game files. The eight controls and WitcherScript protocol/payload 0.1.1 are unchanged. Uses the existing shared Ctrl+Del and Menu held 350 ms + RB menu.
+
+Close The Witcher 3, click Update beside Library Sort, and update The Witcher 3. Client 0.3.67+ downloads, loads and installs the trainer in one operation. Compatible clients 0.3.65–0.3.66 require Reload library, then the game's Install / update. The HappyCheats client EXE/version is unchanged.
+
+Validation: read-only executable/base-script hashes, 22 installed script API signatures and integration points, payload validation, exact-pair rejection, installer rollback/preservation, protocol and required offline release suites. No game was launched and no save was changed. Script compilation, native communication and actual cheat effects on the new build remain unverified; offline menu/controller checks do not establish physical-controller or gameplay behavior.

@@ -13,6 +13,19 @@ internal static class Witcher3InstallerTests
     public static int RunAll()
     {
         passed = failed = 0;
+        Run("Witcher 3 supports both exact build pairs and rejects mixed or unknown files", () => {
+            var latest = Witcher3Installer.SupportedBuild;
+            var original = Witcher3Installer.OriginalBuild;
+            Check(Witcher3Module.SupportedSteamBuild == "26238013");
+            foreach (var build in new[] { latest, original }) {
+                Check(Witcher3Installer.MatchBuild(build.ExecutableSha256, build.VanillaSha256) == build);
+                Check(Witcher3Installer.MatchBuild(build.ExecutableSha256.ToLowerInvariant(), build.VanillaSha256.ToLowerInvariant()) == build);
+                Check(Witcher3Installer.MatchBuild(build.ExecutableSha256, new string('0', 64)) == null);
+            }
+            Check(Witcher3Installer.MatchBuild(latest.ExecutableSha256, original.VanillaSha256) == null);
+            Check(Witcher3Installer.MatchBuild(original.ExecutableSha256, latest.VanillaSha256) == null);
+            Check(Witcher3Installer.MatchBuild(new string('0', 64), latest.VanillaSha256) == null);
+        });
         Run("Witcher 3 generates an isolated hook and depot-relative bridge without changing game files", () => {
             using var f = new Fixture(); var before = f.BaseHashes(); f.Install();
             Check(Witcher3Installer.Installed(f.Game)); Check(f.Matches()); Check(f.BaseHashes().SequenceEqual(before));
@@ -41,6 +54,21 @@ internal static class Witcher3InstallerTests
             using var f = new Fixture(); f.Install(); f.Template(Fixture.TemplateText + "\n// Updated trainer\n"); f.Manifest();
             Check(!f.Matches()); f.Install(); Check(f.Matches());
             Check(File.ReadAllText(f.Path(Witcher3Installer.MainScript)).Contains("Updated trainer"));
+        });
+        Run("Witcher 3 game updates regenerate the owned hook from the new verified base", () => {
+            using var f = new Fixture(); f.Install();
+            var originalHook = File.ReadAllText(f.Path(Witcher3Installer.PatchedScript));
+            f.GameFile(Witcher3Installer.VanillaScript, File.ReadAllText(f.Path(Witcher3Installer.VanillaScript)) + "\n// New game build\n");
+            var updated = new Witcher3Installer.BuildProfile(f.Profile.ExecutableSha256, Hash(f.Path(Witcher3Installer.VanillaScript)));
+            var baseHashes = f.BaseHashes();
+            f.InstallWith(updated);
+            Check(Witcher3Installer.MatchesPackage(f.Package, f.Game, updated));
+            Check(File.ReadAllText(f.Path(Witcher3Installer.PatchedScript)) == originalHook + "\n// New game build\n");
+            Check(f.BaseHashes().SequenceEqual(baseHashes));
+            Witcher3Installer.Remove(f.Game, () => { });
+            Check(!Witcher3Installer.Installed(f.Game));
+            Check(f.BaseHashes().SequenceEqual(baseHashes));
+            Check(JsonSerializer.Deserialize<Witcher3Installer.Receipt>(File.ReadAllBytes(f.Path(Witcher3Installer.ReceiptPath)))!.Files.Count == 0);
         });
         Run("Witcher 3 missing mailbox makes the installation incomplete and is repaired", () => {
             using var f = new Fixture(); f.Install(); File.Delete(f.Path(Witcher3Installer.LeasePath));

@@ -7,10 +7,15 @@ import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[3]
-EXE_HASH = 'C272B2C2E61F84C758E28FAB69AB2915944DD1E539DBB435FAE9FC67494C7E25'
+EXE_HASH = '05948D7238E1C9620A1CB9B3125520F1C143CE04A8E5718A3735120C37D7BAE0'
+BUILDS = {
+    EXE_HASH: ('26238013', '045CDDDFF8FFF73A68B2C3EA37E8BF6BF2DA47C40B2A09DFE82D4FA97548EC9B'),
+    'C272B2C2E61F84C758E28FAB69AB2915944DD1E539DBB435FAE9FC67494C7E25':
+        ('25575366', 'D800CAAF40FFF71901F7C056B2FA1397B573710563A27EF766E466D5A2469431'),
+}
 FEATURES = {'witcher3_health', 'witcher3_stamina', 'witcher3_adrenaline', 'witcher3_toxicity',
             'witcher3_heal', 'witcher3_money', 'witcher3_xp', 'witcher3_skill'}
-# Native/source declarations inspected in Steam build 25575366, version 5.0.0.1041720.
+# Source declarations rechecked in Steam build 26238013, version 5.0.0.1090142.
 # Each entry pins the source location, minimum arity, and maximum arity.
 API = {
     'EngineTimeToFloat': ('core/engineTime.ws', 1, 1),
@@ -160,8 +165,14 @@ def find_game(explicit):
 
 
 def validate_game(game, calls):
-    require(sha(game / 'bin/x64_dx12/witcher3.exe') == EXE_HASH, 'Installed executable differs from verified Steam build 25575366')
+    profile = BUILDS.get(sha(game / 'bin/x64_dx12/witcher3.exe'))
+    require(profile is not None, 'Installed executable differs from verified Steam builds')
+    require(sha(game / 'content/content0/scripts/game/r4game.ws') == profile[1], 'Installed base script differs from its verified executable/script pair')
     scripts = game / 'content/content0/scripts'
+    integration = (scripts / 'game/r4game.ws').read_text(encoding='utf-8-sig')
+    require(len(re.findall(r'\bimport\s+class\s+CR4Game\s+extends\s+CCommonGame\s*\{', integration)) == 1
+            and len(re.findall(r'\bpublic\s+function\s+OnTick\s*\(\s*\)\s*\{', integration)) == 1
+            and 'happyCheatsWitcher3' not in integration, 'Changed trainer integration points')
     for name in calls:
         path, minimum, maximum = API[name]
         source = (scripts / path).read_text(encoding='utf-8-sig')
@@ -177,7 +188,7 @@ def validate_game(game, calls):
         require(name in stats, f'Unknown base stat: {name}')
     points = (scripts / 'game/gameplay/leveling/levelTypes.ws').read_text(encoding='utf-8-sig')
     require('ESkillPoint' in points and 'EExperiencePoint' in points, 'Point enums changed')
-    print(f'Installed v5.0 executable pin and {len(calls)} API signatures verified read-only.')
+    print(f'Installed Steam build {profile[0]} executable/script pair and {len(calls)} API signatures verified read-only.')
 
 
 def validate_installed_evidence(game, calls, explicit=False):
@@ -195,8 +206,8 @@ def validate_installed_evidence(game, calls, explicit=False):
     if not executable.is_file():
         print('Installed-game API comparison SKIP: auto-discovered DX12 executable is missing; no compatibility is established.')
         return False
-    if sha(executable) != EXE_HASH:
-        print('Installed-game API comparison SKIP: auto-discovered executable is not verified Steam build 25575366; no compatibility is established.')
+    if sha(executable) not in BUILDS:
+        print('Installed-game API comparison SKIP: auto-discovered executable is not a verified Steam build; no compatibility is established.')
         return False
     # Do not suppress API mismatches or other failures for a supported build.
     validate_game(game, calls)
