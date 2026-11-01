@@ -169,10 +169,13 @@ try {
     $ResultPath = Join-Path $hcLocalDirectory 'result.json'
     $hcSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
     Write-Host 'Approve the Windows administrator prompt. The server is staged first, then the existing host is briefly restarted. A result and log will be saved beside this launcher.'
-    $hcProcess = Start-Process -FilePath (Get-Process -Id $PID).Path -Verb RunAs -WindowStyle Hidden -PassThru -Wait -ArgumentList @(
+    $hcProcess = Start-Process -FilePath (Get-Process -Id $PID).Path -Verb RunAs -WindowStyle Hidden -PassThru -ArgumentList @(
         '-NoLogo','-NoProfile','-ExecutionPolicy','Bypass','-File',('"'+$hcLocalHelper+'"'),'-AdminPhase',
         '-RepositoryPath',('"'+$RepositoryPath+'"'),'-ExpectedCommit',$ExpectedCommit,'-ExpectedUserSid',$hcSid,
         '-ResultPath',('"'+$ResultPath+'"'),'-DeploymentSource',('"'+$DeploymentSource+'"'))
+    # Wait for setup itself, rather than reusable compiler children that can
+    # outlive it. Start-Process -Wait waits for the whole process tree on Windows.
+    $hcProcess.WaitForExit()
     if (!(Test-Path -LiteralPath $ResultPath)) { throw "Setup did not produce a result. Local diagnostics: $hcLocalDirectory" }
     $hcResult = Get-Content -LiteralPath $ResultPath -Raw | ConvertFrom-Json
     $hcResultName = 'GPD-cheat-deployment-result-' + [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss') + '.json'
