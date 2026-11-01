@@ -38,6 +38,7 @@ internal sealed class GameOverlay : Window
     private Button? disable;
     private int generation;
     private bool updatingGroups;
+    private IntPtr followedWindow;
 
     internal string? CurrentGameId => currentGame?.Id;
 
@@ -112,18 +113,39 @@ internal sealed class GameOverlay : Window
             var handle = new WindowInteropHelper(this).Handle;
             // Only explicit text editing may activate this companion window.
             // Cheat buttons and mouse navigation must leave focus in the game.
-            SetWindowLongPtr(handle, -20, new IntPtr(GetWindowLongPtr(handle, -20).ToInt64() | 0x00000080));
+            SetKeyboardActivation(false);
             HwndSource.FromHwnd(handle)?.AddHook(WindowMessage);
         };
+        IsVisibleChanged += (_, _) => { if (!IsVisible) SetKeyboardActivation(false); };
+        PreviewMouseDown += (_, e) => {
+            if (!AllowsKeyboardActivation(e.OriginalSource as DependencyObject)) SetKeyboardActivation(false);
+        };
+        AddHandler(Mouse.MouseUpEvent, new MouseButtonEventHandler((_, e) => {
+            // Wait until the button's click/capture processing has completed, so
+            // returning after numeric editing cannot cancel the clicked action.
+            if (!AllowsKeyboardActivation(e.OriginalSource as DependencyObject)
+                && IsActive && followedWindow != IntPtr.Zero && IsWindowVisible(followedWindow) && !IsIconic(followedWindow))
+                SetForegroundWindow(followedWindow);
+        }), handledEventsToo: true);
         Closed += (_, _) => { generation++; currentGame = null; };
     }
 
     private IntPtr WindowMessage(IntPtr window, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
         if (message != 0x0021) return IntPtr.Zero; // WM_MOUSEACTIVATE
-        if (AllowsKeyboardActivation(InputHitTest(Mouse.GetPosition(this)) as DependencyObject)) return IntPtr.Zero;
+        var editing = AllowsKeyboardActivation(InputHitTest(Mouse.GetPosition(this)) as DependencyObject);
+        SetKeyboardActivation(editing);
         handled = true;
-        return new IntPtr(3); // MA_NOACTIVATE: deliver the click without changing foreground windows.
+        return new IntPtr(editing ? 1 : 3); // MA_ACTIVATE only for an explicit text-editor click.
+    }
+
+    internal void SetKeyboardActivation(bool enabled)
+    {
+        var handle = new WindowInteropHelper(this).Handle;
+        if (handle == IntPtr.Zero) return;
+        const long noActivate = 0x08000000, toolWindow = 0x00000080;
+        var style = GetWindowLongPtr(handle, -20).ToInt64() | toolWindow;
+        SetWindowLongPtr(handle, -20, new IntPtr(enabled ? style & ~noActivate : style | noActivate));
     }
 
     internal static bool AllowsKeyboardActivation(DependencyObject? target)
@@ -336,6 +358,7 @@ internal sealed class GameOverlay : Window
 
     internal void Follow(IntPtr gameWindow, bool visible)
     {
+        followedWindow = gameWindow;
         if (!visible || gameWindow == IntPtr.Zero || !IsWindow(gameWindow) || !IsWindowVisible(gameWindow) || IsIconic(gameWindow)
             || !GetWindowRect(gameWindow, out var rect) || rect.Right <= rect.Left || rect.Bottom <= rect.Top)
         {
@@ -384,6 +407,7 @@ internal sealed class GameOverlay : Window
 
     [StructLayout(LayoutKind.Sequential)] private struct NativeRect { public int Left, Top, Right, Bottom; }
     [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr window, out NativeRect rectangle);
+    [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr window);
     [DllImport("user32.dll")] private static extern bool IsIconic(IntPtr window);
     [DllImport("user32.dll")] private static extern bool IsWindow(IntPtr window);
     [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr window);

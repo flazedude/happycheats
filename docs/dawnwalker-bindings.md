@@ -70,7 +70,11 @@ These features are **periodic top-ups, not invincibility**. A lethal hit between
 updates can still kill the player, and gameplay spending may occur between
 top-ups. No claim of gameplay validation is made for this build.
 
-### Why the native Lock functions are not used
+### Historical choice before trainer 0.4.2
+
+Trainer 0.4.2 supersedes this policy for exact build 25915545: [read-only handle ownership checks](dawnwalker-resource-locks.md) now make native health/stamina locks possible without replacing pre-existing game locks. Blood remains a periodic top-up.
+
+#### Why earlier trainers did not use native Lock functions
 
 Reflection revealed `LockHealth`, `UnlockHealth`, `LockStamina`, `UnlockStamina`,
 `LockBlood` and `UnlockBlood`. Disassembly showed that `LockHealth` first removes

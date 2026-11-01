@@ -1,7 +1,7 @@
 -- Contracts rechecked in Steam build 25915545 / CL-265636, Unreal 5.5.4.
 -- Calls must be made on the game thread. Only the possessed local player is used.
--- The game's Lock* functions replace pre-existing gameplay-effect handles, so
--- this module deliberately maintains resources with the native percent setters.
+-- Percent setters service one-shot/blood refills. The resource extension guards
+-- native health/stamina locks with verified read-only handle ownership.
 local M, Instance = {}, {}
 Instance.__index = Instance
 local IDS = { "dawnwalker_health", "dawnwalker_stamina", "dawnwalker_blood" }
@@ -11,6 +11,7 @@ local MAX_CANDIDATES = 16
 local source = debug.getinfo(1, "S").source:gsub("^@", ""):gsub("\\", "/")
 local scripts = assert(source:match("^(.*)/[^/]+$"))
 local EXTENSION_ACTIONS = {
+    dawnwalker_health="resources", dawnwalker_stamina="resources",
     dawnwalker_invulnerable="combat", dawnwalker_damage="combat", dawnwalker_invisible="combat",
     dawnwalker_fly="movement", dawnwalker_teleport="movement", dawnwalker_auto_teleport="movement",
     dawnwalker_carry="economy", dawnwalker_money="economy", dawnwalker_items="economy", dawnwalker_xp="economy",
@@ -30,7 +31,10 @@ local function register_property(name, owner, kind, offset)
     -- pinned loader. Expose the verified packed byte for read-only mask decoding.
     local hit_flags = name == "HappyCheatsHitResultFlags" and owner == "/Script/Engine.HitResult"
         and kind == "ByteProperty" and offset == 0xAD
-    if not item and not player_visibility and not hit_flags then return false, "Unverified custom property" end
+    local resource_lock = owner == "/Script/DogwoodCombat.CombatComponentBase" and kind == "IntProperty"
+        and ((name == "HappyCheatsHealthLockHandle" and offset == 0x7C8)
+            or (name == "HappyCheatsStaminaLockHandle" and offset == 0x7D0))
+    if not item and not player_visibility and not hit_flags and not resource_lock then return false, "Unverified custom property" end
     if registered_properties[name] ~= nil then return registered_properties[name], "Cached custom property" end
     local ok, reason = pcall(function()
         RegisterCustomProperty({Name=name, Type=PropertyTypes[kind], BelongsToClass=owner, OffsetInternal=offset})
@@ -87,8 +91,7 @@ function Instance:_changed(action, message)
 end
 
 function Instance:disable_all()
-    -- Resource refills own no persistent lock. Extensions separately release
-    -- only their recorded property overrides and native effect handles.
+    -- Extensions release only their owned resource locks, overrides and effects.
     for _, action in ipairs(IDS) do
         local enabled = self.flags[action]
         self.flags[action] = false
@@ -211,6 +214,10 @@ function Instance:_top_up(action, state)
     -- command processing between regular status polls.
     local fresh = self:_state(state.character)
     if not fresh or fresh.key ~= self.key then return false, "Player session changed; enable again" end
+    local resources = self.extensions.resources
+    if resources and (action == "dawnwalker_health" or action == "dawnwalker_stamina") then
+        return resources:refill(fresh, action)
+    end
     if action == "dawnwalker_health" then
         if fresh.health >= 0.9999 then return true end
         if not invoke(fresh.combat, "SetHealthPercent", 1.0) then return false, "Health setter failed" end
@@ -271,7 +278,8 @@ function Instance:refresh()
         for action, supported in pairs(available) do self.available[action] = supported end
         for name, value in pairs(values) do self.values[name] = value end
     end
-    self.message = "Ready; health, stamina and blood use periodic top-ups"
+    self.message = self.extensions.resources and "Ready; health and stamina use owned native locks; blood uses periodic top-ups"
+        or "Ready; health, stamina and blood use periodic top-ups"
     for _, action in ipairs(IDS) do
         if self.flags[action] then
             local ok = self.available[action] and self:_top_up(action, state)
@@ -362,7 +370,7 @@ function M.new(on_change, factories)
         fname=function(name) return FName(name) end }
     if factories == nil then
         factories = {}
-        for _, name in ipairs({"combat", "movement", "economy"}) do factories[name] = dofile(scripts .. "/" .. name .. ".lua") end
+        for _, name in ipairs({"combat", "movement", "economy", "resources"}) do factories[name] = dofile(scripts .. "/" .. name .. ".lua") end
     end
     for name, factory in pairs(factories) do result.extensions[name] = factory.new(api) end
     return result

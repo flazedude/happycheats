@@ -382,15 +382,50 @@ do
     equal(ok, false); equal(message, "No positive player damage factors are active; equip an attack before enabling")
     equal(#f.attribute_writes, 0, "All inactive factors do not create an ineffective active toggle")
 end
+do
+    local f = fixture(); additive_defaults(f); f.current_scale = 2; damage_enable(f)
+    f.bases.MeleeDamageMultiplier = 18 -- A later game-owned change equals the old probe.
+    f.trainer:refresh(f.state)
+    equal(f.bases.MeleeDamageMultiplier, 18, "A confirmed correction relinquishes ownership of the old probe")
+    equal(f.trainer:enabled().dawnwalker_damage, false)
+end
+
+do
+    local f = fixture(); additive_defaults(f); f.current_scale = 0.01; f.trainer:refresh(f.state)
+    equal(f.trainer:apply(f.state, "dawnwalker_damage", true), false, "Extreme extrapolation is bounded")
+    equal(#f.attribute_writes, 2, "Out-of-bound correction rolls back without a second probe")
+    equal(f.bases.MeleeDamageMultiplier, 0)
+end
+
+-- Reproduce the loaded zero-base player with scaled game-owned modifiers.
+for _, scale in ipairs({0.5, 1.15, 2, 8}) do
+    local f = fixture(); additive_defaults(f); f.current_scale = scale; damage_enable(f)
+    for _, name in ipairs(f.attribute_names) do
+        assert(math.abs(f.bases[name] - 9) < 0.0001, "Measured correction reaches the scaled target")
+    end
+    equal(#f.attribute_writes, 8, "Each scaled factor uses at most one correction")
+    f.trainer:refresh(f.state)
+    equal(f.trainer:enabled().dawnwalker_damage, true)
+    equal(f.trainer:apply(f.state, "dawnwalker_damage", false), true)
+    for _, name in ipairs(f.attribute_names) do equal(f.bases[name], 0, "Scaled zero bases restore") end
+end
+
+do
+    local f = fixture(); additive_defaults(f); f.current_scale = 2
+    f.after_attribute_write = function() if #f.attribute_writes == 1 then f.ignore_write = 2 end end
+    f.trainer:refresh(f.state)
+    equal(f.trainer:apply(f.state, "dawnwalker_damage", true), false, "Ignored correction fails closed")
+    equal(f.bases.MeleeDamageMultiplier, 0, "Previous owned probe value is restored when correction was ignored")
+end
+
 for _, setup in ipairs({
-    function(f) f.current_scale = 2 end,
     function(f) f.current_override = 3 end,
     function(f) f.current_clamp = 3 end,
 }) do
     local f = fixture(); setup(f); f.trainer:refresh(f.state)
     equal(f.trainer:apply(f.state, "dawnwalker_damage", true), false, "Evaluated mismatch refuses unsupported scaling, override or clamp")
     equal(f.trainer:enabled().dawnwalker_damage, false)
-    equal(#f.attribute_writes, 2, "One attempted native change is rolled back without retrying")
+    equal(#f.attribute_writes, f.current_clamp and 3 or 2, "Unconfirmed factors are rolled back after bounded correction")
     for i, name in ipairs(f.attribute_names) do equal(f.bases[name], 1 + i * 0.25) end
 end
 do

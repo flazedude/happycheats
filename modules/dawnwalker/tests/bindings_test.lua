@@ -499,5 +499,40 @@ do
     for _,enabled in pairs(f.trainer:enabled()) do equal(enabled,false,"Every extension starts off") end
     equal(f.trainer:disable_all(),true)
 end
+do
+    -- Exercise production routing through the real resource extension, including
+    -- one-shot refill, custom-field registration, flags and session cleanup.
+    local factory=dofile("modules/dawnwalker/Scripts/resources.lua")
+    local f=fixture(true,{resources=factory})
+    local asc,library,default=object("ASC"),object("AbilityLibrary"),object("OverrideDefault")
+    default.DurationPolicy,default.StackingType=1,0
+    f.pawn.AbilitySystemComponent=asc
+    f.combat.HappyCheatsHealthLockHandle,f.combat.HappyCheatsStaminaLockHandle=-1,-1
+    local effects,next_id,lock_calls={},10,0
+    function f.combat:GetAbilitySystemComponent() return asc end
+    function library:GetActiveGameplayEffectStackCount(h) return effects[h.Handle] or 0 end
+    for _,kind in ipairs({"Health","Stamina"}) do
+        local field="HappyCheats"..kind.."LockHandle"
+        f.combat["Lock"..kind]=function(self) next_id=next_id+1;self[field]=next_id;effects[next_id]=1;lock_calls=lock_calls+1 end
+        f.combat["Unlock"..kind]=function(self) effects[self[field]]=0;self[field]=-1 end
+        for _,method in ipairs({"Lock"..kind,"Unlock"..kind,"GetAbilitySystemComponent","Get"..kind.."Percentage"}) do
+            f.functions["/Script/DogwoodCombat.CombatComponentBase:"..method]=object("Function")
+        end
+        f.functions["/Game/_Dawnwalker/Stats/Effects/GE_"..kind.."Override.Default__GE_"..kind.."Override_C"]=default
+    end
+    f.functions["/Script/GameplayAbilities.Default__AbilitySystemBlueprintLibrary"]=library
+    f.functions["/Script/GameplayAbilities.AbilitySystemBlueprintLibrary:GetActiveGameplayEffectStackCount"]=object("Function")
+    ready(f);equal(f.trainer:apply("dawnwalker_health",true),true)
+    equal(f.trainer:enabled().dawnwalker_health,true);equal(lock_calls,1)
+    equal(f.trainer.flags.dawnwalker_health,false,"Production health toggle belongs to resource extension")
+    for _=1,100 do ready(f) end;equal(lock_calls,1,"Production polls do not reapply native locks")
+    equal(f.trainer:apply("dawnwalker_refill",false),true);equal(lock_calls,2,"Refill refreshes the owned handle")
+    equal(f.trainer:enabled().dawnwalker_health,true)
+    equal(f.trainer:apply("dawnwalker_health",false),true);equal(f.combat.HappyCheatsHealthLockHandle,-1)
+    equal(f.trainer:apply("dawnwalker_stamina",true),true)
+    f.world=object("ChangedWorld");ready(f)
+    equal(f.combat.HappyCheatsStaminaLockHandle,-1,"Session cleanup releases the original owned handle")
+end
+
 equal(discovery_calls,0,"No binding path falls back to global discovery")
 print("Dawnwalker native binding boundary: "..checks.." assertions passed")

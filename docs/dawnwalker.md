@@ -1,6 +1,8 @@
 # The Blood of Dawnwalker
 
-Experimental trainer **0.4.1** for HappyCheats **0.3.51**. Supports the inspected Windows Steam build **25915545**, executable version `dw1-pc-265636-shipping-patch3-all-CL-265636` (Unreal Engine 5.5.4). Other executable hashes are rejected pending a compatibility check.
+Experimental trainer **0.4.2** for HappyCheats **0.3.64**. Supports the inspected Windows Steam build **25915545**, executable version `dw1-pc-265636-shipping-patch3-all-CL-265636` (Unreal Engine 5.5.4). Other executable hashes are rejected pending a compatibility check.
+
+Version 0.4.2 replaces periodic health/stamina top-ups with native full-resource locks. Exact-build read-only handle fields prevent replacing an existing game lock or unlocking a later game-owned replacement. Super damage measures the response to its first native base change and allows one bounded scaling correction; final evaluated readback and rollback remain mandatory. The shared menu adds native no-activation protection outside explicit numeric editing. Close the game and choose **Install / update** after updating the client. The running player and error were inspected read-only; new cheat effects remain untested in gameplay. See the [resource-lock evidence](dawnwalker-resource-locks.md).
 
 Version 0.4.1 reads both base and evaluated damage attributes, allowing a zero base when the evaluated attack multiplier is active. It requests a 10× evaluated result and conditionally restores still-owned changes when game effects or failed writes prevent confirmation. Inactive zero-valued attack types remain unchanged. Errors identify the binding or attribute and persist in diagnostics. See the [native damage investigation](dawnwalker-damage.md). Close the game and choose **Install / update**; actual combat effects remain unverified.
 
@@ -58,7 +60,7 @@ Infinite carry weight uses the native zero limit and restores the original limit
 
 Add XP instantly grants exactly the remaining XP to reach the next level once. It checks the game's actual level cache through its guarded getter, progression state and player ownership, rechecks immediately before the native level-up call, and confirms one level gained with zero leftover XP. It makes no quest-reward-cache calls and does not complete a quest. A positive following-level row is also required, so the button can be unavailable near the cap. Coins and XP may persist in normal saves and are not rolled back.
 
-Continuous features periodically refill the current living player's resource through the game's native percent setters. Health replenishment does **not** prevent a lethal hit, and resources can be consumed between refreshes. The trainer does not install its own resource locks; setters follow the game's own behavior, including temporarily unlocking and relocking existing native resource locks. Toggles start off and reset when the player or world changes. A missing binding disables its control. Refill is a single action and does not enable the toggles.
+Infinite health and stamina fill the living player's resource and acquire an owned native lock, preventing ordinary resource depletion between polls. Existing game locks are refused and later game replacements are preserved. Blood remains a periodic refill. Scripted death is not prevented by a resource lock. Toggles start off and reset when the player or world changes. A missing binding disables its control. Refill is a single action and does not enable the toggles.
 
 The blood control is available only when the local player's blood component and native methods are available. Filling blood with this native method also restores damaged blood segments. These resource changes may be retained by normal game saves. Turning a toggle off stops replenishment; it does not undo earlier refills or segment restoration.
 
@@ -95,7 +97,7 @@ One 250 ms game-thread timer replaces the asynchronous polling loop and its repe
 
 ## Discovered systems and limits
 
-Read-only inspection of the installed executable and running game's reflection metadata identified `CombatComponentBase.SetHealthPercent`, `SetStaminaPercent`, and `BloodBarComponent.SetBloodPercent`, their float parameters, ownership paths and resource getters. Native lock methods exist but replace an existing lock internally; this implementation avoids them. See [binding evidence](dawnwalker-bindings.md).
+Read-only inspection of the installed executable and running game's reflection metadata identified `CombatComponentBase.SetHealthPercent`, `SetStaminaPercent`, and `BloodBarComponent.SetBloodPercent`, their float parameters, ownership paths and resource getters. Native lock methods replace existing locks internally; trainer 0.4.2 uses verified read-only handle fields to acquire and release only its own locks. See [resource-lock evidence](dawnwalker-resource-locks.md) and [historical binding evidence](dawnwalker-bindings.md).
 
 The map system exposes tracked/user pins and pin locations. Its shipped `DebugTeleportPlayer` function is a **disabled stub**. Trainer 0.4.0 uses the inspected `Actor.K2_TeleportTo` path after map ground and capsule-clearance checks; earlier versions used `FastTravelSystem.FastTravelToLocation`. See the [direct-teleport review](dawnwalker-direct-teleport.md) and [historical debug-entry investigation](dawnwalker-teleport.md). Invisibility uses the separately verified player AI-stub visibility bit described above.
 

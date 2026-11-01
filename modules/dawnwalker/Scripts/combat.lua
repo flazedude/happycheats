@@ -201,10 +201,10 @@ function Instance:_disable_damage()
         local entry = lease.entries[i]
         local current = self:_damage_base(lease, entry)
         if current == nil then pending[#pending + 1] = entry
-        elseif current == entry.written then
+        elseif current == entry.written or current == entry.previous_written then
             self.api.invoke(lease.combat, "SetAttributeValue", lease.asc, entry.attribute, entry.original)
             local restored = self:_damage_base(lease, entry)
-            if restored == nil or restored == entry.written then pending[#pending + 1] = entry
+            if restored == nil or restored == entry.written or restored == entry.previous_written then pending[#pending + 1] = entry
             elseif restored ~= entry.original then preserved = true end
         elseif current ~= entry.original then preserved = true end
     end
@@ -279,8 +279,8 @@ function Instance:_apply_damage(state, enabled)
         -- These are raw damage factors, not additive percentage bonuses. Their
         -- native base can be zero while game effects supply a positive current
         -- factor. Apply a bounded base delta, then require the evaluated factor
-        -- to reach the target. Override/scaling/clamp effects that prevent that
-        -- result cause rollback; do not guess a neutral +1 or retry native writes.
+        -- to reach the target. A bounded measured correction handles scaling;
+        -- overrides and clamps must still pass final evaluated readback.
         entry.expected_current = string.unpack("<f", string.pack("<f", entry.current * 10))
         -- Native GAS values are float32. Retain the exact expected native value
         -- before calling, so even a lost readback can be restored conditionally.
@@ -302,6 +302,26 @@ function Instance:_apply_damage(state, enabled)
             local ok = self.api.invoke(lease.combat, "SetAttributeValue", lease.asc, entry.attribute, entry.written)
             local readback = self:_damage_base(lease, entry)
             local current = self:_damage_current(lease, entry)
+            if ok and readback == entry.written and current ~= nil and not damage_close(current, entry.expected_current) then
+                -- GAS can scale the base contribution through existing effects.
+                -- Measure that response on this game thread, then make at most
+                -- one bounded correction. A clamp/override/nonlinear response
+                -- still has to pass the same final readback or is rolled back.
+                local delta = entry.written - entry.original
+                local response = current - entry.current
+                if delta > 0 and response > 0 then
+                    local corrected = entry.original + (entry.expected_current - entry.current) * delta / response
+                    if self.api.finite(corrected) and corrected >= 0 and corrected <= 1000000
+                        and corrected - entry.original >= delta / 16 and corrected - entry.original <= delta * 16
+                        and self:_damage_base(lease, entry) == entry.written and self:_damage_current(lease, entry) == current then
+                        entry.previous_written = entry.written
+                        entry.written = string.unpack("<f", string.pack("<f", corrected))
+                        ok = self.api.invoke(lease.combat, "SetAttributeValue", lease.asc, entry.attribute, entry.written)
+                        readback, current = self:_damage_base(lease, entry), self:_damage_current(lease, entry)
+                        if readback == entry.written then entry.previous_written = nil end
+                    end
+                end
+            end
             if not ok or readback ~= entry.written or not damage_close(current, entry.expected_current) then
                 local cleaned, message = self:_disable_damage()
                 return false, cleaned and ("The game did not confirm 10x damage for " .. entry.name .. "; active effects may override or scale the factor") or message

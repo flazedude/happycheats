@@ -2,7 +2,17 @@
 
 **[Download the latest release / 下载最新版本](https://github.com/flazedude/happycheats/releases/latest)** · [Home](README.md) · [中文首页](README.zh-CN.md)
 
-## Latest · 0.3.63
+## Latest · 0.3.64
+
+- Dawnwalker trainer 0.4.2 uses owned native health/stamina locks and a bounded, verified correction for scaled damage factors.
+- Shared-menu native no-activation protection strengthens game-focus handling while retaining explicit numeric typing.
+- Captured live diagnostics read-only; repaired gameplay and physical-controller behavior remain unverified. Close Dawnwalker and choose Install / update.
+
+《黎明行者之血》改用原生资源锁定，修正超级伤害倍率确认，统一菜单加强焦点保护。实机新版效果尚未验证。
+
+[English](docs/releases/0.3.64.en.txt) · [中文](docs/releases/0.3.64.zh.txt)
+
+## 0.3.63
 
 - Fixes Project Hospital's startup runtime-type failure and keeps its heartbeat connected while the game is backgrounded. Includes trainer 0.1.1; close the game and choose Install / update.
 - Shared-menu button clicks and mouse navigation keep foreground focus with the game. Numeric text editing still needs keyboard focus; windowed/borderless support is unchanged.

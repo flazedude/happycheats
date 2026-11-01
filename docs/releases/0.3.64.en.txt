@@ -1,0 +1,11 @@
+HappyCheats 0.3.64
+
+Dawnwalker trainer 0.4.2 fixes the periodic-refill behavior behind draining health and stamina bars. It now fills and uses the game's continuous native resource locks. Exact-build read-only handle checks refuse an existing game lock, track the trainer's own lock, preserve later game replacements and allow independent cleanup. Blood remains a periodic refill. Scripted deaths are outside the health lock's promise.
+
+Super damage allows one bounded correction based on the measured native attribute response, accounting for scaled active effects instead of assuming an additive response. All four evaluated factors must confirm the requested 10x result; overrides, clamps, unreadable results and changed values cause conditional rollback. This targets the captured melee-multiplier error.
+
+The shared in-game menu adds Windows no-activation protection for ordinary mouse use, retaining explicit numeric typing. Ctrl+Del and the shared Xbox chord (hold Menu for 350 ms, then tap RB) are unchanged for every game.
+
+After updating HappyCheats, CLOSE Dawnwalker and choose Install / update before relaunching. Both complete distributions include rebuilt trainer 0.4.2 and all seventeen games.
+
+Validation: read-only inspection of the already-running game captured the error, possessed player, zero damage bases, evaluated multipliers and native resource-lock fields/effect defaults. Offline Lua, module, menu and controller regressions cover the repair and cleanup paths. No game memory, installed trainer or save was changed during inspection. The repaired native calls, final damage, bar behavior, physical controller and live-game menu focus still need testing after installation. Windowed/borderless play is supported; exclusive fullscreen is not claimed.

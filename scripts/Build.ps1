@@ -8,7 +8,7 @@ param(
     [string]$ChineseParentsGameDirectory,
     [string]$StardewGameDirectory,
     [string]$ProjectHospitalGameDirectory,
-    [string]$Version = '0.3.63',
+    [string]$Version = '0.3.64',
     [string]$UpdateFeedUrl,
     [string]$UpdateFallbackFeedUrl,
     [string[]]$UpdateFeedUrls = @(),

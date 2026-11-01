@@ -350,6 +350,12 @@ internal static class GameOverlayChecks
             }
             Check(GameOverlay.CalculateBounds(Rect.Empty).IsEmpty, "empty game geometry was accepted");
             host.Show(); Layout(host);
+            var overlayHandle = new WindowInteropHelper(overlay).EnsureHandle();
+            Check((NativeExtendedStyle(overlayHandle, -20).ToInt64() & 0x08000000) != 0, "shared menu lacks native no-activate protection");
+            overlay.SetKeyboardActivation(true);
+            Check((NativeExtendedStyle(overlayHandle, -20).ToInt64() & 0x08000000) == 0, "numeric editor cannot opt into keyboard activation");
+            overlay.SetKeyboardActivation(false);
+            Check((NativeExtendedStyle(overlayHandle, -20).ToInt64() & 0x08000080) == 0x08000080, "menu failed to restore no-activate/tool-window styles");
             var handle = new WindowInteropHelper(host).Handle;
             overlay.Follow(handle, true); Layout(overlay);
             Check(overlay.IsVisible && overlay.ActualWidth <= 800 && overlay.ActualHeight <= 480
@@ -460,6 +466,9 @@ internal static class GameOverlayChecks
         var absent = GameWindowLocator.ReadAsync(module, new GameInstallation("", "fixture", false, false, false, false, "")).GetAwaiter().GetResult();
         check(absent.ProcessIds.Length == 0 && absent.Window == IntPtr.Zero && module.Calls == 0, "uninstalled module triggered discovery or game commands");
     }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
+    private static extern IntPtr NativeExtendedStyle(IntPtr window, int index);
 
     private static void Click(Button button) => button.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
     private static Color Color(Brush brush) => ((SolidColorBrush)brush).Color;

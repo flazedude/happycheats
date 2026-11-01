@@ -4,11 +4,11 @@ Windows 游戏修改器合集，支持 17 款游戏、中英双语和统一游�
 
 **[下载 HappyCheats.exe](https://github.com/flazedude/happycheats/releases/latest/download/HappyCheats.exe)** · [最新发行版](https://github.com/flazedude/happycheats/releases/latest) · [更新日志](CHANGELOG.md) · [English](README.md)
 
-## 最新版本 · 0.3.63
+## 最新版本 · 0.3.64
 
-《医院计划》修改器 0.1.1 修复启动及切到后台后的连接问题。统一菜单按钮不再夺取游戏焦点，所有控件继续保持可点击。更新客户端后，请先关闭游戏并点击“安装 / 更新”。已验证主菜单连接及指令确认，医院经营效果尚未验证。
+《黎明行者之血》修改器 0.4.2 改用持续生命 / 耐力锁定，并对已有倍率效果进行有界伤害修正。统一菜单加强游戏焦点保护。更新客户端后关闭游戏并点击“安装 / 更新”；新版实机效果尚未验证。
 
-[完整更新说明](docs/releases/0.3.63.zh.txt)
+[完整更新说明](docs/releases/0.3.64.zh.txt)
 
 ![HappyCheats 英文深色界面的游戏库与星露谷物语修改器](docs/images/happycheats-library.png)
 

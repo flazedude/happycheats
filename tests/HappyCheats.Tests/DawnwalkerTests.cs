@@ -340,7 +340,7 @@ internal static class DawnwalkerTests
             Assert(definition.Features.Select(feature => feature.Hotkey).Distinct().Count() == definition.Features.Count);
             Assert(definition.Features.Where(feature => feature.Id is not ("dawnwalker_refill" or "dawnwalker_xp" or "dawnwalker_teleport")).All(feature => feature.IsToggle));
             Assert(!definition.Features.Single(feature => feature.Id == "dawnwalker_refill").IsToggle);
-            Assert(definition.Features.Single(feature => feature.Id == "dawnwalker_health").Description.Contains("lethal hits", StringComparison.Ordinal));
+            Assert(definition.Features.Single(feature => feature.Id == "dawnwalker_health").Description.Contains("scripted deaths", StringComparison.Ordinal));
             Assert(!definition.Features.Single(feature => feature.Id == "dawnwalker_xp").IsToggle);
             Assert(!definition.Features.Single(feature => feature.Id == "dawnwalker_teleport").IsToggle);
             var autoTeleport = definition.Features.Single(feature => feature.Id == "dawnwalker_auto_teleport");
