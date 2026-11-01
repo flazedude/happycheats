@@ -1,5 +1,7 @@
 # GitHub updates and publishing
 
+From **0.3.65**, compatible game-only fixes and new games use [independent cheat updates](individual-cheat-updates.md), preserving the client EXE/version. The full-client release instructions below apply to shared client changes. The user's 1 November 2026 preference supersedes the earlier full-bundle-per-cheat requirement. The existing mirror refresh also checks the separate signed cheat catalog; each host needs the updated server/helper to serve it.
+
 From **0.3.54**, the official update configuration checks **JACK-PC LAN, GPD-PC LAN, then public GitHub Releases**. Every source is checked, so an older reachable LAN feed cannot hide a newer signed GitHub release. Matching LAN packages are preferred for the selected release; GitHub keeps downloads available while either PC is off. From **0.3.55**, downloads run automatically after startup and at 30-minute intervals while the client is open. Updates is a non-blocking progress window; closing it leaves the download running. A verified package prompts for **Restart & install** or **Later**, and installation still requires user confirmation. This follows the user's latest **30 October 2026** preference, superseding the earlier GitHub-only configuration in 0.3.52–0.3.53.
 
 - [Source and releases](https://github.com/flazedude/happycheats)

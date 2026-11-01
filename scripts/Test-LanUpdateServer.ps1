@@ -13,6 +13,8 @@ $hcListener.Stop()
 $hcProcess = $null
 try {
     [IO.File]::WriteAllText((Join-Path $hcFixture 'latest.json'), '{"test":true}')
+    [IO.File]::WriteAllText((Join-Path $hcFixture 'cheats.json'), '{"cheats":true}')
+    [IO.File]::WriteAllBytes((Join-Path $hcFixture 'HappyCheats-cheat-future-game-1.2.3.zip'), [byte[]](0..255))
     [IO.File]::WriteAllBytes((Join-Path $hcFixture 'HappyCheats-1.2.3-win-x64.zip'), [byte[]](0..255))
     [IO.File]::WriteAllText((Join-Path $hcFixture 'secret.pem'), 'not public')
     [IO.File]::WriteAllText((Join-Path $hcFixture 'HappyCheats.exe'), 'bootstrap fixture')
@@ -33,6 +35,10 @@ try {
     $hcFeed = Invoke-WebRequest "$hcBase/happycheats/latest.json" -NoProxy
     if ($hcFeed.Content -ne '{"test":true}' -or $hcFeed.Headers['Cache-Control'] -notmatch 'no-cache') { throw 'Feed response/cache failed.' }
     $hcHead = Invoke-WebRequest "$hcBase/happycheats/HappyCheats-1.2.3-win-x64.zip" -Method Head -NoProxy
+    $hcCheats = Invoke-WebRequest "$hcBase/happycheats/cheats.json" -NoProxy
+    if ($hcCheats.Content -ne '{"cheats":true}' -or $hcCheats.Headers['Cache-Control'] -notmatch 'no-cache') { throw 'Cheat feed response/cache failed.' }
+    $hcCheatRange = Invoke-WebRequest "$hcBase/happycheats/HappyCheats-cheat-future-game-1.2.3.zip" -Headers @{Range='bytes=10-19'} -NoProxy
+    if ($hcCheatRange.StatusCode -ne 206 -or $hcCheatRange.RawContentLength -ne 10 -or $hcCheatRange.Headers['Cache-Control'] -notmatch 'immutable') { throw 'Cheat archive range/cache failed.' }
     if ($hcHead.Headers['Content-Length'] -ne '256' -or $hcHead.Headers['Cache-Control'] -notmatch 'immutable') { throw 'Archive HEAD/cache failed.' }
     $hcRange = Invoke-WebRequest "$hcBase/happycheats/HappyCheats-1.2.3-win-x64.zip" -Headers @{Range='bytes=10-19'} -NoProxy
     if ($hcRange.StatusCode -ne 206 -or $hcRange.RawContentLength -ne 10) { throw 'Archive range download failed.' }

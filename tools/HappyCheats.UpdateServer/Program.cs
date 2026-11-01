@@ -27,7 +27,8 @@ app.Use(async (context, next) =>
 app.MapMethods("/happycheats/{name}", new[] { "GET", "HEAD" }, (string name, HttpContext context) =>
 {
     var archive = Regex.IsMatch(name, @"^HappyCheats-(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-win-x64\.zip$", RegexOptions.CultureInvariant);
-    if (!archive && name != "latest.json" && name != "HappyCheats.exe") return Results.NotFound();
+    var cheat = Regex.IsMatch(name, @"^HappyCheats-cheat-[a-z0-9]+(-[a-z0-9]+)*-(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.zip$", RegexOptions.CultureInvariant);
+    if (!archive && !cheat && name != "latest.json" && name != "cheats.json" && name != "HappyCheats.exe") return Results.NotFound();
     var path = Path.Combine(directory, name);
     if (!File.Exists(path)) return Results.NotFound();
     try { CheckLinks(path); }
@@ -37,9 +38,9 @@ app.MapMethods("/happycheats/{name}", new[] { "GET", "HEAD" }, (string name, Htt
     FileStream stream;
     try { stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete, 65536, FileOptions.Asynchronous); }
     catch (FileNotFoundException) { return Results.NotFound(); }
-    context.Response.Headers.CacheControl = archive ? "public, max-age=31536000, immutable" : "no-cache, max-age=0, must-revalidate";
-    return Results.Stream(stream, name == "latest.json" ? "application/json" : "application/octet-stream",
-        fileDownloadName: name == "latest.json" ? null : name, enableRangeProcessing: true);
+    context.Response.Headers.CacheControl = archive || cheat ? "public, max-age=31536000, immutable" : "no-cache, max-age=0, must-revalidate";
+    return Results.Stream(stream, name.EndsWith(".json") ? "application/json" : "application/octet-stream",
+        fileDownloadName: name.EndsWith(".json") ? null : name, enableRangeProcessing: true);
 });
 app.MapGet("/health", () => Results.Text("HappyCheats LAN update server"));
 // A separate, explicitly allowlisted namespace reuses this host and startup task.

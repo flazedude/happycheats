@@ -15,6 +15,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using HappyCheats.Core;
 using HappyCheats.Core.Updates;
+using HappyCheats.Core.Cheats;
 using Microsoft.Win32;
 
 namespace HappyCheats.App;
@@ -42,6 +43,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string? _updateConfigurationError;
     private ReleaseManifest? _availableRelease;
     private UpdateWindow? _updateWindow;
+    private CheatUpdateWindow? _cheatWindow;
+    private readonly Dictionary<string, string> _bundledCheatVersions;
+    private readonly CheatFeedConfiguration? _cheatConfiguration;
+    private readonly CheatStore? _cheatStore;
+    private string? _cheatLoadError;
     private bool _updateHandoff;
     private bool _installingUpdate;
     private bool _busy, _polling, _initialized;
@@ -73,6 +79,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public Brush MessageBrush => ThemeManager.Brush(_messageIsError ? "ErrorBrush" : "MutedBrush");
     public bool CanManage => !_busy;
     public string ClientVersionLabel => "HappyCheats  /  " + UpdateLauncher.CurrentVersion;
+    public string CheatUpdateLabel => Localization.Choose("Update", "更新");
+    public string CheatUpdateHint => Localization.Choose("Check individual cheat updates and new games", "检查各游戏修改器更新和新增游戏");
     public Visibility UpdateBadgeVisibility => _availableRelease == null ? Visibility.Collapsed : Visibility.Visible;
     public string UpdateBadgeLabel => _updates?.Staged != null ? Localization.Choose("RESTART", "重启安装")
         : _updates?.State == BackgroundUpdateState.Downloading ? Localization.Choose("DOWNLOADING", "下载中") : Labels["newUpdate"];
@@ -146,7 +154,20 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _captureMode = captureMode;
         if (settingsPath != null) _settingsPath = Path.GetFullPath(settingsPath);
         _isolatedUpdates = captureMode || dataRoot != null;
-        foreach (var module in ModuleCatalog.Create(dataRoot)) Games.Add(new GameItem(module));
+        _bundledCheatVersions = CheatStore.BundledVersions(dataRoot ?? AppContext.BaseDirectory);
+        if (!_isolatedUpdates)
+        {
+            try
+            {
+                _cheatConfiguration = CheatFeedConfiguration.FromClient(UpdateConfiguration.Load(AppContext.BaseDirectory));
+                if (_cheatConfiguration != null) _cheatStore = new CheatStore(CheatStore.DefaultRoot, _cheatConfiguration);
+            }
+            catch (Exception error) { _cheatLoadError = error.Message; ClientErrorLog.Write("cheat-startup", error.Message); }
+        }
+        var initialModules = ModuleCatalog.Create(dataRoot);
+        if (_cheatStore != null) initialModules = _cheatStore.Load(initialModules, _bundledCheatVersions, UpdateLauncher.CurrentVersion,
+            error => { _cheatLoadError = error; ClientErrorLog.Write("cheat-load", error); });
+        foreach (var module in initialModules) Games.Add(new GameItem(module));
         InitializeComponent();
         if (!captureMode) WindowLayout.Attach(this);
         SizeChanged += (_, _) => { Notify(nameof(IsCompactLayout)); Notify(nameof(SidebarWidth)); };
@@ -167,7 +188,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _pollTimer.Tick += async (_, _) => await PollAsync();
         _controllerTimer.Tick += async (_, _) => await PollControllerAsync();
         Closing += (_, e) => { if (_installingUpdate && !_updateHandoff) { e.Cancel = true; _updateWindow?.Activate(); } };
-        Closed += (_, _) => { ThemeManager.Changed -= ThemeChanged; _pollTimer.Stop(); _controllerTimer.Stop(); _updateTimer.Stop(); _civ6KeyboardHook?.Dispose(); _gameOverlay?.Close(); _updateLifetime.Cancel(); _updates?.Dispose(); foreach (var game in Games) if (game.Module is EldenRingModule module) module.Stop(); };
+        Closed += (_, _) => { ThemeManager.Changed -= ThemeChanged; _pollTimer.Stop(); _controllerTimer.Stop(); _updateTimer.Stop(); _civ6KeyboardHook?.Dispose(); _gameOverlay?.Close(); _updateLifetime.Cancel(); _updates?.Dispose(); foreach (var game in Games) game.Module.Deactivate(); };
     }
 
     public async Task InitializeAsync(bool preview = false)
@@ -369,6 +390,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         Labels.Refresh();
         foreach (var game in Games) game.Changed();
         _updateWindow?.RefreshLanguage();
+        _cheatWindow?.RefreshLanguage();
         RefreshBindings();
         CollectionViewSource.GetDefaultView(Games).Refresh();
     }
@@ -399,9 +421,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         if (Library.SelectedItem is not GameItem game) return;
         _controlEpoch++;
-        if (_selected != game && _selected?.Module is EldenRingModule previous)
+        if (_selected != game && _selected?.Id == "elden-ring")
         {
-            previous.Stop();
+            _selected.Module.Deactivate();
             _selected.Status = TrainerStatus.Offline("Elden Ring trainer disconnected. Connect again to enable controls.");
         }
         _selected = game;

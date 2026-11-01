@@ -1,5 +1,13 @@
 # HappyCheats project instructions
 
+## Independent cheat updates (1 November 2026)
+
+The user now wants each game's cheat to update independently. After the one-time client upgrade introducing this support, keep the HappyCheats client version and EXE unchanged for compatible game-only fixes and newly added games. Advance only that game's package version in `modules/cheat-versions.json`. Put the individual-cheat update control beside Library Sort; keep client Updates separate. This latest preference supersedes older requirements below to rebuild/release the entire client and standalone EXE for every changed or new cheat.
+
+Cheat-only work still requires reviewed source committed and integrated into GitHub `main`, relevant payload builds/tests, English/Chinese notes, signed immutable GitHub packages, and those same package bytes on the publishing PC's LAN. Use `scripts/Publish-CheatUpdate.ps1`, the existing signing identity and repository-wide publish lock. Its public prerelease tags `cheat-<game-id>-<version>` must never become the latest client release. The independently signed catalog lives on the `cheat-feed` branch, served at both LAN hosts as `cheats.json`; preserve every other game entry. Existing mirror refresh also refreshes this catalog. Follow `docs/individual-cheat-updates.md`. Inspect both LAN catalogs, GitHub drafts/tags/catalog and retained stages before selecting an unused increasing version for that game. Never rebuild published package bytes.
+
+Shared client/interface/updater changes still require the complete client release workflow below, including the fresh standalone EXE. New modules must work against the frozen shared contracts and shared overlay/controller path. A package needing newer client capabilities must declare that requirement and show an actionable error; never silently force an entire-client upgrade. Close supported games and reload the Library before applying downloaded modules, then use the game's existing Install / update action where needed. Do not launch games or change saves for update validation.
+
 ## Always clickable client controls (31 October 2026)
 
 Never grey out or disable client controls, including cheat actions, values, choices, setup, Library, updates and the shared in-game menu. Keep controls clickable while disconnected, unready, unavailable or busy. Dispatch current control clicks to the operation/module path and show an actionable error on failure; record client errors locally. Busy operations must report a click-time error instead of overlapping mutations or silently dropping clicks. Keep status information and command/session/integrity checks at operation time. This latest user preference supersedes earlier UI-disable expectations in this file and the menu documentation.

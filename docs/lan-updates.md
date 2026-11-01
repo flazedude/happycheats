@@ -1,5 +1,7 @@
 # Two LAN hosts and verified GitHub mirrors
 
+From **0.3.65**, compatible game-only fixes and new games use [independent cheat updates](individual-cheat-updates.md), preserving the client EXE/version. The full-client release instructions below apply to shared client changes. The user's 1 November 2026 preference supersedes the earlier full-bundle-per-cheat requirement. The existing mirror refresh also checks the separate signed cheat catalog; each host needs the updated server/helper to serve it.
+
 The user's latest **30 October 2026** preference restores LAN publication alongside GitHub and adds GPD-PC as a second host. From **0.3.54**, official clients check all three sources below, select the newest trusted version and prefer a matching LAN package. A reachable stale LAN feed cannot hide a newer GitHub release. GitHub remains available when either PC is off. See [client verification and publishing](github-updates.md).
 
 | Order | Host | Signed feed |

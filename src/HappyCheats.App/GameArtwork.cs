@@ -28,9 +28,10 @@ public static class GameArtwork
             "red-dead-redemption-2" => "red-dead-redemption-2",
             "gta-v-enhanced" => "gta-v-enhanced",
             "witcher-3" => "witcher-3",
-            _ => throw new ArgumentOutOfRangeException(nameof(moduleId), moduleId, "No bundled artwork for this game.")
+            _ => ""
         };
 
-        return new Uri($"pack://application:,,,/HappyCheats;component/Assets/Games/{assetName}-{kind}.png", UriKind.Absolute);
+        return assetName.Length == 0 ? new Uri("pack://application:,,,/HappyCheats;component/Assets/Branding/HappyCheats.png", UriKind.Absolute)
+            : new Uri($"pack://application:,,,/HappyCheats;component/Assets/Games/{assetName}-{kind}.png", UriKind.Absolute);
     }
 }

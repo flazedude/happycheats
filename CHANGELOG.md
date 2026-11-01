@@ -2,7 +2,17 @@
 
 **[Download the latest release / 下载最新版本](https://github.com/flazedude/happycheats/releases/latest)** · [Home](README.md) · [中文首页](README.zh-CN.md)
 
-## Latest · 0.3.64
+## Latest · 0.3.65
+
+- Adds independent signed per-game module/payload updates, including new games, through Update beside Library Sort. Client version stays unchanged for compatible cheat-only releases.
+- Adds per-game package versions, reload without replacing the EXE, compatibility errors, repair and separate GitHub/LAN publishing/mirroring.
+- Offline signed-package, WPF, shared-menu and HTTP validation; no gameplay or physical-controller claims.
+
+新增独立游戏修改器更新、软件包版本与无须替换 EXE 的重新加载；客户端更新保持独立。仅进行离线及合成验证。
+
+[English](docs/releases/0.3.65.en.txt) · [中文](docs/releases/0.3.65.zh.txt)
+
+## 0.3.64
 
 - Dawnwalker trainer 0.4.2 uses owned native health/stamina locks and a bounded, verified correction for scaled damage factors.
 - Shared-menu native no-activation protection strengthens game-focus handling while retaining explicit numeric typing.

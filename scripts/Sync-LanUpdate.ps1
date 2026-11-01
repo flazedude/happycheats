@@ -126,4 +126,6 @@ try {
     }
     $hcVersion = Install-HcLanMirror -Config $hcConfig -Directory $hcVersionDirectory -Repository $GitHubRepository -BackupDirectory (Join-Path $hcStateRoot 'mirror-backups')
     Write-Host "LAN mirror verified and current: $($hcConfig.BaseUrl), version $hcVersion."
+    # Independent cheat publication never changes releases/latest. Refresh its own signed feed too.
+    & (Join-Path $PSScriptRoot 'Sync-CheatUpdate.ps1') -ConfigPath $ConfigPath -LockHeld
 } finally { if ($hcClient) { $hcClient.Dispose() }; if ($hcKey) { $hcKey.Dispose() }; if ($hcLock) { $hcLock.Dispose() } }

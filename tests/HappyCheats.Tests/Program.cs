@@ -8,6 +8,7 @@ internal static class Program
     private static int Main(string[] args)
     {
         if (args.Contains("--witcher3")) return Witcher3Tests.RunAll() == 0 ? 0 : 1;
+        if (args.Contains("--cheat-updates")) return CheatUpdateTests.RunAll() == 0 ? 0 : 1;
         if (args.Contains("--witcher3-installer")) return Witcher3InstallerTests.RunAll();
         if (args.Contains("--elden-ring")) return EldenRingTests.RunAll();
         if (args.Contains("--cache-cleanup")) return UpdateCacheCleanupTests.RunAll();
@@ -33,6 +34,7 @@ internal static class Program
         var stardew = StardewTests.RunAll();
         var smapi = SmapiInstallerTests.RunAll();
         var updates = UpdateTests.RunAll();
+        failed += CheatUpdateTests.RunAll();
         var backgroundUpdates = BackgroundUpdateTests.RunAll();
         var updateInstaller = UpdateInstallerTests.RunAll();
         var updateCacheCleanup = UpdateCacheCleanupTests.RunAll();

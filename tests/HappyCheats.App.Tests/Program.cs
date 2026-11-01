@@ -54,6 +54,7 @@ internal static class Program
             Layout(main);
             Check(app.Windows.Count == 1, "App startup unexpectedly created another window.");
             if (args.Contains("--clickable")) Results.Add(ClickableControlsChecks.Run(main, root));
+            else if (args.Contains("--cheat-updates")) Results.Add(CheatUpdateUiChecks.Run(main));
             else if (args.Contains("--crimson"))
             {
                 ValidateCrimsonAutoTeleport(main);
@@ -69,6 +70,7 @@ internal static class Program
             else
             {
             Results.Add(ClickableControlsChecks.Run(main, root));
+            Results.Add(CheatUpdateUiChecks.Run(main));
             Results.Add(LibrarySortChecks.Run(main, root, artifacts, Check));
             foreach (var size in new[] { (Width: 1180, Height: 820), (Width: 854, Height: 534), (Width: 800, Height: 480) })
             foreach (var theme in new[] { "dark", "light" })

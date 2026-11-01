@@ -8,7 +8,7 @@ param(
     [string]$ChineseParentsGameDirectory,
     [string]$StardewGameDirectory,
     [string]$ProjectHospitalGameDirectory,
-    [string]$Version = '0.3.64',
+    [string]$Version = '0.3.65',
     [string]$UpdateFeedUrl,
     [string]$UpdateFallbackFeedUrl,
     [string[]]$UpdateFeedUrls = @(),
@@ -84,6 +84,7 @@ foreach ($hcGame in @('chinese-parents','onimusha','laundry','astroneer','starde
     Copy-Item -LiteralPath $hcPayload -Destination (Join-Path $hcStaging 'payload') -Recurse -Force
 }
 Copy-Item -LiteralPath (Join-Path $hcRoot 'README.md') -Destination $hcStaging -Force
+Copy-Item -LiteralPath (Join-Path $hcRoot 'modules/cheat-versions.json') -Destination (Join-Path $hcStaging 'cheat-versions.json')
 Copy-Item -LiteralPath (Join-Path $hcRoot 'README.zh-CN.md') -Destination $hcStaging -Force
 if (Test-Path -LiteralPath (Join-Path $hcRoot 'docs')) { Copy-Item -LiteralPath (Join-Path $hcRoot 'docs') -Destination $hcStaging -Recurse -Force }
 New-Item -ItemType Directory -Force -Path (Split-Path $hcDist -Parent) | Out-Null

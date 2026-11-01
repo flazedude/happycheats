@@ -9,10 +9,13 @@
   <ItemGroup Condition="'$(AppAssemblyDirectory)' == ''">
     <ProjectReference Include="../../src/HappyCheats.App/HappyCheats.App.csproj" />
   </ItemGroup>
+  <ItemGroup><ProjectReference Include="../CheatPluginFixture/CheatPluginFixture.csproj" ReferenceOutputAssembly="false" /><Compile Include="../CheatTestSupport.cs" Link="CheatTestSupport.cs" /></ItemGroup>
+  <Target Name="CopyCheatFixture" AfterTargets="Build"><MakeDir Directories="$(OutDir)fixtures" /><Copy SourceFiles="../CheatPluginFixture/bin/$(Configuration)/net8.0/HappyCheats.Core.dll" DestinationFiles="$(OutDir)fixtures/FutureGame.dll" /></Target>
   <!-- A saved release can be tested without rebuilding it to demonstrate a regression. -->
   <ItemGroup Condition="'$(AppAssemblyDirectory)' != ''">
     <Reference Include="HappyCheats"><HintPath>$(AppAssemblyDirectory)/HappyCheats.dll</HintPath></Reference>
     <Reference Include="HappyCheats.Core"><HintPath>$(AppAssemblyDirectory)/HappyCheats.Core.dll</HintPath></Reference>
+    <Reference Include="HappyCheats.Contracts"><HintPath>$(AppAssemblyDirectory)/HappyCheats.Contracts.dll</HintPath></Reference>
     <Reference Include="LaundryTrainer.Setup.Core"><HintPath>$(AppAssemblyDirectory)/LaundryTrainer.Setup.Core.dll</HintPath></Reference>
   </ItemGroup>
 </Project>

@@ -1,0 +1,59 @@
+# Independent cheat updates
+
+HappyCheats **0.3.65** introduces independently versioned game packages. This is the one-time client upgrade needed to enable the new system. Thereafter a compatible game fix or newly supported game changes only its cheat package version. The HappyCheats EXE and client version stay the same. Changes to the client, shared interfaces or updater still use the complete client release workflow.
+
+## Using the client
+
+Click **Update / 更新** beside the Library's A–Z / Z–A Sort controls. The modeless **Cheat updates / 修改器更新** window checks both LAN catalogs and GitHub, lists each game's installed and available package versions, and offers **Update**, **Add game**, or **Repair** per game. Controls stay clickable during downloads; repeated conflicting operations report a busy error and are logged locally. The trainer window stays usable while a package downloads.
+
+After downloading a signed package, close supported games and choose **Reload library / 重新加载修改器库**. This loads the new module without replacing or restarting the HappyCheats EXE. Then use the affected game's existing **Install / update** action if its trainer files must be copied into the game. Updating the local module cache does not inject new code into a running game or alter saves. Closing the download window hides it while its operation finishes; reopening retains that operation. Exiting the client cancels unfinished transfers.
+
+The separate bottom-left **Updates / 客户端更新** window continues to manage client releases. A cheat that needs a newer client or module API reports its minimum requirement instead of forcing a client installation.
+
+## Versions and storage
+
+`modules/cheat-versions.json` records each game's independent **package** version. Initial packages use **1.0.0**. These cover the module assembly, dependencies, metadata and game payload together; internal trainer protocol/payload versions, such as Dawnwalker's 0.4.2, retain their existing meaning. Increment a game's package version whenever its shipped logic, payload, metadata or setup behavior changes. Do not bump unrelated game versions or the HappyCheats client version for game-only work.
+
+Complete client builds include the tracked versions as `cheat-versions.json` and all current bundled payloads. Downloaded packages are stored under `%LOCALAPPDATA%/HappyCheats/Cheats/`, independently of the standalone launcher's bundle cache. They survive full client updates. A newer bundled game version supersedes an older downloaded version; keep this inventory accurate when making a later complete client release. The original starter EXE remains usable as a bootstrap for adding newer games online. A cheat-only publication intentionally does not rebuild the offline complete EXE.
+
+`HappyCheats.Contracts` contains the stable module, feature, choice, numeric and lifecycle contracts. Modules load in separate .NET assembly contexts sharing this contract, with their own module logic and private dependencies. A game archive carries `lib/HappyCheats.Core.dll` and the small private setup dependency plus **only that game's** `payload/<id>/` tree. Compiling the shared source project does not replace the client or unrelated modules. Package artwork is optional; unknown games have the HappyCheats artwork fallback. Existing English/Chinese client translations remain available; new module metadata falls back to its supplied names and descriptions when the host has no translation.
+
+New games still need a real `IGameModule`, catalog registration in source, exact installation-relative `GameExecutables`, full feature metadata, payload/build integration, a package-version entry and relevant checks. Register their payload builder in `Publish-CheatUpdate.ps1`. The package can then be added to already installed compatible clients without recompiling their EXE. The shared GameOverlay, Ctrl+Del and Menu held 350 ms + RB path remain mandatory; no separate renderer or game-specific controller profile is needed.
+
+## Trust and feed selection
+
+The official client's existing trusted key and stable channel configure:
+
+1. `http://192.168.2.76:17845/happycheats/cheats.json`
+2. `http://192.168.2.59:17845/happycheats/cheats.json`
+3. `https://raw.githubusercontent.com/flazedude/happycheats/cheat-feed/cheats.json`
+
+Custom client feed configurations are preserved and are not silently pointed at official cheat feeds. Their user sees an actionable configuration error for independent updates. No credential is embedded in a client.
+
+Every reachable catalog is independently verified with the established RSA identity, stable channel and schema. The highest signed revision wins even when a LAN feed is stale. Previously verified catalog state and installed package receipts prevent downgrades and same-version substitutions. Older catalogs may lack newer games; a newer catalog may not remove or downgrade their entries. Package downloads prefer a LAN source only if that source's independently verified catalog identifies the selected exact version, hash, size, source and compatibility metadata. GitHub is the final download source. Transport failures may advance; integrity failures stop without silently selecting different bytes.
+
+Packages use immutable `cheat-<game-id>-<version>` GitHub release tags and version-pinned ZIP URLs. They are public GitHub prereleases with `make_latest=false` so legacy clients continue seeing the latest complete client release at `releases/latest`. Prerelease here separates distribution tracks, not the stable channel signature. The `cheat-feed` branch contains the mutable signed catalog and is updated with GitHub's compare-and-swap file SHA under the existing global publishing lock. Package assets and prior signed stages remain immutable.
+
+Downloads verify signed size and SHA-256, reject unsafe archive paths and links, validate complete module/feature metadata, and probe the shared interface before atomically activating a signed per-game receipt. Startup/reload rechecks the retained signed receipt, archive and extracted files before loading executable module bytes. A failed replacement leaves the prior active receipt unchanged. Explicit Repair retains damaged files under the cache's recovery folder. Cross-process locks prevent overlapping installation/catalog mutations. The normal local client error log records failures. These modules run trusted signed code, not sandboxed third-party plugins.
+
+## Publishing a game update
+
+Read current `AGENTS.md`, receive shared source, work on an isolated `codex/` task branch and inspect all existing versions/reservations. Modify the module/payload and increment **only** its entry in `modules/cheat-versions.json`. Write English and Chinese notes under `docs/cheats/<game-id>/<version>.en.txt` and `.zh.txt`. Commit reviewed work, integrate it into `main`, push normally and verify the publishing checkout exactly matches `origin/main`.
+
+From PowerShell 7 on either configured publishing PC:
+
+```powershell
+.\scripts\Publish-CheatUpdate.ps1 -GameId dawnwalker -Version 1.0.1 `
+  -NotesEnglish .\docs\cheats\dawnwalker\1.0.1.en.txt `
+  -NotesChinese .\docs\cheats\dawnwalker\1.0.1.zh.txt
+```
+
+The publisher rebuilds that game's payload, runs the offline suites, compiles the module, stages an immutable ZIP and signs the catalog. `-SkipPayloads` is appropriate only when those exact payloads were already rebuilt and validated in the current task. Tests are not skipped. Set `-MinimumClientVersion` when newer client capabilities are required; contract API changes also need a deliberate client release.
+
+The publisher requires current integrated source, the PC's established protected signing key and its existing LAN configuration. It uses both the local publication lock and `refs/tags/happycheats-publish-lock`; respect live locks and follow the existing recovery procedure. It checks remote drafts/tags, the catalog and retained local stages for that game. Keep offline peer reservations documented and coordinate them before selecting a version. Retrying uses verified staged bytes and never rebuilds a published version. Published ZIP and signed `cheat.json` proof assets are verified before the shared index advances. A failed LAN mirror remains an incomplete step recoverable from GitHub.
+
+The publishing PC exposes `cheats.json` and identical game ZIPs alongside its existing client feed. `Sync-CheatUpdate.ps1` verifies and mirrors the independent catalog/packages with only the public key, preserving old archives and feed backups. `Sync-LanUpdate.ps1` invokes it as part of the already enabled mirror refresh. Deploy the updated LAN server executable on each host before claiming its cheat URLs are served; preserve both machines' addresses, tasks, keys and configurations. A peer that is off or still running older mirror/server code catches up after receiving/deploying this source and refreshing. GitHub remains available while either host is off.
+
+## Validation
+
+The regression suites load a signed synthetic game absent from the built-in catalog, dispatch toggle/value/choice interfaces, exercise its shared overlay, and verify modeless/busy UI behavior. They cover signatures, compatibility, package corruption, repair, cancellation, mutation locks, stale LAN selection, exact-package fallback and integrity-stop behavior. HTTP server tests cover the allowlisted independent feed/package URLs, ranges, caching and write rejection. These are offline/synthetic checks and do not establish gameplay, physical-controller behavior, exclusive-fullscreen support, peer availability or a reboot test.

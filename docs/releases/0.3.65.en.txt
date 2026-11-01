@@ -1,0 +1,9 @@
+HappyCheats 0.3.65 — independent cheat updates
+
+- Adds Update beside Library Sort, opening a separate English/Chinese per-game cheat update window.
+- Each game now has its own package version, starting at 1.0.0. Compatible game fixes and new games can ship without replacing the HappyCheats EXE or changing its client version.
+- Signed packages carry module logic and that game's payload. Download, close supported games and Reload library, then use the affected game's Install / update action where needed.
+- Keeps client Updates separate. Packages requiring a newer client report the requirement instead of forcing an upgrade.
+- Adds signed GitHub/LAN cheat catalogs, immutable game release publishing, peer mirroring, compatibility checks, corruption repair and shared-menu regression coverage.
+- Preserves existing cheats and the shared Ctrl+Del / Menu held 350 ms + RB menu. All controls remain clickable, with busy/failure errors recorded locally.
+- Validation uses signed synthetic packages, offline tests and WPF/HTTP checks. No games were launched; gameplay, physical controllers and an offline peer's deployment are not claimed.

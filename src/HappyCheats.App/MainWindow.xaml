@@ -126,7 +126,7 @@
           <TextBlock Text="{Binding Labels[yourLibrary]}" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}"/>
           <TextBlock Text="{Binding Games.Count, StringFormat=00}" HorizontalAlignment="Right" Foreground="{DynamicResource SubtleBrush}" FontSize="10"/>
           <Grid Grid.Row="1" ToolTip="{Binding Labels[sortHint]}">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
             <TextBlock Text="{Binding Labels[sortBy]}" FontSize="11" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center"/>
             <RadioButton x:Name="SortAscendingButton" Grid.Column="1" Content="A–Z" Tag="az" GroupName="LibrarySort" Style="{StaticResource LibrarySortButton}" Margin="0,0,4,0"
                          IsChecked="{Binding LibrarySortAscending, Mode=OneWay}" Checked="LibrarySortChanged"
@@ -134,6 +134,8 @@
             <RadioButton x:Name="SortDescendingButton" Grid.Column="2" Content="Z–A" Tag="za" GroupName="LibrarySort" Style="{StaticResource LibrarySortButton}"
                          IsChecked="{Binding LibrarySortDescending, Mode=OneWay}" Checked="LibrarySortChanged"
                          AutomationProperties.Name="{Binding Labels[sortDescending]}" AutomationProperties.HelpText="{Binding Labels[sortHint]}"/>
+            <Button x:Name="CheatUpdatesButton" Grid.Column="3" Content="{Binding CheatUpdateLabel}" Click="CheatUpdatesClicked" Margin="4,0,0,0"
+                    Padding="5,3" FontSize="10" MinHeight="44" ToolTip="{Binding CheatUpdateHint}" AutomationProperties.Name="{Binding CheatUpdateHint}"/>
           </Grid>
         </Grid>
         <ListBox x:Name="Library" Grid.Row="3" ItemsSource="{Binding Games}" SelectionChanged="GameSelected" BorderThickness="0" Background="Transparent" Foreground="{DynamicResource InkBrush}" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.CanContentScroll="False" ScrollViewer.PanningMode="VerticalOnly" Padding="0">
