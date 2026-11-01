@@ -1,0 +1,7 @@
+Crimson Desert package 1.0.1 — trainer 0.2.9
+
+Updates the exact executable profile to installed Steam build 26356046 / PE 1.0.0.3462. Remaps stat, damage, locomotion, marker and outer-movement hooks; current player classes, client/manager globals, status metadata and floating origin are inspected again. Rejects retired executable profiles. Preserves the local-player/possession checks, manual teleport, F9 auto teleport, speed and shared menu path. Item usage remains unavailable.
+
+Use Library Update beside Sort to download this game package. Close supported games, Reload library, then choose Crimson Desert Install / update before connecting. HappyCheats client 0.3.66 and its standalone EXE are unchanged; compatible clients 0.3.65+ can load this package.
+
+Validation: exact disk guards, read-only disassembly/RTTI, rebuilt native payload, disposable-process hook/health/teleport regressions and signed-package tests. No game was started or save changed. Live hooks, gameplay effects, terrain landing, streaming and physical-controller behavior remain unverified.

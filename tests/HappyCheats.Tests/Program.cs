@@ -40,10 +40,25 @@ internal static class Program
         var updateCacheCleanup = UpdateCacheCleanupTests.RunAll();
         var witcher3 = Witcher3Tests.RunAll();
         var witcher3Installer = Witcher3InstallerTests.RunAll();
+        Run("Chinese Parents supports both inspected assemblies and rejects unknown builds", () => {
+            Assert(ChineseParentsModule.SupportsAssembly("cdfec35bebf8c8fcf78b52c07a07f9d403e0d2743c6ec2933e945caafc801ce5"));
+            Assert(ChineseParentsModule.SupportsAssembly("0262f1b24b148d99e8cba54a79b6b7299622c46be4bbc000a500d7519bf3bf3a"));
+            Assert(!ChineseParentsModule.SupportsAssembly(new string('0', 64)));
+        });
         Run("Chinese Parents install and plugin removal preserve shared loader", () => {
             using var f = new Fixture(); OwnedInstaller.Install(f.Package, f.Game, () => { });
             Assert(OwnedInstaller.Installed(f.Game)); OwnedInstaller.Remove(f.Game, () => { });
             Assert(!OwnedInstaller.Installed(f.Game)); Assert(File.Exists(Path.Combine(f.Game, "winhttp.dll")));
+        });
+        Run("Chinese Parents detects installed trainer drift and verifies the repair payload", () => {
+            using var f = new Fixture();
+            Assert(!ChineseParentsModule.MatchesInstalledPackage(f.Package, f.Game));
+            OwnedInstaller.Install(f.Package, f.Game, () => { });
+            Assert(ChineseParentsModule.MatchesInstalledPackage(f.Package, f.Game));
+            File.AppendAllText(Path.Combine(f.Game, Fixture.Plugin), "old or modified plugin");
+            Assert(!ChineseParentsModule.MatchesInstalledPackage(f.Package, f.Game));
+            File.AppendAllText(Path.Combine(f.Package, Fixture.Plugin), "damaged download");
+            Fails(() => ChineseParentsModule.MatchesInstalledPackage(f.Package, f.Game));
         });
         Run("foreign loader blocks all writes", () => {
             using var f = new Fixture(); File.WriteAllText(Path.Combine(f.Game, "winhttp.dll"), "foreign");

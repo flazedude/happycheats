@@ -7,7 +7,7 @@
     <Nullable>disable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
     <GameDirectory Condition="'$(GameDirectory)' == ''">E:\Games\SteamLibrary\steamapps\common\ChineseParent</GameDirectory>
     <BepInExDirectory Condition="'$(BepInExDirectory)' == ''">$(MSBuildThisFileDirectory)..\..\.tools\bepinex\5.4.23.5\extracted\BepInEx</BepInExDirectory>
   </PropertyGroup>

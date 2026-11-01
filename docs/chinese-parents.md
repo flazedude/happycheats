@@ -1,6 +1,8 @@
 # Chinese Parents trainer
 
-The adapter supports the installed **Steam app 736190, build 24710774**, using the game's managed player setters. It does not patch the game assembly, edit a save file, use fixed memory addresses, or guess values. The current game has C# gameplay logic; a Lua hook is unnecessary.
+The adapter supports the installed **Steam app 736190, build 26214115**, using the game's managed player setters. It does not patch the game assembly, edit a save file, use fixed memory addresses, or guess values. The current game has C# gameplay logic; a Lua hook is unnecessary.
+
+Package **1.0.1** carries plugin **0.1.1** for this assembly, retaining the previously inspected build 24710774 assembly. Download through Library **Update**, close supported games, **Reload library**, then choose Chinese Parents **Install / update**. HappyCheats stays at 0.3.66.
 
 ## Status and build
 
@@ -18,7 +20,7 @@ The build script only reads the game installation and writes the workspace paylo
 
 `Assembly-CSharp.dll` SHA-256:
 
-`0262f1b24b148d99e8cba54a79b6b7299622c46be4bbc000a500d7519bf3bf3a`
+`cdfec35bebf8c8fcf78b52c07a07f9d403e0d2743c6ec2933e945caafc801ce5`
 
 `NewPlayerDataMgr : SingleTon<NewPlayerDataMgr>` owns the values. The plugin reads the existing private static `m_instance` field rather than calling a singleton getter, which would create a manager at the main menu. Readiness additionally requires `NewRecordMgr.CurrentRecord`, `CurrentRoleCoreInfo` and the player's `CurTable`. Continuous cheats reset when a character is unloaded or a different record is selected.
 

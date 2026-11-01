@@ -1,0 +1,7 @@
+Chinese Parents package 1.0.1 — plugin 0.1.1
+
+Adds the inspected Steam build 26214115 assembly. Retains support for the previously inspected 24710774 assembly and all nine controls. The exact assembly whitelist, player setters, UI callbacks and readiness checks remain in place. Installed trainer drift now explicitly requests Install / update.
+
+In Library, use Update beside Sort, update Chinese Parents, close supported games and Reload library. Then use Chinese Parents Install / update to replace the installed plugin. HappyCheats client 0.3.66 and its standalone EXE are unchanged; compatible clients 0.3.65+ can load this package.
+
+Validation: read-only assembly/IL inspection, payload compilation, isolated trainer/installer and signed-package tests. No game was started and no save was changed. Runtime loading and actual gameplay effects on this build remain unverified.

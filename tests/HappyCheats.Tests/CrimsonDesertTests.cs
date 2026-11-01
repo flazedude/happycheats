@@ -38,7 +38,7 @@ internal static class CrimsonDesertTests
             Check(!module.Compatible(f.Game, force: true));
             Reject(() => module.InstallAsync(f.Installation).GetAwaiter().GetResult());
             Check(!File.Exists(f.InstalledDll));
-            module.HashProvider = _ => "FEC07BE1B725A46624D31FCD74BF3730EA809765226CEA6BDE01607AB2D79F66";
+            module.HashProvider = _ => "2C98B00E8922F14AC1937B5AC996956C7B9CA2D0FBCB0049DC0436321A09DD77";
             Check(module.Compatible(f.Game, force: true));
         });
         Run("waiting game exposes only explicit connection", () => {
@@ -146,7 +146,7 @@ internal static class CrimsonDesertTests
             var current = Parse(State()).Status;
             var command = Command(current, "crimson_health", true);
             Check((string)command["session_id"] == Session && (string)command["request_id"] == Request);
-            Check((string)command["version"] == "0.2.8" && (int)command["schema_version"] == 1);
+            Check((string)command["version"] == "0.2.9" && (int)command["schema_version"] == 1);
             Check((bool)command["enabled"] && (long)command["expires_unix_ms"] == Milliseconds(Now) + 5000);
             Reject(() => CrimsonDesertModule.CreateCommand(current, current with { SessionId = "another-session" }, "crimson_health", true, null, Request, Milliseconds(Now)));
             Reject(() => CrimsonDesertModule.CreateCommand(current, current, "crimson_health", true, null, "bad", Milliseconds(Now)));
@@ -458,7 +458,7 @@ internal static class CrimsonDesertTests
         public string LeasePath => SafePath(Game, CrimsonDesertModule.BridgeRoot + "lease.txt");
         public string CommandPath => SafePath(Game, CrimsonDesertModule.BridgeRoot + "command.json");
         public DateTime ProcessStarted { get; } = DateTime.UtcNow.AddMinutes(-1);
-        public GameInstallation Installation => new(Game, "26329202", true, true, true, true, "Fixture");
+        public GameInstallation Installation => new(Game, "26356046", true, true, true, true, "Fixture");
         public Fixture()
         {
             Directory.CreateDirectory(Path.GetDirectoryName(Executable)!); File.WriteAllText(Executable, "fixture executable; never launched");

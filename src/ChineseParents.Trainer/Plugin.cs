@@ -15,8 +15,8 @@ namespace HappyCheats.ChineseParents
     [BepInProcess("game.exe")]
     public sealed class Plugin : BaseUnityPlugin
     {
-        public const string Version = "0.1.0";
-        public const string SupportedAssemblySha256 = "0262f1b24b148d99e8cba54a79b6b7299622c46be4bbc000a500d7519bf3bf3a";
+        public const string Version = "0.1.1";
+        public const string SupportedAssemblySha256 = "cdfec35bebf8c8fcf78b52c07a07f9d403e0d2743c6ec2933e945caafc801ce5";
         private string session = Guid.NewGuid().ToString("N");
         private readonly HashSet<string> handled = new HashSet<string>(StringComparer.Ordinal);
         private readonly Dictionary<string, bool> toggles = new Dictionary<string, bool>
@@ -52,7 +52,8 @@ namespace HappyCheats.ChineseParents
                 using (var sha = SHA256.Create())
                 using (var stream = File.OpenRead(gameAssemblyPath))
                     assemblyHash = BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", "").ToLowerInvariant();
-                if (!string.Equals(assemblyHash, SupportedAssemblySha256, StringComparison.Ordinal))
+                if (!string.Equals(assemblyHash, SupportedAssemblySha256, StringComparison.Ordinal)
+                    && !string.Equals(assemblyHash, "0262f1b24b148d99e8cba54a79b6b7299622c46be4bbc000a500d7519bf3bf3a", StringComparison.Ordinal))
                     throw new NotSupportedException("This game build has not been inspected. Trainer actions are disabled.");
                 var assembly = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(a => a.GetName().Name == "Assembly-CSharp");
                 if (assembly == null) assembly = Assembly.Load("Assembly-CSharp");

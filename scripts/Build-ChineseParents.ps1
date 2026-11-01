@@ -7,7 +7,7 @@ $ErrorActionPreference = 'Stop'
 $cpRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $cpGame = [IO.Path]::GetFullPath($GameDirectory)
 $cpAssembly = Join-Path $cpGame 'game_Data\Managed\Assembly-CSharp.dll'
-$cpExpectedGameHash = '0262f1b24b148d99e8cba54a79b6b7299622c46be4bbc000a500d7519bf3bf3a'
+$cpExpectedGameHash = 'cdfec35bebf8c8fcf78b52c07a07f9d403e0d2743c6ec2933e945caafc801ce5'
 if (!(Test-Path -LiteralPath $cpAssembly)) { throw 'GameDirectory must contain game_Data/Managed/Assembly-CSharp.dll.' }
 if ((Get-FileHash -LiteralPath $cpAssembly -Algorithm SHA256).Hash.ToLowerInvariant() -ne $cpExpectedGameHash) {
     throw 'This game assembly has not been inspected. Run the read-only inspector and review the bindings before updating support.'
@@ -44,7 +44,7 @@ Copy-Item -LiteralPath (Join-Path $cpRoot "src\ChineseParents.Trainer\bin\$Confi
 $cpPaths += $cpPluginRelative
 $cpPackage = [ordered]@{
     schema_version = 1; game_id = 'chinese-parents'; steam_app_id = 736190
-    version = '0.1.0'; build_id = '24710774'; game_assembly_sha256 = $cpExpectedGameHash
+    version = '0.1.1'; build_id = '26214115'; game_assembly_sha256 = $cpExpectedGameHash
     loader = Get-Content -LiteralPath (Join-Path $cpRoot '.tools\bepinex\5.4.23.5\provenance.json') -Raw | ConvertFrom-Json
     files = @($cpPaths | ForEach-Object {
         [ordered]@{ path = $_.Replace('\', '/'); sha256 = (Get-FileHash -LiteralPath (Join-Path $cpOutput $_) -Algorithm SHA256).Hash.ToLowerInvariant() }

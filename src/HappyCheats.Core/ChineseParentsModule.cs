@@ -5,7 +5,12 @@ namespace HappyCheats.Core;
 public sealed class ChineseParentsModule(string baseDirectory) : IGameModule
 {
     public IReadOnlyList<string> GameExecutables { get; } = ["game.exe"];
-    public const string SupportedAssemblyHash = "0262F1B24B148D99E8CBA54A79B6B7299622C46BE4BBC000A500D7519BF3BF3A";
+    public const string SupportedAssemblyHash = "CDFEC35BEBF8C8FCF78B52C07A07F9D403E0D2743C6EC2933E945CAAFC801CE5";
+    internal static bool SupportsAssembly(string hash) => string.Equals(hash, SupportedAssemblyHash, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(hash, "0262F1B24B148D99E8CBA54A79B6B7299622C46BE4BBC000A500D7519BF3BF3A", StringComparison.OrdinalIgnoreCase);
+    internal static bool MatchesInstalledPackage(string payload, string directory) => OwnedInstaller.ReadPackage(payload)
+        .All(file => File.Exists(SafePath(directory, file.Path))
+            && string.Equals(Hash(SafePath(directory, file.Path)), file.Sha256, StringComparison.OrdinalIgnoreCase));
     private readonly string package = Path.Combine(baseDirectory, "payload", "chinese-parents");
     private const string IpcRoot = "BepInEx/HappyCheats/chinese-parents/";
     private readonly SemaphoreSlim commandLock = new(1, 1);
@@ -22,15 +27,24 @@ public sealed class ChineseParentsModule(string baseDirectory) : IGameModule
     public Task<GameInstallation> DiscoverAsync(string? directory = null) => Task.Run(() => {
         try {
             var found = FindSteam(Definition.AppId, "game.exe", directory);
-            var compatible = Hash(SafePath(found.Directory, "game_Data/Managed/Assembly-CSharp.dll")) == SupportedAssemblyHash;
+            var compatible = SupportsAssembly(Hash(SafePath(found.Directory, "game_Data/Managed/Assembly-CSharp.dll")));
             var installed = OwnedInstaller.Installed(found.Directory);
+            bool matching;
+            try { matching = installed && MatchesInstalledPackage(package, found.Directory); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or ArgumentException) {
+                return new GameInstallation(found.Directory, found.Build, true, installed, Processes(found.Directory, "game.exe").Length > 0, compatible,
+                    "Chinese Parents trainer package unavailable: " + ex.Message);
+            }
             return new GameInstallation(found.Directory, found.Build, true, installed, Processes(found.Directory, "game.exe").Length > 0, compatible,
-                !compatible ? "This game build needs inspection before the trainer can be installed." : installed ? "Trainer installed · ready to launch" : "Compatible Steam build · ready to install");
+                !compatible ? "This game build needs inspection before the trainer can be installed."
+                : matching ? "Trainer installed · ready to launch"
+                : installed ? "Chinese Parents trainer update required. Close the game before installing."
+                : "Compatible Steam build · ready to install");
         } catch (Exception ex) { return new GameInstallation(directory ?? "", "", false, false, false, false, ex.Message); }
     });
     private static void CheckClosed(string root) { if (Processes(root, "game.exe").Length > 0) throw new IOException("Close Chinese Parents before changing trainer files."); }
     public Task InstallAsync(GameInstallation installation, IProgress<string>? progress = null) => Task.Run(() => {
-        if (Hash(SafePath(installation.Directory, "game_Data/Managed/Assembly-CSharp.dll")) != SupportedAssemblyHash) throw new IOException("Unsupported Chinese Parents game build.");
+        if (!SupportsAssembly(Hash(SafePath(installation.Directory, "game_Data/Managed/Assembly-CSharp.dll")))) throw new IOException("Unsupported Chinese Parents game build.");
         OwnedInstaller.Install(package, installation.Directory, () => CheckClosed(installation.Directory), progress);
     });
     public Task RemoveAsync(GameInstallation installation, IProgress<string>? progress = null) => Task.Run(() => OwnedInstaller.Remove(installation.Directory, () => CheckClosed(installation.Directory), progress));
@@ -49,7 +63,7 @@ public sealed class ChineseParentsModule(string baseDirectory) : IGameModule
             var modified = File.GetLastWriteTimeUtc(path);
             if (DateTime.UtcNow - modified > TimeSpan.FromSeconds(6) || modified < processes[0].Started) return TrainerStatus.Offline("Waiting for a fresh trainer heartbeat.");
             var json = ReadJson(path); var session = Text(json, "session_id");
-            if (Text(json, "schema_version") != "1" || Text(json, "process_id") != processes[0].Id.ToString() || session.Length == 0 || !string.Equals(Text(json, "assembly_sha256"), SupportedAssemblyHash, StringComparison.OrdinalIgnoreCase)) return TrainerStatus.Offline("Trainer session does not match this game build.");
+            if (Text(json, "schema_version") != "1" || Text(json, "process_id") != processes[0].Id.ToString() || session.Length == 0 || !SupportsAssembly(Text(json, "assembly_sha256"))) return TrainerStatus.Offline("Trainer session does not match this game build.");
             return new TrainerStatus(true, Bool(json, "ready"), Text(json, "message"), session, Bools(Object(json, "enabled")), Strings(Object(json, "values")), Text(json, "last_command"));
         } catch (IOException) { return TrainerStatus.Offline("Waiting for trainer status..."); }
         catch (System.Text.Json.JsonException) { return TrainerStatus.Offline("Waiting for trainer status..."); }

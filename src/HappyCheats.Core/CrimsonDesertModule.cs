@@ -10,8 +10,8 @@ public sealed class CrimsonDesertModule : IGameModule, IFeatureValueModule
 {
     public IReadOnlyList<string> GameExecutables { get; } = [Executable];
     public const string Executable = "bin64/CrimsonDesert.exe";
-    public const string SupportedExecutableHash = "FEC07BE1B725A46624D31FCD74BF3730EA809765226CEA6BDE01607AB2D79F66";
-    public const string TrainerVersion = "0.2.8";
+    public const string SupportedExecutableHash = "2C98B00E8922F14AC1937B5AC996956C7B9CA2D0FBCB0049DC0436321A09DD77";
+    public const string TrainerVersion = "0.2.9";
     public const string BridgeRoot = CrimsonDesertInstaller.TrainerRoot;
     private readonly string package;
     private readonly SemaphoreSlim commandLock = new(1, 1);
@@ -74,7 +74,7 @@ public sealed class CrimsonDesertModule : IGameModule, IFeatureValueModule
                     "Crimson Desert trainer package unavailable: " + error.Message);
             }
             return new GameInstallation(found.Directory, found.Build, true, installed, running, compatible,
-                !compatible ? "This Crimson Desert executable needs a compatibility check. Supported Steam build: 26329202 (PE 3446)."
+                !compatible ? "This Crimson Desert executable needs a compatibility check. Supported Steam build: 26356046 (PE 3462)."
                 : matching ? "Experimental trainer installed. Start the game, then choose Connect trainer."
                 : installed ? "Crimson Desert trainer update required. Close the game before installing."
                 : "Ready to install the experimental Crimson Desert trainer.");
