@@ -136,4 +136,32 @@ for _,field in ipairs({"DurationPolicy","StackingType"}) do
     local f=fixture();ready(f);f.default[field]=2
     eq(f.trainer:apply(f.state,HEALTH,true),false,"Changed effect configuration fails closed");eq(#f.calls,0);eq(f.sets,0)
 end
+for _,action in ipairs({HEALTH,STAMINA}) do
+    local key=action==HEALTH and "HappyCheatsHealthLockHandle" or "HappyCheatsStaminaLockHandle"
+    local f=fixture();ready(f);f.combat[key]=action==HEALTH and 228 or 774
+    eq(f.trainer:apply(f.state,action,true),true,"A retained ID with zero active stacks is stale, not a game lock")
+    eq(f.sets,1);eq(#f.calls,1);eq(f.trainer:enabled()[action],true)
+    eq(f.trainer:apply(nil,action,false),true);eq(f.combat[key],-1)
+    f=fixture();ready(f);f.combat[key]=900;f.count_error=true
+    eq(f.trainer:apply(f.state,action,true),false,"Unreadable existing effect never permits replacement")
+    eq(f.sets,0);eq(#f.calls,0)
+    for _,active in ipairs({false,true}) do
+        f=fixture();ready(f);f.combat[key]=900
+        local setter=action==HEALTH and "SetHealthPercent" or "SetStaminaPercent"
+        local original=f.combat[setter]
+        f.combat[setter]=function(self,v) original(self,v);f.combat[key]=901;f.effects[901]=active and 1 or 0 end
+        eq(f.trainer:apply(f.state,action,true),false,"A different callback-created handle is preserved, active or ended")
+        eq(#f.calls,0);eq(f.combat[key],901)
+    end
+    f=fixture();ready(f);f.combat[key]=900
+    local setter=action==HEALTH and "SetHealthPercent" or "SetStaminaPercent"
+    local original=f.combat[setter]
+    f.combat[setter]=function(self,v) original(self,v);f.effects[900]=1 end
+    eq(f.trainer:apply(f.state,action,true),false,"Same numeric handle becoming active during refill is refused")
+    eq(#f.calls,0);eq(f.effects[900],1)
+    f=fixture();ready(f);f.combat[key]=900
+    original=f.combat[setter]
+    f.combat[setter]=function(self,v) original(self,v);f.combat[key]=-1 end
+    eq(f.trainer:apply(f.state,action,true),true,"Native clearing of a stale handle is accepted")
+end
 print("Dawnwalker resource locks: "..checks.." assertions passed")

@@ -18,13 +18,13 @@ public static class DawnwalkerInstaller
     private static readonly HashSet<string> Allowed = new(StringComparer.Ordinal) {
         NativeLoader, LoaderLibrary, "Dawnwalker/Binaries/Win64/ue4ss/UE4SS-settings.ini", "Dawnwalker/Binaries/Win64/ue4ss/Mods/mods.txt",
         MainScript, ModRoot + "Scripts/bindings.lua", ModRoot + "Scripts/protocol.lua",
-        ModRoot + "Scripts/combat.lua", ModRoot + "Scripts/movement.lua", ModRoot + "Scripts/economy.lua", ModRoot + "Scripts/resources.lua",
+        ModRoot + "Scripts/combat.lua", ModRoot + "Scripts/movement.lua", ModRoot + "Scripts/economy.lua", ModRoot + "Scripts/resources.lua", ModRoot + "Scripts/parry.lua",
         ModRoot + "enabled.txt", ModRoot + "bridge/README.txt"
     };
     internal static readonly string[] RequiredFiles = {
         NativeLoader, LoaderLibrary, "Dawnwalker/Binaries/Win64/ue4ss/UE4SS-settings.ini", "Dawnwalker/Binaries/Win64/ue4ss/Mods/mods.txt",
         MainScript, ModRoot + "Scripts/bindings.lua", ModRoot + "Scripts/protocol.lua", ModRoot + "bridge/README.txt",
-        ModRoot + "Scripts/combat.lua", ModRoot + "Scripts/movement.lua", ModRoot + "Scripts/economy.lua", ModRoot + "Scripts/resources.lua"
+        ModRoot + "Scripts/combat.lua", ModRoot + "Scripts/movement.lua", ModRoot + "Scripts/economy.lua", ModRoot + "Scripts/resources.lua", ModRoot + "Scripts/parry.lua"
     };
 
     private static void Validate(IEnumerable<Entry> files)

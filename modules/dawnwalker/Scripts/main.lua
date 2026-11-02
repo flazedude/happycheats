@@ -1,4 +1,4 @@
--- HappyCheats Dawnwalker 0.4.2. Engine access is scheduled on the game thread.
+-- HappyCheats Dawnwalker 0.5.0. Engine access is scheduled on the game thread.
 local source = debug.getinfo(1, "S").source:gsub("^@", ""):gsub("\\", "/")
 local scripts = assert(source:match("^(.*)/[^/]+$"), "Cannot locate trainer scripts")
 local bridge = scripts .. "/../bridge/"
@@ -9,7 +9,7 @@ local boot = tostring(os.time()) .. "-" .. tostring({}):gsub("[^%w]", "")
 local serial, identity, session = 0, nil, boot .. "-0"
 local seen = {}
 local last_command, last_success, last_message = "", false, ""
-local status = {schema_version=1, version="0.4.2", session_id=session, ready=false,
+local status = {schema_version=1, version="0.5.0", session_id=session, ready=false,
     message="Dawnwalker trainer starting; waiting for the game thread", enabled={}, values={}, available={}}
 
 local flight_timer
@@ -65,15 +65,18 @@ local function refresh()
         trainer:disable_all()
     end
     if status.ready then register_marker_hooks() end
-    if not trainer:enabled().dawnwalker_fly then stop_flight_timer() end
-    if trainer:enabled().dawnwalker_fly and not flight_timer then
+    local enabled = trainer:enabled()
+    local fast = enabled.dawnwalker_fly or enabled.dawnwalker_auto_parry
+    if not fast then stop_flight_timer() end
+    if fast and not flight_timer then
         local timer = {}
         flight_timer = timer
-        -- High-frequency work exists only while flight is enabled. It touches
+        -- High-frequency work exists only while flight or auto parry is enabled. It touches
         -- no files and is removed on disable instead of adding an idle timer.
         local scheduled, handle = pcall(LoopInGameThreadWithDelay, 16, function()
             if flight_timer ~= timer then return end
-            if not trainer:enabled().dawnwalker_fly then stop_flight_timer(); return end
+            local flags = trainer:enabled()
+            if not flags.dawnwalker_fly and not flags.dawnwalker_auto_parry then stop_flight_timer(); return end
             local ok, success = pcall(function() return trainer:tick() end)
             if not ok or not success then
                 pcall(function() trainer:disable_all() end)
@@ -187,7 +190,7 @@ for _, shortcut in ipairs({{Key.F1,"dawnwalker_health"}, {Key.F2,"dawnwalker_sta
     {Key.F7,"dawnwalker_teleport"}, {Key.F8,"dawnwalker_damage"}, {Key.F9,"dawnwalker_invisible"},
     {Key.F10,"disable_all"}, {Key.F11,"dawnwalker_fly"}, {Key.F12,"dawnwalker_carry"},
     {Key.NUM_ONE,"dawnwalker_money"}, {Key.NUM_TWO,"dawnwalker_items"}, {Key.NUM_THREE,"dawnwalker_xp"},
-    {Key.NUM_FOUR,"dawnwalker_auto_teleport"}}) do
+    {Key.NUM_FOUR,"dawnwalker_auto_teleport"}, {Key.NUM_FIVE,"dawnwalker_auto_parry"}}) do
     local action = shortcut[2]
     RegisterKeyBind(shortcut[1], function()
         ExecuteInGameThread(function()
@@ -205,4 +208,4 @@ for _, shortcut in ipairs({{Key.F1,"dawnwalker_health"}, {Key.F2,"dawnwalker_sta
         end)
     end)
 end
-print("[HappyCheats] Dawnwalker 0.4.2 loaded. All toggles start off.\n")
+print("[HappyCheats] Dawnwalker 0.5.0 loaded. All toggles start off.\n")

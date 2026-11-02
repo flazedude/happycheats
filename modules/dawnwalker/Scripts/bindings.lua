@@ -13,6 +13,7 @@ local scripts = assert(source:match("^(.*)/[^/]+$"))
 local EXTENSION_ACTIONS = {
     dawnwalker_health="resources", dawnwalker_stamina="resources",
     dawnwalker_invulnerable="combat", dawnwalker_damage="combat", dawnwalker_invisible="combat",
+    dawnwalker_auto_parry="parry",
     dawnwalker_fly="movement", dawnwalker_teleport="movement", dawnwalker_auto_teleport="movement",
     dawnwalker_carry="economy", dawnwalker_money="economy", dawnwalker_items="economy", dawnwalker_xp="economy",
 }
@@ -338,6 +339,11 @@ function Instance:enabled()
     return flags
 end
 function Instance:tick()
+    local parry = self.extensions.parry
+    if parry and parry:enabled().dawnwalker_auto_parry then
+        local state = self.character and self:_state(self.character) or nil
+        if not parry:tick(state) then return false end
+    end
     local movement = self.extensions.movement
     if movement then return movement:tick() end
     return true
@@ -367,10 +373,19 @@ function M.new(on_change, factories)
         register_property=register_property,
         has_function=function(path) return result:_has_function(path) end,
         resolve=function(path) return result:_resolve(path) end,
-        fname=function(name) return FName(name) end }
+        invoke_function=function(path, object, ...)
+            local fn = result:_resolve(path)
+            if not fn or not valid(object) then return false,"Function or context unavailable" end
+            -- Explicit UFunction context is supported by the pinned loader.
+            -- Interface functions need not appear in the object's super chain.
+            local args = table.pack(...)
+            return pcall(function() return fn(object, table.unpack(args,1,args.n)) end)
+        end,
+        fname=function(name) return FName(name) end,
+        current_state=function() return result.character and result:_state(result.character) or nil end }
     if factories == nil then
         factories = {}
-        for _, name in ipairs({"combat", "movement", "economy", "resources"}) do factories[name] = dofile(scripts .. "/" .. name .. ".lua") end
+        for _, name in ipairs({"combat", "movement", "economy", "resources", "parry"}) do factories[name] = dofile(scripts .. "/" .. name .. ".lua") end
     end
     for name, factory in pairs(factories) do result.extensions[name] = factory.new(api) end
     return result

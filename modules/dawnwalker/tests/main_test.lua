@@ -17,7 +17,7 @@ local timers, refreshes, publications = 0, 0, 0
 local remove_failure, publish_failure, schedule_failure = false, false, false
 local write_failure, close_failure, rename_failure = false, false, false
 local state = {ready=true, key="world1/player1", flags={dawnwalker_health=false, dawnwalker_stamina=false, dawnwalker_blood=false,
-    dawnwalker_auto_teleport=false}, calls={}, refills=0, disables=0, auto_polls=0, auto_attempts=0}
+    dawnwalker_auto_teleport=false,dawnwalker_auto_parry=false}, calls={}, refills=0, disables=0, auto_polls=0, auto_attempts=0}
 local function game_thread() assert(on_thread, "Engine boundary called off game thread") end
 local trainer = {}
 function trainer:refresh()
@@ -115,7 +115,7 @@ function fake_os.rename(from, to)
 end
 local env = setmetatable({io=fake_io, os=fake_os, print=function() end,
     Key={F1=1,F2=2,F3=3,F4=4,F5=5,F7=7,F8=8,F9=9,F10=10,F11=11,F12=12,
-        NUM_ONE=97,NUM_TWO=98,NUM_THREE=99,NUM_FOUR=100}}, {__index=_G})
+        NUM_ONE=97,NUM_TWO=98,NUM_THREE=99,NUM_FOUR=100,NUM_FIVE=101}}, {__index=_G})
 function env.dofile(path)
     if name(path) == "protocol.lua" then return P end
     if name(path) == "bindings.lua" then return {new=function() return trainer end} end
@@ -179,7 +179,7 @@ equal(notification(constructed),nil,"Notification remains registered")
 equal(state.observed,constructed,"Constructor callback only retains object")
 equal(refreshes,0,"Constructor callback never refreshes")
 tick()
-equal(latest.version,"0.4.2"); equal(latest.ready,true); equal(state.disables,1)
+equal(latest.version,"0.5.0"); equal(latest.ready,true); equal(state.disables,1)
 equal(state.auto_polls,1,"Normal timer checks automatic travel once")
 do
     local prefix="/Script/DogwoodMap.MappinSystemBlueprintLibrary:"
@@ -375,6 +375,23 @@ for _=1,10 do
 end
 equal(next(delayed),nil,"Repeated flight toggles leave no native timers behind")
 state.flags.dawnwalker_fly=false
+press(101)
+equal(state.flags.dawnwalker_auto_parry,true,"NumPad5 enables auto parry")
+local parry_handle=flight_handle
+equal(type(delayed[parry_handle]),"function","Auto parry starts the shared 16 ms timer")
+state.flags.dawnwalker_fly=true;tick()
+equal(flight_handle,parry_handle,"Flight and parry share one timer")
+state.flags.dawnwalker_fly=false;tick()
+equal(flight_handle,parry_handle,"Parry keeps the timer alive without flight")
+local before_parry_ticks=flight_ticks
+on_thread=true;flight_loop();on_thread=false
+equal(flight_ticks,before_parry_ticks+1,"Parry runs on the game thread")
+state.ready=false;queue("dawnwalker_auto_parry",1200,false);tick()
+equal(state.flags.dawnwalker_auto_parry,false,"Parry off dispatches while gameplay is unavailable")
+equal(delayed[parry_handle],nil,"Parry off cancels its final fast timer")
+state.ready=true;tick();press(101);state.key="after-parry-session";tick()
+equal(state.flags.dawnwalker_auto_parry,false,"Session transition disables parry")
+equal(next(delayed),nil,"Session cleanup cancels parry timer")
 -- A partial hook registration cannot leave a usable setter observer without
 -- an unset observer. Base controls still work and registration never repeats.
 keys={}; hooks={}; loop=nil; state.marker_hook_failure=true

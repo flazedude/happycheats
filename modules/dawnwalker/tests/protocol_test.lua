@@ -5,7 +5,7 @@ local function command(action, enabled, created)
     return "schema_version=1\nsession_id=test-session\nrequest_id=0123456789abcdef0123456789abcdef\naction=" .. (action or "dawnwalker_refill") ..
         "\nenabled=" .. (enabled or "0") .. "\ncreated_utc=" .. (created or "100") .. "\n"
 end
-for _, action in ipairs({"dawnwalker_health", "dawnwalker_stamina", "dawnwalker_blood", "dawnwalker_invulnerable", "dawnwalker_damage", "dawnwalker_invisible", "dawnwalker_fly", "dawnwalker_carry", "dawnwalker_money", "dawnwalker_items", "dawnwalker_auto_teleport"}) do
+for _, action in ipairs({"dawnwalker_health", "dawnwalker_stamina", "dawnwalker_blood", "dawnwalker_invulnerable", "dawnwalker_damage", "dawnwalker_invisible", "dawnwalker_fly", "dawnwalker_carry", "dawnwalker_money", "dawnwalker_items", "dawnwalker_auto_teleport", "dawnwalker_auto_parry"}) do
     for _, enabled in ipairs({"0", "1"}) do
         local parsed = assert(P.parse(command(action, enabled), "test-session", 100))
         check(parsed.action == action and parsed.enabled == (enabled == "1"), "Toggle contract")

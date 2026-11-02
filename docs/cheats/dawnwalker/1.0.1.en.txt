@@ -1,0 +1,8 @@
+Dawnwalker cheat package 1.0.1 — trainer 0.5.0
+
+- Fixes health/stamina activation incorrectly reporting that the game already owns a lock when its stored handle refers to an effect that has ended. Native active-stack checks run before and after refill. Active game locks, replacements and unreadable state remain protected.
+- Adds experimental Auto parry: NumPad5 or its shared-menu/client toggle. Uses native attack timing and directional guard for the next eligible nearby frontal attack, with manual guard priority and owned-request cleanup. Unblockable attacks are skipped; native stamina, cooldown and combat rules apply.
+- Retains instant map-marker teleport and previous damage/resource repairs. All controls start off and reset on player/world changes.
+- Updates only Dawnwalker's signed module/payload package. The HappyCheats client version and existing standalone EXE are unchanged. Close Dawnwalker and choose its Update action in Library's Cheat updates window; current clients install/verify the trainer in the same operation. Relaunch afterward.
+
+Validation: exact-build read-only inspection reproduced stale health/stamina handle IDs in the running player, absent from its active-effect list. Offline regressions cover stale/active/unreadable/replaced handles, callbacks, cleanup, Auto parry behavior, protocol/keys, module metadata and shared menu. No game function, cheat, save edit or running trainer replacement was performed. Corrected resource behavior and Auto parry timing still need gameplay confirmation; physical controllers and frame-time cost are unverified.

@@ -28,7 +28,7 @@ $hcSettings = $hcSettings -replace '(?m)^(Hook\w+)\s*=.*$', '$1 = 0'
 $hcSettings = $hcSettings -replace '(?m)^HookEngineTick\s*=.*$', 'HookEngineTick = 1' -replace '(?m)^HookUObjectProcessEvent\s*=.*$', 'HookUObjectProcessEvent = 1'
 [IO.File]::WriteAllText((Join-Path $hcBinary 'ue4ss\UE4SS-settings.ini'), $hcSettings)
 [IO.File]::WriteAllText((Join-Path $hcBinary 'ue4ss\Mods\mods.txt'), "HappyCheatsDawnwalker : 1`n")
-foreach ($hcScript in @('main','bindings','protocol','combat','movement','economy','resources')) {
+foreach ($hcScript in @('main','bindings','protocol','combat','movement','economy','resources','parry')) {
     Copy-Item -LiteralPath (Join-Path $hcRoot ('modules\dawnwalker\Scripts\' + $hcScript + '.lua')) -Destination (Join-Path $hcMod 'Scripts') -Force
 }
 [IO.File]::WriteAllText((Join-Path $hcMod 'bridge\README.txt'), "HappyCheats runtime mailbox. Commands expire after eight seconds and are bound to the current single-player session.`n")
@@ -36,7 +36,7 @@ Copy-Item -LiteralPath (Join-Path $hcExtract 'ue4ss\LICENSE') -Destination (Join
 $hcProvenance = [ordered]@{ dependency='UE4SS'; version='3.0.1-1133-gb4cefa18'; source_commit='2bfa839f'; source='https://github.com/UE4SS-RE/RE-UE4SS/tree/2bfa839f'; archive_url=$hcUrl; archive_sha256=$hcArchiveHash; license='MIT'; api_reference='https://docs.ue4ss.com/'; game_bindings_reference='Static inspection of Steam build 25915545 / CL-265636; current-build startup and gameplay validation pending' }
 $hcProvenance | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $hcPackage 'licenses\provenance.json') -Encoding utf8NoBOM
 # Enumerate only deliverables. Runtime mailboxes and probe output never enter a release.
-$hcRuntimeFiles = @('dwmapi.dll','ue4ss/UE4SS.dll','ue4ss/UE4SS-settings.ini','ue4ss/Mods/mods.txt','ue4ss/Mods/HappyCheatsDawnwalker/Scripts/main.lua','ue4ss/Mods/HappyCheatsDawnwalker/Scripts/bindings.lua','ue4ss/Mods/HappyCheatsDawnwalker/Scripts/protocol.lua','ue4ss/Mods/HappyCheatsDawnwalker/bridge/README.txt','ue4ss/Mods/HappyCheatsDawnwalker/Scripts/combat.lua','ue4ss/Mods/HappyCheatsDawnwalker/Scripts/movement.lua','ue4ss/Mods/HappyCheatsDawnwalker/Scripts/economy.lua','ue4ss/Mods/HappyCheatsDawnwalker/Scripts/resources.lua')
+$hcRuntimeFiles = @('dwmapi.dll','ue4ss/UE4SS.dll','ue4ss/UE4SS-settings.ini','ue4ss/Mods/mods.txt','ue4ss/Mods/HappyCheatsDawnwalker/Scripts/main.lua','ue4ss/Mods/HappyCheatsDawnwalker/Scripts/bindings.lua','ue4ss/Mods/HappyCheatsDawnwalker/Scripts/protocol.lua','ue4ss/Mods/HappyCheatsDawnwalker/bridge/README.txt','ue4ss/Mods/HappyCheatsDawnwalker/Scripts/combat.lua','ue4ss/Mods/HappyCheatsDawnwalker/Scripts/movement.lua','ue4ss/Mods/HappyCheatsDawnwalker/Scripts/economy.lua','ue4ss/Mods/HappyCheatsDawnwalker/Scripts/resources.lua','ue4ss/Mods/HappyCheatsDawnwalker/Scripts/parry.lua')
 $hcFiles = @($hcRuntimeFiles | ForEach-Object { $hcPath = Join-Path $hcBinary $_; [ordered]@{ path=[IO.Path]::GetRelativePath($hcPackage,$hcPath).Replace('\','/'); sha256=(Get-FileHash -LiteralPath $hcPath -Algorithm SHA256).Hash } })
-[ordered]@{ version='0.4.2'; app_id='3751260'; steam_build='25915545'; executable_sha256='E6222B815B1C376F2C85A2189120C5A9B5CD30AC5688A34B61A2C18EFBC9B117'; files=$hcFiles } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $hcPackage 'package.json') -Encoding utf8NoBOM
+[ordered]@{ version='0.5.0'; app_id='3751260'; steam_build='25915545'; executable_sha256='E6222B815B1C376F2C85A2189120C5A9B5CD30AC5688A34B61A2C18EFBC9B117'; files=$hcFiles } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $hcPackage 'package.json') -Encoding utf8NoBOM
 Write-Host 'Built Dawnwalker payload with pinned UE4SS and verified file hashes.'

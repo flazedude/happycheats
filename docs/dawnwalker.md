@@ -1,6 +1,10 @@
 # The Blood of Dawnwalker
 
-Experimental trainer **0.4.2** for HappyCheats **0.3.64**. Supports the inspected Windows Steam build **25915545**, executable version `dw1-pc-265636-shipping-patch3-all-CL-265636` (Unreal Engine 5.5.4). Other executable hashes are rejected pending a compatibility check.
+Experimental trainer **0.5.0**, independent Dawnwalker package **1.0.1**, for HappyCheats **0.3.65 or later**. Supports the inspected Windows Steam build **25915545**, executable version `dw1-pc-265636-shipping-patch3-all-CL-265636` (Unreal Engine 5.5.4). Other executable hashes are rejected pending a compatibility check.
+
+Version 0.5.0 fixes the false game-owned health/stamina lock error by checking whether retained handles still have an active effect. Real active game locks remain protected. The independent package updates only Dawnwalker; close the game and use **Update** in Library’s Cheat updates window before relaunching. [Package notes](cheats/dawnwalker/1.0.1.en.txt).
+
+Version 0.5.0 also adds **Auto parry** (NumPad5 or its main-client/shared-menu toggle). It times one native directional guard against the next eligible nearby frontal enemy attack, skips unblockable attacks and respects native defense, stamina and cooldown rules. Manual guard takes priority, including remapped keys. Owned guard requests are released after an attack or when control/session changes. Flight and auto parry share one cancellable fast timer. Instant teleport is unchanged. Read-only live inspection and offline checks do not establish actual parry success; live combat validation remains pending. Close the game and choose **Install / update** before relaunching. See [parry contracts and validation limits](dawnwalker-auto-parry.md).
 
 Version 0.4.2 replaces periodic health/stamina top-ups with native full-resource locks. Exact-build read-only handle fields prevent replacing an existing game lock or unlocking a later game-owned replacement. Super damage measures the response to its first native base change and allows one bounded scaling correction; final evaluated readback and rollback remain mandatory. The shared menu adds native no-activation protection outside explicit numeric editing. Close the game and choose **Install / update** after updating the client. The running player and error were inspected read-only; new cheat effects remain untested in gameplay. See the [resource-lock evidence](dawnwalker-resource-locks.md).
 
@@ -35,6 +39,7 @@ Version 0.1.2 corrects a player-readiness check, handles exFAT timestamp roundin
 | Refill health and stamina once | F3 | Page 1, D-pad down |
 | Refill blood continuously | F4 | Page 1, D-pad left |
 | Invulnerability | F5 | Page 2, D-pad up |
+| Auto parry | NumPad5 | Shared menu toggle (mouse/keyboard) |
 | Super damage | F8 | Page 2, D-pad right |
 | Invisibility | F9 | Page 2, D-pad down |
 | Fly | F11 | Page 2, D-pad left |

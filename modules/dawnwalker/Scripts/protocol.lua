@@ -3,7 +3,7 @@ local P = {}
 local actions = { dawnwalker_health=true, dawnwalker_stamina=true, dawnwalker_refill=true, dawnwalker_blood=true,
     dawnwalker_invulnerable=true, dawnwalker_damage=true, dawnwalker_invisible=true, dawnwalker_fly=true,
     dawnwalker_carry=true, dawnwalker_money=true, dawnwalker_items=true, dawnwalker_xp=true,
-    dawnwalker_teleport=true, dawnwalker_auto_teleport=true, disable_all=true }
+    dawnwalker_teleport=true, dawnwalker_auto_teleport=true, dawnwalker_auto_parry=true, disable_all=true }
 local oneshot = { dawnwalker_refill=true, dawnwalker_teleport=true, dawnwalker_xp=true, disable_all=true }
 function P.parse(text, session, now)
     if type(text) ~= "string" or #text > 2048 then return nil, "Invalid trainer command" end

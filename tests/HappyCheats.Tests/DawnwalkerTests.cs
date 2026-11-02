@@ -335,7 +335,9 @@ internal static class DawnwalkerTests
         Run("Dawnwalker exposes implemented controls and explicit one-shot XP", () => {
             var definition = new DawnwalkerModule(".").Definition;
             Assert(definition.AppId == "3751260" && definition.Id == "dawnwalker");
-            Assert(definition.Features.Count == 14);
+            Assert(definition.Features.Count == 15);
+            var parry = definition.Features.Single(feature => feature.Id == "dawnwalker_auto_parry");
+            Assert(parry.IsToggle && parry.Hotkey == "NumPad5" && parry.Description.Contains("unblockable"));
             Assert(DawnwalkerModule.FeatureIds.SequenceEqual(definition.Features.Select(feature => feature.Id)));
             Assert(definition.Features.Select(feature => feature.Hotkey).Distinct().Count() == definition.Features.Count);
             Assert(definition.Features.Where(feature => feature.Id is not ("dawnwalker_refill" or "dawnwalker_xp" or "dawnwalker_teleport")).All(feature => feature.IsToggle));

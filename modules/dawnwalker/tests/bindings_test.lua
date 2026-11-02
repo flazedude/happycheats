@@ -534,5 +534,28 @@ do
     equal(f.combat.HappyCheatsStaminaLockHandle,-1,"Session cleanup releases the original owned handle")
 end
 
+do
+    local api, active, ticks, last_state
+    local extension={}
+    function extension:refresh() return {dawnwalker_auto_parry=true},{} end
+    function extension:enabled() return {dawnwalker_auto_parry=active==true} end
+    function extension:disable_all() active=false;return true end
+    function extension:apply(_,action,value) equal(action,"dawnwalker_auto_parry");active=value==true;return true end
+    function extension:tick(state) ticks=(ticks or 0)+1;last_state=state;return true end
+    local f=fixture(true,{parry={new=function(boundary) api=boundary;return extension end}})
+    ready(f);equal(f.trainer:apply("dawnwalker_auto_parry",true),true)
+    f.trainer:tick();equal(ticks,1);equal(last_state.character,f.pawn)
+    f.possessed=object("AnotherPawn");f.trainer:tick();equal(ticks,2);equal(last_state,nil,"Fast tick repeats possession checks")
+    f.possessed=f.pawn
+    local path="/Script/Fixture.Interface:Query"
+    local fn=object("Function")
+    setmetatable(fn,{__call=function(_,context,value) equal(context,f.pawn);return value+1 end})
+    f.functions[path]=fn
+    local ok,value=api.invoke_function(path,f.pawn,41)
+    equal(ok,true);equal(value,42,"Explicit reflected function uses the supplied UObject context")
+    equal(api.invoke_function(path,nil,41),false,"No call with an invalid context")
+    equal(api.invoke_function("/Script/Fixture.Interface:Missing",f.pawn),false,"Missing function fails closed")
+    equal(f.trainer:apply("dawnwalker_auto_parry",false),true);f.trainer:tick();equal(ticks,2,"Off parry does no fast work")
+end
 equal(discovery_calls,0,"No binding path falls back to global discovery")
 print("Dawnwalker native binding boundary: "..checks.." assertions passed")

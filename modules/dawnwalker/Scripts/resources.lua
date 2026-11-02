@@ -1,6 +1,7 @@
 -- Exact build 25915545. Read the native lock handle, never assign it. Native
--- Lock* replaces a previous lock, so require -1 before calling and release only
--- while the field still identifies the effect created by this application.
+-- Lock* replaces a previous lock. A retained numeric ID can outlive its effect;
+-- require -1 or a natively confirmed inactive handle before calling. Release
+-- only while the field still identifies the effect created by this application.
 local M, Instance = {}, {}
 Instance.__index = Instance
 local COMBAT = "/Script/DogwoodCombat.CombatComponentBase:"
@@ -32,6 +33,13 @@ function Instance:_count(lease)
     if lease.uncertain then return nil end
     local ok, count = self.api.invoke(lease.library, "GetActiveGameplayEffectStackCount", lease.handle)
     if ok and self.api.finite(count) and count >= 0 and count % 1 == 0 then return count end
+end
+function Instance:_inactive(binding, id)
+    if id == -1 then return true end
+    local ok, count = self.api.invoke(binding.library,"GetActiveGameplayEffectStackCount",
+        {Handle=id,bPassedFiltersAndWasExecuted=true})
+    if not ok or not self.api.finite(count) or count < 0 or count % 1 ~= 0 then return nil end
+    return count == 0
 end
 function Instance:_forget(action)
     self.leases[action], self.flags[action] = nil, false
@@ -91,7 +99,9 @@ function Instance:apply(state, action, enabled)
     end
     local before = a.read(state.combat, c.field)
     if not handle_id(a, before) then return false, c.label .. " lock handle unavailable" end
-    if before ~= -1 then return false, "The game already owns the " .. c.label:lower() .. " lock; try after it ends" end
+    local inactive = self:_inactive(binding,before)
+    if inactive == nil then return false,c.label .. " existing lock could not be checked; try again" end
+    if not inactive then return false, "The game already owns the " .. c.label:lower() .. " lock; try after it ends" end
     local topped, reason = self:_top_up(state, action)
     if not topped then return false, reason end
     local asc_ok, current_asc = a.invoke(state.combat, "GetAbilitySystemComponent")
@@ -100,7 +110,9 @@ function Instance:apply(state, action, enabled)
     local local_ok, local_player = a.invoke(state.character, "IsLocallyControlled")
     local authority_ok, authority = a.invoke(state.character, "HasAuthority")
     local alive_ok, alive = a.invoke(state.character, "IsAlive")
-    if a.read(state.combat, c.field) ~= -1 or not a.same(a.read(state.character, "AbilitySystemComponent"), asc)
+    local after = a.read(state.combat,c.field)
+    if (after ~= before and after ~= -1) or not handle_id(a,after) or self:_inactive(binding,after) ~= true
+        or not a.same(a.read(state.character, "AbilitySystemComponent"), asc)
         or not a.same(a.read(state.character, "Controller"), state.controller)
         or not a.same(a.read(state.character, "CombatComponent"), state.combat)
         or not asc_ok or not a.same(current_asc, asc)
