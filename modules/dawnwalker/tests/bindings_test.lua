@@ -61,7 +61,7 @@ local function fixture(observe, factories)
     end
     f.registered={}
     local env=setmetatable({
-        PropertyTypes={IntProperty="int32 fixture",ByteProperty="byte fixture"},
+        PropertyTypes={IntProperty="int32 fixture",ByteProperty="byte fixture",Int64Property="int64 fixture"},
         RegisterCustomProperty=function(info)
             if f.registration_failure then error("fixture registration failed") end
             f.registered[#f.registered+1]=info
@@ -472,6 +472,11 @@ do
     equal(#f.registered,3,"HitResult field registration is cached")
     equal(api_seen.register_property("HappyCheatsHitResultFlags", "/Script/Engine.HitResult", "ByteProperty", 0xAC),false,"Wrong packed-flag layout rejected")
     equal(api_seen.register_property("HappyCheatsHitResultFlags", "/Script/Engine.HitResult", "IntProperty", 0xAD),false,"Wrong packed-flag size rejected")
+    equal(api_seen.register_property("HappyCheatsAttributeResolvedField","/Script/GameplayAbilities.GameplayAttribute","Int64Property",0x10),true)
+    equal(api_seen.register_property("HappyCheatsAttributeWeakOwner","/Script/GameplayAbilities.GameplayAttribute","Int64Property",0x18),true)
+    equal(f.registered[4].Type,"int64 fixture");equal(f.registered[5].OffsetInternal,0x18)
+    equal(api_seen.register_property("HappyCheatsAttributeResolvedField","/Script/GameplayAbilities.GameplayAttribute","Int64Property",0x18),false,"Descriptor field offset is pinned")
+    equal(api_seen.register_property("HappyCheatsAttributeWeakOwner","/Script/GameplayAbilities.GameplayAttribute","IntProperty",0x18),false,"Descriptor weak owner requires eight bytes")
     local map,location={}, {X=1,Y=2,Z=3}
     f.trainer:observe_marker(map,location); equal(movement.map,map); equal(movement.location,location)
     f.trainer:forget_marker(map); equal(movement.forgotten,map)

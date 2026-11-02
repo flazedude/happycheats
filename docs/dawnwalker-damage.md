@@ -1,5 +1,17 @@
 # Dawnwalker damage multiplier audit
 
+## Trainer 0.5.1 reference-parameter correction (3 November 2026)
+
+Independent Dawnwalker package **1.0.2** corrects an argument-marshalling defect missed by the earlier audit. Exact-build reflection marks `CombatBlueprintFunctionLibrary.SetAttributeValue.AttributeToSet` with flags **0x18000008000180**: OUT and ReferenceParm, without ConstParm. The two scalar getter attributes are ordinary input parameters. Pinned UE4SS explicitly requires a Lua **table** for a non-const OUT argument before calling ProcessEvent; passing the getter's UScriptStruct userdata to the setter is rejected before native execution. The earlier generic verification error discarded that invocation failure and suggested active scaling instead.
+
+A normal request through the installed 0.4.2 module reproduced the error, followed by its off/cleanup command. A bounded read-only sampler observed no melee base/current change. The possessed ASC's registered CharacterAttributeSet was confirmed. Its bases remained zero, with evaluated factors approximately **1.26654 melee**, **1.096 claws**, **1.012 magic**, **1 unarmed**. Active modifier metadata was inspected read-only. No new trainer was installed into the running game, and no save was edited. Deferred evaluation was considered but was not established as this failure's cause; no frame-delay workaround was added.
+
+A plain attribute table would lose the unsupported FieldPathProperty. The new binding therefore exposes two tightly pinned Int64 aliases on `/Script/GameplayAbilities.GameplayAttribute`: resolved FProperty at **0x10**, and its weak-owner index/serial at **0x18**. These are copied from the original native descriptor into a fresh temporary parameter table, together with normal reflected AttributeName/AttributeOwner. The path array stays empty and owned by the parameter; no borrowed allocation or ref-counted path is copied bitwise. Native constructor `0x1058A34` and resolver fast paths were checked for this exact build. No live attribute-set data or UFunction parameter flags are written.
+
+Before any mutation, the reconstructed descriptor must reproduce the original native debug name, base value and evaluated value through the normal getters. Correction and cleanup each receive a fresh OUT table, so output conversion cannot corrupt the stored descriptor snapshot. All existing ownership checks, bounded correction, final evaluated verification and conditional restoration remain. Actual setter-binding failures now report their native/loader reason separately from a successful setter whose evaluated factor misses its target.
+
+Offline fixtures model the setter's table-only reference contract, validate alias registration/layouts, reject damaged descriptors before writes and exercise destructive OUT-table conversion during correction/cleanup. The rebuilt 0.5.1 binding and final tenfold combat damage still require gameplay confirmation after updating and relaunching.
+
 Inspected on 30 October 2026 against the installed Steam build **25915545 / CL-265636**. The executable SHA-256 is `E6222B815B1C376F2C85A2189120C5A9B5CD30AC5688A34B61A2C18EFBC9B117`, matching the trainer's existing compatibility gate. All addresses below are executable-relative RVAs for that exact binary.
 
 ## What the previous implementation missed

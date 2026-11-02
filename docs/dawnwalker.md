@@ -1,6 +1,8 @@
 # The Blood of Dawnwalker
 
-Experimental trainer **0.5.0**, independent Dawnwalker package **1.0.1**, for HappyCheats **0.3.65 or later**. Supports the inspected Windows Steam build **25915545**, executable version `dw1-pc-265636-shipping-patch3-all-CL-265636` (Unreal Engine 5.5.4). Other executable hashes are rejected pending a compatibility check.
+Experimental trainer **0.5.1**, independent Dawnwalker package **1.0.2**, for HappyCheats **0.3.65 or later**. Supports the inspected Windows Steam build **25915545**, executable version `dw1-pc-265636-shipping-patch3-all-CL-265636` (Unreal Engine 5.5.4). Other executable hashes are rejected pending a compatibility check.
+
+Version 0.5.1 fixes Super Damage’s mutable-reference parameter binding, which the loader previously rejected before writing. It verifies copied native descriptors before any change, uses fresh OUT tables for application and cleanup, and reports binding failures separately from evaluated-value mismatches. Package 1.0.2 includes the 1.0.1 survival/Auto parry changes. [Package notes](cheats/dawnwalker/1.0.2.en.txt), [binding evidence](dawnwalker-damage.md).
 
 Version 0.5.0 fixes the false game-owned health/stamina lock error by checking whether retained handles still have an active effect. Real active game locks remain protected. The independent package updates only Dawnwalker; close the game and use **Update** in Library’s Cheat updates window before relaunching. [Package notes](cheats/dawnwalker/1.0.1.en.txt).
 

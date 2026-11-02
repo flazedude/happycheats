@@ -1,0 +1,8 @@
+Dawnwalker cheat package 1.0.2 — trainer 0.5.1
+
+- Fixes Super Damage passing the wrong argument shape to the native setter. Its attribute parameter is a mutable OUT reference: the pinned loader requires a Lua table, rather than the struct object accepted by the read-only getters.
+- Preserves the native attribute identity through narrow descriptor aliases and verifies its name/base/evaluated value before mutation. Fresh parameter tables protect correction and cleanup from OUT conversion. Existing 10x verification and owned-value restoration remain mandatory; binding failures now show their actual reason.
+- Includes package 1.0.1's stale health/stamina handle repair and experimental Auto parry (NumPad5/shared menu). Instant teleport is unchanged.
+- Update only Dawnwalker to 1.0.2; installing 1.0.1 separately is unnecessary. Close the game, use Dawnwalker's Update action in Library's Cheat updates window, then relaunch. The HappyCheats client and existing standalone EXE are unchanged.
+
+Validation: reflection captured the setter's OUT/reference flags; a normal request through the installed old module reproduced the error and was followed by off/cleanup. Passive attribute sampling observed no change. Offline behavior, reference-marshalling, metadata, installer and shared-menu checks cover the fix. The corrected binding, actual 10x hits, resource-drain behavior and Auto parry still need gameplay confirmation. No running trainer files or saves were modified.

@@ -19,6 +19,8 @@ local INVISIBLE_FUNCTIONS = {
     "/Script/RebelAI.RebelAIStub:IsPlayer"
 }
 local DAMAGE_FIELDS = {"MeleeDamageMultiplier", "ClawsDamageMultiplier", "MagicDamageMultiplier", "UnarmedDamageMultiplier"}
+local ATTRIBUTE = "/Script/GameplayAbilities.GameplayAttribute"
+local ATTRIBUTE_FIELD, ATTRIBUTE_OWNER = "HappyCheatsAttributeResolvedField", "HappyCheatsAttributeWeakOwner"
 local DAMAGE_FUNCTIONS = {
     "/Script/GameplayAbilities.AbilitySystemComponent:GetAllAttributes",
     "/Script/GameplayAbilities.AbilitySystemBlueprintLibrary:GetDebugStringFromGameplayAttribute",
@@ -159,6 +161,11 @@ function Instance:_resolve_damage()
     local library, combat = self.api.resolve(LIBRARY), self.api.resolve(COMBAT_LIBRARY)
     if not self.api.valid(library) then self.damage_reason = "Damage attribute library unavailable"; return nil end
     if not self.api.valid(combat) then self.damage_reason = "Damage setter library unavailable"; return nil end
+    if type(self.api.register_property) ~= "function"
+        or not self.api.register_property(ATTRIBUTE_FIELD,ATTRIBUTE,"Int64Property",0x10)
+        or not self.api.register_property(ATTRIBUTE_OWNER,ATTRIBUTE,"Int64Property",0x18) then
+        self.damage_reason = "Damage reference-parameter binding unavailable"; return nil
+    end
     self.damage_bindings = {library = library, combat = combat}
     return self.damage_bindings
 end
@@ -192,6 +199,44 @@ local function damage_close(value, expected)
     return value ~= nil and math.abs(value - expected) <= math.max(1e-44, math.abs(expected) * 0.00001)
 end
 
+function Instance:_damage_reference(lease, entry)
+    local ok, field, weak, name, owner = pcall(function()
+        local attribute_name = entry.attribute.AttributeName
+        if type(attribute_name) ~= "string" then attribute_name = attribute_name:ToString() end
+        return entry.attribute[ATTRIBUTE_FIELD], entry.attribute[ATTRIBUTE_OWNER],
+            attribute_name, entry.attribute.AttributeOwner
+    end)
+    local a = self.api
+    if not ok or not a.finite(field) or field <= 0 or field % 8 ~= 0
+        or not a.finite(weak) or weak <= 0 or weak % 1 ~= 0 or name ~= entry.name or not a.valid(owner) then
+        return nil,"Native damage descriptor could not be copied: " .. entry.name
+    end
+    -- SetAttributeValue's AttributeToSet has OUT|ReferenceParm and is not const.
+    -- The pinned loader requires a table for that argument. Its ordinary table
+    -- conversion omits FieldPathProperty, so copy only the native descriptor's
+    -- resolved field/weak owner through narrow aliases, with an empty owned path.
+    -- AttributeName and AttributeOwner remain normal reflected fields.
+    local reference = {[ATTRIBUTE_FIELD]=field,[ATTRIBUTE_OWNER]=weak,AttributeName=name,AttributeOwner=owner}
+    local checked, debug_name = a.invoke(lease.library,"GetDebugStringFromGameplayAttribute",reference)
+    if checked and type(debug_name) ~= "string" then checked,debug_name=pcall(function() return debug_name:ToString() end) end
+    local probe={attribute=reference,name=entry.name}
+    if not checked or debug_name ~= "CharacterBaseAttributeSet."..entry.name
+        or self:_damage_base(lease,probe) ~= entry.original or self:_damage_current(lease,probe) ~= entry.current then
+        return nil,"Damage reference descriptor did not match the native attribute: "..entry.name
+    end
+    return reference
+end
+
+function Instance:_write_damage_base(lease, entry, value)
+    local source = entry.reference
+    if not source or not self.api.valid(source.AttributeOwner) then return false,"Damage reference owner unavailable" end
+    -- OUT conversion mutates its table. Always use a fresh argument, preserving
+    -- the verified descriptor snapshot for correction and conditional cleanup.
+    local reference={}
+    for k,v in pairs(source) do reference[k]=v end
+    return self.api.invoke(lease.combat,"SetAttributeValue",lease.asc,reference,value)
+end
+
 function Instance:_disable_damage()
     local lease = self.damage_lease
     if not lease then self.damage_active = false; return true, "Super damage disabled" end
@@ -202,7 +247,7 @@ function Instance:_disable_damage()
         local current = self:_damage_base(lease, entry)
         if current == nil then pending[#pending + 1] = entry
         elseif current == entry.written or current == entry.previous_written then
-            self.api.invoke(lease.combat, "SetAttributeValue", lease.asc, entry.attribute, entry.original)
+            self:_write_damage_base(lease,entry,entry.original)
             local restored = self:_damage_base(lease, entry)
             if restored == nil or restored == entry.written or restored == entry.previous_written then pending[#pending + 1] = entry
             elseif restored ~= entry.original then preserved = true end
@@ -276,6 +321,8 @@ function Instance:_apply_damage(state, enabled)
         if entry.current == nil then return false, reason end
         if entry.current < 0 or entry.current > 100000 then return false, "Current damage value outside the supported range: " .. name end
         if entry.current > 0 then active_fields = active_fields + 1 end
+        entry.reference, reason = self:_damage_reference(lease,entry)
+        if not entry.reference then return false,reason end
         -- These are raw damage factors, not additive percentage bonuses. Their
         -- native base can be zero while game effects supply a positive current
         -- factor. Apply a bounded base delta, then require the evaluated factor
@@ -299,7 +346,7 @@ function Instance:_apply_damage(state, enabled)
         -- create an ownership lease for a value that was never changed.
         if entry.written ~= entry.original then
             lease.entries[#lease.entries + 1] = entry
-            local ok = self.api.invoke(lease.combat, "SetAttributeValue", lease.asc, entry.attribute, entry.written)
+            local ok, write_error = self:_write_damage_base(lease,entry,entry.written)
             local readback = self:_damage_base(lease, entry)
             local current = self:_damage_current(lease, entry)
             if ok and readback == entry.written and current ~= nil and not damage_close(current, entry.expected_current) then
@@ -316,7 +363,7 @@ function Instance:_apply_damage(state, enabled)
                         and self:_damage_base(lease, entry) == entry.written and self:_damage_current(lease, entry) == current then
                         entry.previous_written = entry.written
                         entry.written = string.unpack("<f", string.pack("<f", corrected))
-                        ok = self.api.invoke(lease.combat, "SetAttributeValue", lease.asc, entry.attribute, entry.written)
+                        ok, write_error = self:_write_damage_base(lease,entry,entry.written)
                         readback, current = self:_damage_base(lease, entry), self:_damage_current(lease, entry)
                         if readback == entry.written then entry.previous_written = nil end
                     end
@@ -324,6 +371,7 @@ function Instance:_apply_damage(state, enabled)
             end
             if not ok or readback ~= entry.written or not damage_close(current, entry.expected_current) then
                 local cleaned, message = self:_disable_damage()
+                if not ok and cleaned then return false,"Damage setter binding failed for "..entry.name..": "..tostring(write_error):sub(1,400) end
                 return false, cleaned and ("The game did not confirm 10x damage for " .. entry.name .. "; active effects may override or scale the factor") or message
             end
         end

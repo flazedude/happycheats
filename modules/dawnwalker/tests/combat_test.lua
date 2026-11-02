@@ -21,21 +21,29 @@ local function fixture()
     f.state = {character = f.character, combat = f.combat, key = "validated-local-world-pawn"}
     f.attribute_names = {"MeleeDamageMultiplier", "ClawsDamageMultiplier", "MagicDamageMultiplier", "UnarmedDamageMultiplier"}
     f.attributes, f.bases, f.attribute_writes = {}, {}, {}
-    for i, name in ipairs(f.attribute_names) do f.attributes[i] = {name = name}; f.bases[name] = 1 + i * 0.25 end
+    for i, name in ipairs(f.attribute_names) do
+        f.attributes[i] = {name=name,AttributeName=name,AttributeOwner=f.class,
+            HappyCheatsAttributeResolvedField=0x1000+i*8,HappyCheatsAttributeWeakOwner=0x123456}
+        f.bases[name] = 1+i*0.25
+    end
     function f.asc:GetAllAttributes(output)
         f.attribute_scans = (f.attribute_scans or 0) + 1
         for i, descriptor in ipairs(f.attributes) do
             output[i] = {get = function() return descriptor end}
         end
     end
-    function f.library:GetDebugStringFromGameplayAttribute(attribute) return "CharacterBaseAttributeSet." .. attribute.name end
+    function f.library:GetDebugStringFromGameplayAttribute(attribute) return "CharacterBaseAttributeSet." .. (attribute.name or attribute.AttributeName) end
     function f.library:GetFloatAttributeBaseFromAbilitySystemComponent(asc, attribute, found)
+        local name=attribute.name or attribute.AttributeName
+        attribute=setmetatable({name=name},{__index=attribute})
         equal(asc, f.asc, "Attribute read uses original ASC")
         found.bSuccessfullyFoundAttribute = f.bases[attribute.name] ~= nil and f.base_unreadable ~= attribute.name
         if f.base_unreadable_once == attribute.name then found.bSuccessfullyFoundAttribute = false; f.base_unreadable_once = nil end
         return f.bases[attribute.name]
     end
     function f.library:GetFloatAttributeFromAbilitySystemComponent(asc, attribute, found)
+        local name=attribute.name or attribute.AttributeName
+        attribute=setmetatable({name=name},{__index=attribute})
         equal(asc, f.asc, "Current attribute read uses original ASC")
         found.bSuccessfullyFoundAttribute = f.bases[attribute.name] ~= nil and f.current_unreadable ~= attribute.name
         if f.current_unreadable_once == attribute.name then found.bSuccessfullyFoundAttribute = false; f.current_unreadable_once = nil end
@@ -46,11 +54,16 @@ local function fixture()
         return string.unpack("<f", string.pack("<f", value))
     end
     function f.combat_library:SetAttributeValue(asc, attribute, value)
+        assert(type(attribute)=="table" and attribute.name==nil,"Native mutable reference requires an OUT table, not descriptor userdata")
+        assert(attribute.HappyCheatsAttributeResolvedField and attribute.HappyCheatsAttributeWeakOwner,"FieldPath must survive table marshalling")
+        local reference=attribute
+        attribute={name=reference.AttributeName}
         equal(asc, f.asc, "Native attribute write uses original ASC")
         f.attribute_writes[#f.attribute_writes + 1] = {name = attribute.name, value = value}
         if f.ignore_write == #f.attribute_writes then return end
         if f.setter_fails then error("setter failure") end
         f.bases[attribute.name] = string.unpack("<f", string.pack("<f", value))
+        if f.mutate_reference_output then for key in pairs(reference) do reference[key]=nil end end
         if f.after_attribute_write then f.after_attribute_write(attribute.name, value) end
     end
     function f.combat:GetAbilitySystemComponent() return f.combat_asc end
@@ -103,6 +116,11 @@ local function fixture()
             return value and value._valid and value[key]
         end,
         register_property = function(name, owner, kind, offset)
+            if owner=="/Script/GameplayAbilities.GameplayAttribute" then
+                equal(kind,"Int64Property");equal(offset,name=="HappyCheatsAttributeResolvedField" and 0x10 or 0x18)
+                f.attribute_registrations=(f.attribute_registrations or 0)+1
+                return not f.registration_failed
+            end
             equal(name, VISIBILITY_FLAGS); equal(owner, "/Script/DogwoodAI.DogwoodPlayerAIStub")
             equal(kind, "ByteProperty"); equal(offset, 0x30)
             f.registrations = (f.registrations or 0) + 1
@@ -798,6 +816,31 @@ do
     equal(f.trainer:disable_all(), true)
     equal(f.stub[VISIBILITY_FLAGS], 0)
     equal(f.effects[f.last_handle], 0)
+    originals(f)
+end
+for _,kind in ipairs({"field","weak","name","owner"}) do
+    local f=fixture()
+    if kind=="field" then f.attributes[1].HappyCheatsAttributeResolvedField=0x1001
+    elseif kind=="weak" then f.attributes[1].HappyCheatsAttributeWeakOwner=0
+    elseif kind=="name" then f.attributes[1].AttributeName="WrongAttribute"
+    else f.attributes[1].AttributeOwner=nil end
+    f.trainer:refresh(f.state)
+    equal(f.trainer:apply(f.state,"dawnwalker_damage",true),false,"Reject invalid native reference descriptor: "..kind)
+    equal(#f.attribute_writes,0,"Descriptor validation precedes every damage mutation")
+end
+do
+    local f=fixture();additive_defaults(f);f.current_scale=2;f.mutate_reference_output=true;damage_enable(f)
+    equal(f.trainer:apply(f.state,"dawnwalker_damage",false),true,"Mutable OUT tables cannot corrupt correction/cleanup snapshots")
+    for _,name in ipairs(f.attribute_names) do equal(f.bases[name],0) end
+end
+do
+    local f=fixture()
+    for _,attribute in ipairs(f.attributes) do
+        local name=attribute.name
+        attribute.AttributeName={ToString=function() return name end}
+    end
+    damage_enable(f)
+    equal(f.trainer:apply(f.state,"dawnwalker_damage",false),true,"Native FString descriptor names are copied as Lua strings")
     originals(f)
 end
 print("Dawnwalker combat: " .. checks .. " assertions passed")

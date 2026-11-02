@@ -35,7 +35,12 @@ local function register_property(name, owner, kind, offset)
     local resource_lock = owner == "/Script/DogwoodCombat.CombatComponentBase" and kind == "IntProperty"
         and ((name == "HappyCheatsHealthLockHandle" and offset == 0x7C8)
             or (name == "HappyCheatsStaminaLockHandle" and offset == 0x7D0))
-    if not item and not player_visibility and not hit_flags and not resource_lock then return false, "Unverified custom property" end
+    -- FGameplayAttribute's resolved field and weak owner are copied only into
+    -- temporary native parameter structs. No gameplay attribute data is exposed.
+    local attribute_reference = owner == "/Script/GameplayAbilities.GameplayAttribute" and kind == "Int64Property"
+        and ((name == "HappyCheatsAttributeResolvedField" and offset == 0x10)
+            or (name == "HappyCheatsAttributeWeakOwner" and offset == 0x18))
+    if not item and not player_visibility and not hit_flags and not resource_lock and not attribute_reference then return false, "Unverified custom property" end
     if registered_properties[name] ~= nil then return registered_properties[name], "Cached custom property" end
     local ok, reason = pcall(function()
         RegisterCustomProperty({Name=name, Type=PropertyTypes[kind], BelongsToClass=owner, OffsetInternal=offset})
