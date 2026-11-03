@@ -13,7 +13,7 @@ public sealed class DawnwalkerModule(string baseDirectory) : IGameModule
     public const string SupportedExecutableHash = "75006EE2B3D662E7AA697804A5129B04F336E40F76C2FE8D3A72AD107552A8C6";
     public const string PreviousSupportedExecutableHash = "E6222B815B1C376F2C85A2189120C5A9B5CD30AC5688A34B61A2C18EFBC9B117";
     public const string BridgeRoot = "Dawnwalker/Binaries/Win64/ue4ss/Mods/HappyCheatsDawnwalker/bridge/";
-    public const string TrainerVersion = "0.5.5";
+    public const string TrainerVersion = "0.5.6";
     private readonly string package = Path.Combine(baseDirectory, "payload", "dawnwalker");
     private readonly SemaphoreSlim commandLock = new(1, 1);
     private readonly object inspectionLock = new();
@@ -32,7 +32,7 @@ public sealed class DawnwalkerModule(string baseDirectory) : IGameModule
             new("dawnwalker_blood", "Refill blood and stamina continuously", "Every 250 ms, refill blood and stamina through the native resource methods. Damaged blood segments are restored. Works alongside Infinite stamina; disabling this refill leaves that separate toggle unchanged. Refills may persist in normal saves.", "F4", true, "Survival"),
             new("dawnwalker_invulnerable", "Invulnerability", "Apply the game's invulnerability effect to prevent health damage. Disable removes only the effect created by this trainer.", "F5", true, "Combat & movement"),
             new("dawnwalker_auto_parry", "Auto parry", "Time a native directional guard against the next nearby frontal enemy attack. Skips unblockable attacks, yields to manual guard and releases its own guard after the attack. Native stamina, cooldown and combat rules apply; experimental gameplay validation is pending.", "NumPad5", true, "Combat & movement"),
-            new("dawnwalker_damage", "Super damage", "Apply and verify 10× melee, claw, magic and unarmed attack multipliers. Measured correction accounts for active scaling; overrides and clamps can prevent application. Disable restores values still owned by this trainer; game changes can turn the control off.", "F8", true, "Combat & movement"),
+            new("dawnwalker_damage", "Super damage", "Apply and verify 10× melee, claw, magic and unarmed attack multipliers. Reapply against the new baseline when teleporting or scaling changes attack factors. Overrides, clamps or failed ownership checks stop restoration with an error; turn Off then On to retry. Disable restores values still owned by this trainer.", "F8", true, "Combat & movement"),
             new("dawnwalker_invisible", "Invisibility", "Block normal enemy perception and targeting while keeping your character visible. Existing alerts and scripted encounters may persist. Disable restores normal detection.", "F9", true, "Combat & movement"),
             new("dawnwalker_fly", "Fly", "Enable flight with normal directional movement. Space / Left Ctrl or right / left trigger ascend and descend. Disable restores the previous movement mode; collision remains active.", "F11", true, "Combat & movement"),
             new("dawnwalker_teleport", "Teleport to map marker", "Move directly to a newly placed custom map marker without requesting fast travel. Close the map first. Requires loaded, walkable ground with clear space for the player; unloaded or unsafe destinations are refused.", "F7", false, "Combat & movement"),

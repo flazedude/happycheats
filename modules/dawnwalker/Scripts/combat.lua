@@ -257,6 +257,7 @@ end
 
 function Instance:_disable_damage()
     local lease = self.damage_lease
+    self.damage_active = false
     if not lease then self.damage_active = false; return true, "Super damage disabled" end
     if not self.api.valid(lease.asc) then self.damage_lease, self.damage_active = nil, false; return true, "Previous ability system no longer exists" end
     local pending, preserved = {}, false
@@ -404,7 +405,7 @@ function Instance:_apply_damage(state, enabled)
             return false, cleaned and "Damage factors changed during application; owned changes were restored" or message
         end
     end
-    self.damage_active, self.damage_reason = true, nil
+    self.damage_active, self.damage_reason, self.damage_problem = true, nil, nil
     return true, "Super damage enabled: current native attack factors x10; inactive factors unchanged"
 end
 
@@ -457,6 +458,7 @@ function Instance:_disable_invulnerable()
 end
 
 function Instance:disable_all()
+    self.damage_problem = nil
     local damage_ok, damage_message = self:_disable_damage()
     local invulnerable_ok, invulnerable_message = self:_disable_invulnerable()
     local invisible_ok, invisible_message = self:_disable_invisible()
@@ -515,10 +517,23 @@ function Instance:refresh(state)
                 elseif not damage_close(evaluated, entry.expected_current) then changed = true end
             end
         end
-        if changed then
+        if changed and self.damage_active then
+            -- Teleporting/scaling can reset attributes without replacing the
+            -- player session. Retire only values still owned by this lease,
+            -- then capture the new baseline and verify a fresh application.
+            -- Never multiply the previous boosted values a second time. A
+            -- failed cleanup/application stops here until an explicit retry.
             local cleaned, message = self:_disable_damage()
-            self.damage_reason = cleaned and "Damage factors changed; super damage disabled. Enable it again if needed" or message
-            if not cleaned then available[DAMAGE] = false end
+            local restored = false
+            if cleaned then restored, message = self:_apply_damage(state, true) end
+            if restored then
+                self.damage_reason = "Super damage restored after attack factors changed"
+                self.damage_problem = nil
+            else
+                self.damage_reason = "Super damage restoration failed: " .. message .. "; turn it off and on to retry"
+                self.damage_problem = self.damage_reason
+                available[DAMAGE] = false
+            end
         elseif unreadable or not self.damage_active then
             available[DAMAGE] = false; self.damage_reason = "Owned damage values could not be confirmed"
         end
@@ -540,6 +555,11 @@ function Instance:refresh(state)
     end
     values.diagnostic_invulnerable = self.reason or (self.active and "Owned native invulnerability effect active" or "Native invulnerability effect ready")
     values.diagnostic_damage = self.damage_reason or (self.damage_active and "Current native attack factors x10; inactive factors unchanged" or "Native damage factors ready; base and evaluated values checked on enable")
+    if self.damage_problem then
+        values.diagnostic_damage = self.damage_problem
+        values.dawnwalker_combat_status = self.damage_problem
+        values.diagnostic_control_error = "true"
+    end
     values.diagnostic_invisible = self.invisible_reason or (available[INVISIBLE]
         and (self.invisible_active and "Enemies ignore the player; existing alert memory may persist" or "Player-only enemy detection override ready")
         or "Verified player AI visibility binding unavailable")
@@ -548,6 +568,7 @@ end
 
 function Instance:apply(state, action, enabled)
     if action == DAMAGE then
+        if enabled == false then self.damage_problem = nil end
         local ok, message = self:_apply_damage(state, enabled)
         self.damage_reason = message
         return ok, message

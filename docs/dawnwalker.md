@@ -1,6 +1,8 @@
 # The Blood of Dawnwalker
 
-Experimental trainer **0.5.5**, independent Dawnwalker package **1.0.6**, for HappyCheats **0.3.65 or later**. Supports the inspected Windows Steam builds **25915545** and **26379537**, executable version `dw1-pc-265636-shipping-patch3-all-CL-265636` (Unreal Engine 5.5.4). Other executable hashes are rejected pending a compatibility check.
+Experimental trainer **0.5.6**, independent Dawnwalker package **1.0.7**, for HappyCheats **0.3.65 or later**. Supports the inspected Windows Steam builds **25915545** and **26379537**, executable version `dw1-pc-265636-shipping-patch3-all-CL-265636` (Unreal Engine 5.5.4). Other executable hashes are rejected pending a compatibility check.
+
+Version 0.5.6 restores Super damage when teleporting or scaling changes attack factors within the same player session. It restores values still owned by the old lease, captures the new game baseline and verifies a fresh 10× application without compounding existing boosts. Failed cleanup or application reports an error and waits for explicit Off/On; Off and Disable all remain authoritative. The client stays at 0.3.69. New-payload teleport/gameplay behavior remains unverified. [Damage investigation](dawnwalker-damage.md), [package notes](cheats/dawnwalker/1.0.7.en.txt).
 
 Version 0.5.5 preserves Infinite health/stamina requests when the game retires their active native effects, renews only confirmed-ended effects and waits for active game-owned replacements instead of adopting or removing them. F4 is now **Refill blood and stamina continuously**, retaining the existing controller chord and action ID. HappyCheats 0.3.69 also remembers requested toggles for all games through loading and session changes, with explicit Off/Disable all cancelling restoration. [Resource investigation and limits](dawnwalker-resource-continuity.md), [package notes](cheats/dawnwalker/1.0.6.en.txt).
 

@@ -1,4 +1,4 @@
--- HappyCheats Dawnwalker 0.5.5. Engine access is scheduled on the game thread.
+-- HappyCheats Dawnwalker 0.5.6. Engine access is scheduled on the game thread.
 local source = debug.getinfo(1, "S").source:gsub("^@", ""):gsub("\\", "/")
 local scripts = assert(source:match("^(.*)/[^/]+$"), "Cannot locate trainer scripts")
 local bridge = scripts .. "/../bridge/"
@@ -9,7 +9,7 @@ local boot = tostring(os.time()) .. "-" .. tostring({}):gsub("[^%w]", "")
 local serial, identity, session = 0, nil, boot .. "-0"
 local seen = {}
 local last_command, last_success, last_message = "", false, ""
-local status = {schema_version=1, version="0.5.5", session_id=session, ready=false,
+local status = {schema_version=1, version="0.5.6", session_id=session, ready=false,
     message="Dawnwalker trainer starting; waiting for the game thread", enabled={}, values={}, available={}}
 
 local flight_timer
@@ -208,4 +208,4 @@ for _, shortcut in ipairs({{Key.F1,"dawnwalker_health"}, {Key.F2,"dawnwalker_sta
         end)
     end)
 end
-print("[HappyCheats] Dawnwalker 0.5.5 loaded. All toggles start off.\n")
+print("[HappyCheats] Dawnwalker 0.5.6 loaded. All toggles start off.\n")

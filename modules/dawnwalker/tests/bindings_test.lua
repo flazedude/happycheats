@@ -660,5 +660,19 @@ do
     equal(api.invoke_function("/Script/Fixture.Interface:Missing",f.pawn),false,"Missing function fails closed")
     equal(f.trainer:apply("dawnwalker_auto_parry",false),true);f.trainer:tick();equal(ticks,2,"Off parry does no fast work")
 end
+do
+    local extension={}
+    local problem="Super damage restoration failed: test failure; turn it off and on to retry"
+    function extension:refresh() return {dawnwalker_damage=false}, {
+        dawnwalker_combat_status=problem, diagnostic_damage=problem, diagnostic_control_error="true"} end
+    function extension:enabled() return {dawnwalker_damage=false} end
+    function extension:disable_all() return true end
+    local f=fixture(true,{combat={new=function() return extension end}})
+    local ok,message,values,available=f.trainer:refresh()
+    equal(ok,true,"A combat restoration error does not disconnect unrelated controls")
+    equal(message,problem,"Restoration failure reaches the client's existing message/log path")
+    equal(values.diagnostic_control_error,"true")
+    equal(available.dawnwalker_damage,false)
+end
 equal(discovery_calls,0,"No binding path falls back to global discovery")
 print("Dawnwalker native binding boundary: "..checks.." assertions passed")

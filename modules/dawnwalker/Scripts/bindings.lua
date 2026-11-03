@@ -298,7 +298,7 @@ function Instance:refresh()
         for name, value in pairs(values) do self.values[name] = value end
     end
     self.available.dawnwalker_blood = self.available.dawnwalker_blood and self.available.dawnwalker_stamina
-    self.message = self.values.dawnwalker_resource_status or (self.extensions.resources and "Ready; health and stamina use owned native locks; blood and stamina use periodic top-ups"
+    self.message = self.values.dawnwalker_combat_status or self.values.dawnwalker_resource_status or (self.extensions.resources and "Ready; health and stamina use owned native locks; blood and stamina use periodic top-ups"
         or "Ready; health, stamina and blood use periodic top-ups")
     for _, action in ipairs(IDS) do
         if self.flags[action] then

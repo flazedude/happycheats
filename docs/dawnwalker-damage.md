@@ -1,5 +1,13 @@
 # Dawnwalker damage multiplier audit
 
+## Trainer 0.5.6 / package 1.0.7: restore same-session attack changes (3 November 2026)
+
+The user reports Super damage switching off after teleporting. The previous maintenance code explicitly disabled it whenever any base or evaluated attack factor differed from its captured snapshot. Such changes can occur without a new player/session key, so the client's global loading/session continuity does not cover them. This diagnosis is based on the code path and reported symptom; the teleport transition has not been captured with the new payload.
+
+Maintenance now retires the old lease using conditional ownership checks, preserves game-changed bases and modifiers, then captures fresh descriptors and applies the existing measured 10× correction against the new baseline. Unchanged boosted fields are restored before recapture so they never become a 100× baseline. Steady polls do not write. ASC ownership, full native field-path identity and final base/evaluated readback remain required. Failed cleanup or application stops automatic restoration, retains actionable diagnostics through the existing client error/log path and requires explicit Off/On. A failed cleanup is not reported as confirmed active and does not loop mutations. Explicit Off and Disable all cancel restoration.
+
+Offline boundary tests cover repeated same-player location resets, changed additive/scaling modifiers, newly active factors, exact latest-baseline cleanup, explicit cancellation, clamps, failed cleanup and bounded retries. The rebuilt payload and full release checks do not establish actual hit damage, live teleport behavior or physical-controller validation. The package leaves the client version/EXE unchanged.
+
 ## Trainer 0.5.3 / package 1.0.4: complete GAS key identity (3 November 2026)
 
 **Native enable/readback/restore validated; actual hit damage remains unmeasured.** After the 0.5.2 install, the live status recorded failures for melee and claws. Subsequent read-only sampling found all four base/current pairs zero, while the same ASC still contained positive additive modifiers and intact damage aggregators. A normal request through the installed 0.5.2 module then refused activation because no positive factors remained; its normal off command was acknowledged. The user initially kept the game open, then closed it for candidate testing. A later launch still loaded 0.5.2, confirmed by its startup log and four installed Lua files differing from the candidate; the cause of replacement was not established. After another user-initiated close, the normal installer reinstalled and hash-verified every 0.5.3 manifest file. No game was launched automatically.

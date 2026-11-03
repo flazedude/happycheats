@@ -393,8 +393,9 @@ do
     f.trainer:refresh(f.state); equal(f.trainer:enabled().dawnwalker_damage, true)
     f.additive.MagicDamageMultiplier = 1
     f.trainer:refresh(f.state)
-    equal(f.trainer:enabled().dawnwalker_damage, false, "A newly active factor disengages the prior snapshot")
-    equal(#f.attribute_writes, 6, "Only three owned bases need restoration")
+    equal(f.trainer:enabled().dawnwalker_damage, true, "A newly active factor is included in the renewed snapshot")
+    equal(f.bases.MagicDamageMultiplier, 9, "New attack factor is boosted against its game baseline")
+    equal(f.trainer:apply(f.state, "dawnwalker_damage", false), true)
     for _, name in ipairs(f.attribute_names) do equal(f.bases[name], 0) end
     equal(f.additive.MagicDamageMultiplier, 1, "New gameplay modifier survives cleanup")
 end
@@ -410,6 +411,8 @@ do
     local f = fixture(); additive_defaults(f); f.current_scale = 2; damage_enable(f)
     f.bases.MeleeDamageMultiplier = 18 -- A later game-owned change equals the old probe.
     f.trainer:refresh(f.state)
+    equal(f.trainer:enabled().dawnwalker_damage, true)
+    equal(f.trainer:apply(f.state, "dawnwalker_damage", false), true)
     equal(f.bases.MeleeDamageMultiplier, 18, "A confirmed correction relinquishes ownership of the old probe")
     equal(f.trainer:enabled().dawnwalker_damage, false)
 end
@@ -462,7 +465,8 @@ do
     local f = fixture(); additive_defaults(f); damage_enable(f)
     f.additive.ClawsDamageMultiplier = 2
     f.trainer:refresh(f.state)
-    equal(f.trainer:enabled().dawnwalker_damage, false, "Evaluated change is detected even when all owned bases are unchanged")
+    equal(f.trainer:enabled().dawnwalker_damage, true, "Evaluated changes renew against a fresh baseline")
+    equal(f.trainer:apply(f.state, "dawnwalker_damage", false), true)
     for _, name in ipairs(f.attribute_names) do equal(f.bases[name], 0) end
     equal(f.additive.ClawsDamageMultiplier, 2, "Gameplay effect change survives owned-base cleanup")
 end
@@ -553,7 +557,10 @@ do
     local f = fixture(); damage_enable(f)
     f.bases.MeleeDamageMultiplier = 7.5
     f.trainer:refresh(f.state)
-    equal(f.trainer:enabled().dawnwalker_damage, false)
+    equal(f.trainer:enabled().dawnwalker_damage, true, "A same-session teleport reset automatically restores damage")
+    equal(f.bases.MeleeDamageMultiplier, 75, "New game baseline is multiplied exactly once")
+    equal(f.bases.ClawsDamageMultiplier, 15, "Unchanged owned bases are restored before reapplication")
+    equal(f.trainer:apply(f.state, "dawnwalker_damage", false), true)
     equal(f.bases.MeleeDamageMultiplier, 7.5, "External base change preserved")
     equal(f.bases.ClawsDamageMultiplier, 1.5, "Other owned fields restored")
     equal(f.bases.MagicDamageMultiplier, 1.75)
@@ -858,5 +865,78 @@ do
     local f=fixture();f.attributes[1].HappyCheatsAttributePathData=0;f.trainer:refresh(f.state)
     equal(f.trainer:apply(f.state,"dawnwalker_damage",true),false,"Missing path storage is rejected")
     equal(#f.attribute_writes,0)
+end
+do
+    local f = fixture(); damage_enable(f)
+    for location = 1, 20 do
+        local baseline = 1 + location * 0.25
+        f.bases.MeleeDamageMultiplier = baseline
+        local available, values = f.trainer:refresh(f.state)
+        equal(available.dawnwalker_damage, true)
+        equal(f.trainer:enabled().dawnwalker_damage, true, "Repeated same-player teleports retain super damage")
+        equal(values.diagnostic_damage, "Super damage restored after attack factors changed")
+        equal(f.bases.MeleeDamageMultiplier, baseline * 10)
+        equal(f.bases.ClawsDamageMultiplier, 15, "Unchanged boosted factors never compound")
+        local writes = #f.attribute_writes
+        for _ = 1, 3 do f.trainer:refresh(f.state) end
+        equal(#f.attribute_writes, writes, "Stable post-teleport polls do not reapply")
+    end
+    equal(f.trainer:disable_all(), true)
+    equal(f.bases.MeleeDamageMultiplier, 6, "Disable all restores the latest game baseline")
+    local writes = #f.attribute_writes
+    f.bases.MeleeDamageMultiplier = 2
+    f.trainer:refresh(f.state)
+    equal(#f.attribute_writes, writes, "Disable all cancels automatic restoration")
+    equal(f.trainer:enabled().dawnwalker_damage, false)
+end
+do
+    local f = fixture(); additive_defaults(f); damage_enable(f)
+    f.current_scale = 2
+    f.trainer:refresh(f.state)
+    equal(f.trainer:enabled().dawnwalker_damage, true, "Scaling changes rebase before measured correction")
+    for _, name in ipairs(f.attribute_names) do
+        equal((f.bases[name] + f.additive[name]) * 2, 20, "New evaluated baseline is multiplied once")
+    end
+    equal(f.trainer:apply(f.state, "dawnwalker_damage", false), true)
+    for _, name in ipairs(f.attribute_names) do equal(f.bases[name], 0) end
+    f.trainer:refresh(f.state)
+    equal(f.trainer:enabled().dawnwalker_damage, false, "Explicit Off remains off")
+end
+do
+    local f = fixture(); damage_enable(f)
+    f.current_clamp = 3
+    local available, values = f.trainer:refresh(f.state)
+    equal(f.trainer:enabled().dawnwalker_damage, false, "A clamp cannot be reported as restored")
+    equal(available.dawnwalker_damage, false)
+    equal(values.diagnostic_control_error, "true")
+    assert(values.dawnwalker_combat_status:find("turn it off and on to retry", 1, true))
+    local writes, scans = #f.attribute_writes, f.attribute_scans
+    f.current_clamp = nil
+    for _ = 1, 10 do
+        local _, later = f.trainer:refresh(f.state)
+        equal(later.dawnwalker_combat_status, values.dawnwalker_combat_status, "Restoration failure remains actionable")
+    end
+    equal(#f.attribute_writes, writes, "Failed restoration never loops writes")
+    equal(f.attribute_scans, scans, "Failed restoration never retries automatically")
+    equal(f.trainer:apply(f.state, "dawnwalker_damage", false), true)
+    equal(f.trainer:refresh(f.state).dawnwalker_damage, true)
+    equal(select(2, f.trainer:refresh(f.state)).diagnostic_control_error, nil)
+    damage_enable(f)
+end
+do
+    local f = fixture(); damage_enable(f)
+    f.bases.MeleeDamageMultiplier = 2
+    f.setter_fails = true
+    local _, values = f.trainer:refresh(f.state)
+    equal(f.trainer:enabled().dawnwalker_damage, false, "Failed cleanup cannot remain confirmed active")
+    equal(values.diagnostic_control_error, "true")
+    local writes, scans = #f.attribute_writes, f.attribute_scans
+    for _ = 1, 10 do f.trainer:refresh(f.state) end
+    equal(#f.attribute_writes, writes, "Failed cleanup waits for explicit retry")
+    equal(f.attribute_scans, scans, "Unresolved owned values block reapplication")
+    f.setter_fails = nil
+    equal(f.trainer:apply(f.state, "dawnwalker_damage", false), true)
+    equal(f.bases.MeleeDamageMultiplier, 2, "Foreign reset remains the baseline after failed cleanup")
+    damage_enable(f)
 end
 print("Dawnwalker combat: " .. checks .. " assertions passed")

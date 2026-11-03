@@ -1,0 +1,9 @@
+The Blood of Dawnwalker package 1.0.7 — trainer 0.5.6
+
+Fixes Super damage turning off when teleporting or scaling changes attack factors without replacing the player session. The trainer conditionally restores its previous owned values, preserves game-changed values and modifiers, captures the new baseline and verifies a fresh 10× application. Existing boosts are never compounded into the next baseline. Explicit Off and Disable all still cancel the effect.
+
+Failed cleanup, ownership checks, clamps or unverified application stop automatic restoration and report an actionable error through the existing client message/log path. Turn Super damage Off then On to retry after the game is ready. Uncertain cleanup is not reported as active and is not retried in an unbounded mutation loop.
+
+Only Dawnwalker's independent package changes. The HappyCheats client remains 0.3.69 and its EXE is unchanged. Close Dawnwalker, then click Update beside Library Sort to download, verify and install this trainer in one operation. Compatible with clients 0.3.65+; global loading/session continuity requires client 0.3.69.
+
+Validation: rebuilt payload, eight Lua suites including repeated same-session resets, modifier changes, cancellation, ownership failures and bounded failure handling, plus the required offline release suites. Actual gameplay and teleport behavior with this new payload, hit damage and physical controllers remain unverified. No agent game launch/close, game command or save change was used for validation.
