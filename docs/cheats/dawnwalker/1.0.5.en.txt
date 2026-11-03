@@ -1,0 +1,7 @@
+The Blood of Dawnwalker package 1.0.5 — trainer 0.5.4
+
+Adds exact compatibility for installed Steam build 26379537 / CL-265636 and retains the previously inspected build 25915545 executable. Rechecked 172 unchanged executable chunks, native registration/data sections and 111 documented binding addresses against both retained Steam depot manifests. Unknown executable hashes remain rejected. All fifteen controls, native ownership/readback guards, instant marker teleport and shared menu/controller shortcuts are unchanged.
+
+Close Dawnwalker, click Update beside Library Sort and update Dawnwalker. Current clients download, verify, load and install the trainer in one operation; unfinished setup retries through the same action. The HappyCheats client version and standalone EXE remain unchanged.
+
+Validation: read-only installed-file and depot-manifest inspection, rebuilt payload, eight offline Lua suites, minimal-hook profile rejection, exact-executable allowlist regressions and required offline release suites. No game was launched or closed and no save was changed. Startup, runtime hook installation, actual cheat effects, physical controllers and performance on build 26379537 remain unverified. Prior live damage-readback evidence applies to the previous executable.

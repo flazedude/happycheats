@@ -10,6 +10,13 @@ internal static class DawnwalkerTests
     public static int RunAll()
     {
         passed = failed = 0;
+        Run("Dawnwalker exact executable allowlist retains patch 3 and accepts build 26379537", () => {
+            Assert(DawnwalkerModule.IsSupportedExecutableHash("75006EE2B3D662E7AA697804A5129B04F336E40F76C2FE8D3A72AD107552A8C6"));
+            Assert(DawnwalkerModule.IsSupportedExecutableHash("e6222b815b1c376f2c85a2189120c5a9b5cd30ac5688a34b61a2c18efbc9b117"));
+            Assert(!DawnwalkerModule.IsSupportedExecutableHash("75006EE2B3D662E7AA697804A5129B04F336E40F76C2FE8D3A72AD107552A8C7"));
+            Assert(!DawnwalkerModule.IsSupportedExecutableHash("dw1-pc-265636-shipping-patch3-all-CL-265636"));
+            Assert(!DawnwalkerModule.IsSupportedExecutableHash(""));
+        });
         Run("Dawnwalker verified installation and owned removal", () => {
             using var fixture = new Fixture();
             DawnwalkerInstaller.Install(fixture.Package, fixture.Game, () => { });

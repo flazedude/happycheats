@@ -10,9 +10,10 @@ public sealed class DawnwalkerModule(string baseDirectory) : IGameModule
 {
     public IReadOnlyList<string> GameExecutables { get; } = [Executable];
     public const string Executable = "Dawnwalker/Binaries/Win64/Dawnwalker.exe";
-    public const string SupportedExecutableHash = "E6222B815B1C376F2C85A2189120C5A9B5CD30AC5688A34B61A2C18EFBC9B117";
+    public const string SupportedExecutableHash = "75006EE2B3D662E7AA697804A5129B04F336E40F76C2FE8D3A72AD107552A8C6";
+    public const string PreviousSupportedExecutableHash = "E6222B815B1C376F2C85A2189120C5A9B5CD30AC5688A34B61A2C18EFBC9B117";
     public const string BridgeRoot = "Dawnwalker/Binaries/Win64/ue4ss/Mods/HappyCheatsDawnwalker/bridge/";
-    public const string TrainerVersion = "0.5.3";
+    public const string TrainerVersion = "0.5.4";
     private readonly string package = Path.Combine(baseDirectory, "payload", "dawnwalker");
     private readonly SemaphoreSlim commandLock = new(1, 1);
     private readonly object inspectionLock = new();
@@ -42,6 +43,10 @@ public sealed class DawnwalkerModule(string baseDirectory) : IGameModule
             new("dawnwalker_xp", "Add XP instantly", "Add exactly the XP needed for the next level once. Requires initialized level data and may be unavailable near the level cap. Gained progression may be saved normally.", "NumPad3", false, "Inventory & XP")
         });
 
+    internal static bool IsSupportedExecutableHash(string hash) =>
+        string.Equals(hash, SupportedExecutableHash, StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(hash, PreviousSupportedExecutableHash, StringComparison.OrdinalIgnoreCase);
+
     private bool Compatible(string directory, bool force = false)
     {
         var path = SafePath(directory, Executable);
@@ -51,7 +56,7 @@ public sealed class DawnwalkerModule(string baseDirectory) : IGameModule
         {
             if (!force && inspected is { } previous && previous.Path == path && previous.Length == file.Length && previous.Modified == file.LastWriteTimeUtc)
                 return previous.Compatible;
-            var compatible = string.Equals(Hash(path), SupportedExecutableHash, StringComparison.OrdinalIgnoreCase);
+            var compatible = IsSupportedExecutableHash(Hash(path));
             inspected = (path, file.Length, file.LastWriteTimeUtc, compatible);
             return compatible;
         }
@@ -98,7 +103,7 @@ public sealed class DawnwalkerModule(string baseDirectory) : IGameModule
                 !compatible ? "This Dawnwalker build needs a compatibility check."
                 : installed ? matching ? "Experimental The Blood of Dawnwalker trainer installed. Gameplay validation is pending."
                     : "The Blood of Dawnwalker trainer update required. Installed files differ from the current module."
-                : "The Blood of Dawnwalker Steam build 25915545 detected. Experimental trainer; gameplay validation is pending.");
+                : "A verified The Blood of Dawnwalker executable was detected. Experimental trainer; gameplay validation is pending.");
         } catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException) {
             return new GameInstallation(directory ?? "", "", false, false, false, false, error.Message);
         }
