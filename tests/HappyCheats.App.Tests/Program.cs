@@ -659,8 +659,18 @@ internal static class Program
             Check(main.Message == "地图传送已取消：目的地已改变、被删除或未及时确认。" && (bool)errorField.GetValue(main)!,
                 "The asynchronous cancellation reason was not retained in Chinese.");
             main.SetLanguage("en", persist: false);
-            Poll(ready with { SessionId = "new-crimson-session", Message = "Game found. Choose Connect trainer." });
+            // Match CrimsonDesertModule.AwaitingConnection: Connect is ready,
+            // but native features remain unavailable until explicit connection.
+            var awaitingConnection = new Dictionary<string, string>(ready.Values)
+            {
+                ["available_crimson_teleport"] = bool.FalseString,
+                ["available_crimson_auto_teleport"] = bool.FalseString,
+                ["available_crimson_connect"] = bool.TrueString
+            };
+            var beforeConnect = module.SentFeatures.Count;
+            Poll(ready with { SessionId = "new-crimson-session", Message = "Game found. Choose Connect trainer.", Values = awaitingConnection });
             Check(main.Message == "Game found. Choose Connect trainer.", "A previous-session teleport result survived a new connection session.");
+            Check(module.SentFeatures.Count == beforeConnect, "Toggle restoration bypassed explicit Crimson Desert Connect.");
             game.Status = ready;
             module.NextStatus = ready;
             Send("crimson_teleport");
