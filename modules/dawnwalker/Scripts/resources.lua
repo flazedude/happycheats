@@ -68,13 +68,43 @@ function Instance:_disable(action)
 end
 function Instance:_top_up(state, action)
     local a, c = self.api, CONFIG[action]
+    local lease = self.leases[action]
+    if not lease or lease.uncertain or not a.same(lease.combat,state.combat)
+        or a.read(lease.combat,c.field) ~= lease.handle.Handle or self:_count(lease) ~= 1 then
+        return false,c.label .. " refill requires its owned lock"
+    end
     local ok, value = a.invoke(state.combat, c.getter)
     if not ok or not a.finite(value) or value < 0 then return false, c.label .. " value unavailable" end
     if value >= 0.9999 then return true end
     if action == "dawnwalker_health" and value <= 0 then return false, "A living player is required" end
-    if not a.invoke(state.combat, c.setter, 1.0) then return false, c.label .. " setter failed" end
+    local previous = lease.handle
+    local written = a.invoke(state.combat, c.setter, 1.0)
+    local id = a.read(lease.combat,c.field)
+    if not written then lease.uncertain=true; return false,c.label .. " refill outcome is uncertain; restart the game" end
+    -- Set*Percent natively unlocks and re-locks whenever the numeric handle is
+    -- not -1, even if its old effect has ended. Follow only the synchronous
+    -- successor of our own active lock; never adopt an unrelated game lock.
+    if id ~= previous.Handle then
+        if not handle_id(a,id) or id == -1 or self:_count(lease) ~= 0 then
+            lease.uncertain=true
+            return false,c.label .. " refill lock replacement could not be confirmed"
+        end
+        local successor={Handle=id,bPassedFiltersAndWasExecuted=true}
+        local checked,count=a.invoke(lease.library,"GetActiveGameplayEffectStackCount",successor)
+        if not checked or count~=1 then lease.uncertain=true; return false,c.label .. " refill successor is not active" end
+        lease.handle=successor
+    end
+    local owner_ok, owner_asc=a.invoke(lease.combat,"GetAbilitySystemComponent")
+    if not owner_ok or not a.same(owner_asc,lease.asc)
+        or not a.same(a.read(state.character,"AbilitySystemComponent"),lease.asc)
+        or not a.same(a.read(state.character,"CombatComponent"),lease.combat)
+        or not a.same(a.read(state.character,"Controller"),state.controller) then
+        return false,c.label .. " ability-system ownership changed during refill"
+    end
     ok, value = a.invoke(state.combat, c.getter)
-    return ok and a.finite(value) and value >= 0.999, c.label .. " refill was not confirmed"
+    return ok and a.finite(value) and value >= 0.999
+        and a.read(lease.combat,c.field)==lease.handle.Handle and self:_count(lease)==1,
+        c.label .. " refill was not confirmed"
 end
 function Instance:apply(state, action, enabled)
     local c, a = CONFIG[action], self.api
@@ -102,8 +132,6 @@ function Instance:apply(state, action, enabled)
     local inactive = self:_inactive(binding,before)
     if inactive == nil then return false,c.label .. " existing lock could not be checked; try again" end
     if not inactive then return false, "The game already owns the " .. c.label:lower() .. " lock; try after it ends" end
-    local topped, reason = self:_top_up(state, action)
-    if not topped then return false, reason end
     local asc_ok, current_asc = a.invoke(state.combat, "GetAbilitySystemComponent")
     local pawn_ok, pawn = a.invoke(state.controller, "K2_GetPawn")
     local owner_ok, owner = a.invoke(state.combat, "GetCharacter")
@@ -120,6 +148,10 @@ function Instance:apply(state, action, enabled)
         or not local_ok or not local_player or not authority_ok or not authority or not alive_ok or not alive then
         return false, c.label .. " ownership changed before locking"
     end
+    local value_ok,initial=a.invoke(state.combat,c.getter)
+    if not value_ok or not a.finite(initial) or initial<0 or (action=="dawnwalker_health" and initial<=0) then
+        return false,c.label .. " value unavailable on a living player"
+    end
     lease = {asc=asc, combat=state.combat, library=binding.library, uncertain=true, key=state.key}
     self.leases[action] = lease
     local applied = a.invoke(state.combat, c.lock)
@@ -127,6 +159,11 @@ function Instance:apply(state, action, enabled)
     if not applied or not handle_id(a, id) then return false, c.label .. " lock outcome is uncertain; restart the game" end
     if id == -1 then self:_forget(action); return false, c.label .. " lock was not created" end
     lease.handle, lease.uncertain = {Handle=id, bPassedFiltersAndWasExecuted=true}, false
+    local topped, reason = self:_top_up(state,action)
+    if not topped then
+        local cleaned,message=self:_disable(action)
+        return false,cleaned and reason or message
+    end
     local read_ok, value = a.invoke(state.combat, c.getter)
     if self:_count(lease) ~= 1 or not read_ok or not a.finite(value) or value < 0.999 then
         local cleaned, message = self:_disable(action)
@@ -137,10 +174,20 @@ function Instance:apply(state, action, enabled)
 end
 function Instance:refill(state, action)
     local was_enabled = self.flags[action]
-    local ok, message = self:_disable(action)
-    if not ok then return false, message end
-    if was_enabled then return self:apply(state, action, true) end
-    return self:_top_up(state, action)
+    if was_enabled then
+        local ok,message=self:_top_up(state,action)
+        if ok then return true,CONFIG[action].label .. " restored; infinite resource remains enabled" end
+        local cleaned,cleanup=self:_disable(action)
+        return false,cleaned and message or cleanup
+    end
+    local cleaned,message=self:_disable(action)
+    if not cleaned then return false,message end
+    -- A one-shot refill owns a temporary lock too. Otherwise a stale native
+    -- handle makes Set*Percent silently create an untracked infinite effect.
+    local applied,reason=self:apply(state,action,true)
+    if not applied then return false,reason end
+    self.flags[action]=false -- A one-shot never requests an enabled toggle, including failed cleanup.
+    return self:_disable(action)
 end
 function Instance:disable_all()
     local success, messages = true, {}

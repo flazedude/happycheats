@@ -43,6 +43,9 @@ local function register_property(name, owner, kind, offset)
     if not item and not player_visibility and not hit_flags and not resource_lock and not attribute_reference then return false, "Unverified custom property" end
     if registered_properties[name] ~= nil then return registered_properties[name], "Cached custom property" end
     local ok, reason = pcall(function()
+        -- UScriptStruct indexing first performs FNAME_Find, before consulting
+        -- the custom-property registry. Registration alone does not intern it.
+        if attribute_reference and FName(name):ToString() ~= name then error("Custom struct property name unavailable") end
         RegisterCustomProperty({Name=name, Type=PropertyTypes[kind], BelongsToClass=owner, OffsetInternal=offset})
     end)
     registered_properties[name] = ok

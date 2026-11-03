@@ -59,11 +59,19 @@ local function fixture(observe, factories)
         discovery_calls=discovery_calls+1
         error("Global object discovery must not be used")
     end
-    f.registered={}
+    f.registered={};f.name_pool={};f.interned_names={}
     local env=setmetatable({
+        FName=function(name)
+            if f.name_failure then error("Name registration unavailable") end
+            f.name_pool[name]=true;f.interned_names[#f.interned_names+1]=name
+            return {ToString=function() return name end}
+        end,
         PropertyTypes={IntProperty="int32 fixture",ByteProperty="byte fixture",Int64Property="int64 fixture"},
         RegisterCustomProperty=function(info)
             if f.registration_failure then error("fixture registration failed") end
+            if info.BelongsToClass=="/Script/GameplayAbilities.GameplayAttribute" then
+                assert(f.name_pool[info.Name],"Struct alias must be interned before registration; FNAME_Find otherwise returns None")
+            end
             f.registered[#f.registered+1]=info
         end,
         FindAllOf=forbidden_scan, FindFirstOf=forbidden_scan,
@@ -475,6 +483,9 @@ do
     equal(api_seen.register_property("HappyCheatsAttributeResolvedField","/Script/GameplayAbilities.GameplayAttribute","Int64Property",0x10),true)
     equal(api_seen.register_property("HappyCheatsAttributeWeakOwner","/Script/GameplayAbilities.GameplayAttribute","Int64Property",0x18),true)
     equal(f.registered[4].Type,"int64 fixture");equal(f.registered[5].OffsetInternal,0x18)
+    equal(#f.interned_names,2,"Both temporary attribute aliases are interned")
+    equal(f.name_pool.HappyCheatsAttributeResolvedField,true)
+    equal(f.name_pool.HappyCheatsAttributeWeakOwner,true)
     equal(api_seen.register_property("HappyCheatsAttributeResolvedField","/Script/GameplayAbilities.GameplayAttribute","Int64Property",0x18),false,"Descriptor field offset is pinned")
     equal(api_seen.register_property("HappyCheatsAttributeWeakOwner","/Script/GameplayAbilities.GameplayAttribute","IntProperty",0x18),false,"Descriptor weak owner requires eight bytes")
     local map,location={}, {X=1,Y=2,Z=3}
@@ -487,6 +498,9 @@ do
     rejected.registration_failure=false
     equal(rejected_api.register_property("HappyCheatsItemHandleIndex", "/Script/DogwoodInventory.ItemHandle", "IntProperty", 0),false,"Uncertain registration is not retried")
     equal(#rejected.registered,0)
+    rejected.name_failure=true
+    equal(rejected_api.register_property("HappyCheatsAttributeResolvedField","/Script/GameplayAbilities.GameplayAttribute","Int64Property",0x10),false)
+    equal(#rejected.registered,0,"Failed name interning cannot expose an unreadable struct alias")
 end
 do
     local factories={}

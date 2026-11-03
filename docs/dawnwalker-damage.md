@@ -1,5 +1,11 @@
 # Dawnwalker damage multiplier audit
 
+## Trainer 0.5.2 custom struct-name correction (3 November 2026)
+
+Package **1.0.3** fixes the subsequent `Native damage descriptor could not be copied` failure. A fresh read-only snapshot of the running 0.5.1 trainer found both custom attribute aliases absent from Unreal's name pool. Pinned `LuaUScriptStruct::prepare_to_handle` converts an indexed string with **FNAME_Find** and returns nil immediately for comparison index zero, before consulting the custom-property registry. Registering the alias alone therefore did not make userdata indexing possible. UObject custom-property access and struct-to-table conversion follow different paths, so the existing health-handle aliases did not expose this problem.
+
+The two allowlisted attribute alias names are now interned with normal `FName(name)` construction before custom-property registration. Registration fails closed if name creation fails. No offset, pointer-copy bound or damage verification is relaxed. The regression fixture now models the separate name pool and requires interning before registration. New binding gameplay and actual tenfold damage still require confirmation after installing 0.5.2; no running trainer file was changed during inspection.
+
 ## Trainer 0.5.1 reference-parameter correction (3 November 2026)
 
 Independent Dawnwalker package **1.0.2** corrects an argument-marshalling defect missed by the earlier audit. Exact-build reflection marks `CombatBlueprintFunctionLibrary.SetAttributeValue.AttributeToSet` with flags **0x18000008000180**: OUT and ReferenceParm, without ConstParm. The two scalar getter attributes are ordinary input parameters. Pinned UE4SS explicitly requires a Lua **table** for a non-const OUT argument before calling ProcessEvent; passing the getter's UScriptStruct userdata to the setter is rejected before native execution. The earlier generic verification error discarded that invocation failure and suggested active scaling instead.

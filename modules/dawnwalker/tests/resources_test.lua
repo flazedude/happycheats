@@ -18,8 +18,20 @@ local function fixture()
     function f.combat:GetAbilitySystemComponent() return f.combat_asc or f.asc end
     function f.combat:GetHealthPercentage() return f.health end
     function f.combat:GetStaminaPercentage() return f.stamina end
-    function f.combat:SetHealthPercent(v) f.sets=f.sets+1; if not f.ignore_set then f.health=v end; if f.after_set then f.after_set() end end
-    function f.combat:SetStaminaPercent(v) f.sets=f.sets+1; if not f.ignore_set then f.stamina=v end end
+    local function set_percent(kind,v)
+        f.sets=f.sets+1
+        local key=kind=="health" and "HappyCheatsHealthLockHandle" or "HappyCheatsStaminaLockHandle"
+        local relock=f.combat[key]~=-1
+        if relock then f.effects[f.combat[key]]=0;f.combat[key]=-1 end
+        if not f.ignore_set then f[kind]=v end
+        if f.after_set then f.after_set() end
+        if relock then
+            f.effects[f.combat[key]]=0
+            f.next_id=f.next_id+1;f.combat[key]=f.next_id;f.effects[f.next_id]=1
+        end
+    end
+    function f.combat:SetHealthPercent(v) set_percent("health",v) end
+    function f.combat:SetStaminaPercent(v) set_percent("stamina",v) end
     local function lock(kind)
         f.calls[#f.calls+1]="lock_"..kind
         local key=kind=="health" and "HappyCheatsHealthLockHandle" or "HappyCheatsStaminaLockHandle"
@@ -88,11 +100,12 @@ do
     eq(f.trainer:disable_all(),true);eq(f.combat.HappyCheatsStaminaLockHandle,-1)
 end
 do
-    local f=fixture();ready(f);f.ignore_set=true;eq(f.trainer:apply(f.state,HEALTH,true),false);eq(#f.calls,0,"Failed refill never locks partial health")
+    local f=fixture();ready(f);f.ignore_set=true;eq(f.trainer:apply(f.state,HEALTH,true),false);eq(#f.calls,2,"Failed refill cleans the tracked successor lock")
+    eq(f.combat.HappyCheatsHealthLockHandle,-1)
 end
 do
     local f=fixture();ready(f);f.after_set=function() f.character.AbilitySystemComponent=obj() end
-    eq(f.trainer:apply(f.state,HEALTH,true),false);eq(#f.calls,0,"Reentrant ASC change prevents locking")
+    eq(f.trainer:apply(f.state,HEALTH,true),false);eq(f.trainer:enabled()[HEALTH],false,"Reentrant ASC change cannot enable restoration")
 end
 do
     local f=fixture();ready(f);f.lock_error=true;eq(f.trainer:apply(f.state,HEALTH,true),false)
@@ -128,8 +141,8 @@ end
 
 do
     local f=fixture();ready(f);f.after_set=function() f.combat_asc=obj() end
-    eq(f.trainer:apply(f.state,HEALTH,true),false,"Reentrant combat ASC change prevents native lock")
-    eq(#f.calls,0)
+    eq(f.trainer:apply(f.state,HEALTH,true),false,"Reentrant combat ASC change prevents readiness")
+    eq(#f.calls,1,"Changed ASC prevents native unlock against the new owner")
 end
 
 for _,field in ipairs({"DurationPolicy","StackingType"}) do
@@ -145,23 +158,45 @@ for _,action in ipairs({HEALTH,STAMINA}) do
     f=fixture();ready(f);f.combat[key]=900;f.count_error=true
     eq(f.trainer:apply(f.state,action,true),false,"Unreadable existing effect never permits replacement")
     eq(f.sets,0);eq(#f.calls,0)
-    for _,active in ipairs({false,true}) do
-        f=fixture();ready(f);f.combat[key]=900
-        local setter=action==HEALTH and "SetHealthPercent" or "SetStaminaPercent"
-        local original=f.combat[setter]
-        f.combat[setter]=function(self,v) original(self,v);f.combat[key]=901;f.effects[901]=active and 1 or 0 end
-        eq(f.trainer:apply(f.state,action,true),false,"A different callback-created handle is preserved, active or ended")
-        eq(#f.calls,0);eq(f.combat[key],901)
-    end
     f=fixture();ready(f);f.combat[key]=900
     local setter=action==HEALTH and "SetHealthPercent" or "SetStaminaPercent"
     local original=f.combat[setter]
     f.combat[setter]=function(self,v) original(self,v);f.effects[900]=1 end
-    eq(f.trainer:apply(f.state,action,true),false,"Same numeric handle becoming active during refill is refused")
-    eq(#f.calls,0);eq(f.effects[900],1)
+    eq(f.trainer:apply(f.state,action,true),true,"Foreign effect activation does not change the tracked native successor")
+    eq(f.trainer:apply(nil,action,false),true);eq(f.effects[900],1,"Cleanup never removes an unrelated effect")
     f=fixture();ready(f);f.combat[key]=900
     original=f.combat[setter]
     f.combat[setter]=function(self,v) original(self,v);f.combat[key]=-1 end
-    eq(f.trainer:apply(f.state,action,true),true,"Native clearing of a stale handle is accepted")
+    eq(f.trainer:apply(f.state,action,true),false,"Unexpected clearing of an owned successor fails closed")
+    eq(f.trainer:disable_all(),false,"Uncertain successor cannot be silently forgotten")
+end
+for _,action in ipairs({HEALTH,STAMINA}) do
+    local f=fixture();ready(f)
+    local key=action==HEALTH and "HappyCheatsHealthLockHandle" or "HappyCheatsStaminaLockHandle"
+    f.combat[key]=900 -- Captured stale-ID path: native setters will re-lock it.
+    for _=1,5 do
+        f[action==HEALTH and "health" or "stamina"]=0.3
+        eq(f.trainer:refill(f.state,action),true,"Repeated one-shot refills succeed with retained native IDs")
+        eq(f.trainer:enabled()[action],false,"One-shot refill leaves infinite resource off")
+        for _,count in pairs(f.effects) do eq(count,0,"No untracked infinite effect remains after one-shot refill") end
+    end
+    eq(f.trainer:apply(f.state,action,true),true)
+    local previous=f.combat[key]
+    for _=1,5 do
+        f[action==HEALTH and "health" or "stamina"]=0.4
+        eq(f.trainer:refill(f.state,action),true,"Refill coexists with the infinite toggle")
+        eq(f.trainer:enabled()[action],true)
+        eq(f.effects[previous],0,"Native predecessor is retired")
+        eq(f.effects[f.combat[key]],1,"Native successor stays tracked")
+        previous=f.combat[key]
+    end
+    eq(f.trainer:apply(nil,action,false),true)
+    for _,count in pairs(f.effects) do eq(count,0,"Disabling after repeated refills releases the final successor") end
+end
+do
+    local f=fixture();ready(f);f.unlock_error=true
+    eq(f.trainer:refill(f.state,HEALTH),false,"One-shot cleanup failure is reported")
+    eq(f.trainer:enabled()[HEALTH],false,"One-shot cleanup failure never turns the infinite toggle on")
+    eq(f.trainer:apply(f.state,HEALTH,true),false,"Uncertain temporary cleanup blocks a replacement mutation")
 end
 print("Dawnwalker resource locks: "..checks.." assertions passed")

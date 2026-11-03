@@ -6,7 +6,6 @@ local ACTION = "dawnwalker_auto_parry"
 local COMBAT = "/Script/DogwoodCombat.CombatComponentBase:"
 local STUB = "/Script/RebelAI.RebelAIStub:"
 local GAMEPLAY = "/Script/Engine.GameplayStatics:"
-local INPUT = "/Script/EnhancedInput.EnhancedInputSubsystemInterface:"
 local BLOCK_ACTION = "/Game/_Dawnwalker/Player/Input/Actions/Combat/IA_Combat_Block.IA_Combat_Block"
 -- Native conversion at RVA 0x60391D0 mirrors attack left/right for the defender.
 local DIRECTIONS = {[1]=8, [2]=4, [3]=1, [4]=2}
@@ -22,8 +21,7 @@ local FUNCTIONS = {
     "/Script/DogwoodCombat.CombatBlueprintFunctionLibrary:GetParryPointNotificationTime",
     GAMEPLAY.."GetTimeSeconds", GAMEPLAY.."IsGamePaused",
     "/Script/Engine.Controller:IsMoveInputIgnored", "/Script/Engine.PlayerController:IsInputKeyDown",
-    "/Script/Engine.Actor:K2_GetActorLocation", "/Script/Engine.SubsystemBlueprintLibrary:GetLocalPlayerSubsystem",
-    INPUT.."QueryKeysMappedToAction",
+    "/Script/Engine.Actor:K2_GetActorLocation",
 }
 local function field(value, key)
     local ok, result = pcall(function() return value[key] end)
@@ -43,9 +41,7 @@ function Instance:_bindings()
     for key, path in pairs({ai="/Script/RebelAI.Default__RebelAISubsystem",
         incoming="/Script/DogwoodAI.Default__DogwoodAICombatBlueprintFunctionLibrary",
         combat="/Script/DogwoodCombat.Default__CombatBlueprintFunctionLibrary",
-        gameplay="/Script/Engine.Default__GameplayStatics",
-        subsystems="/Script/Engine.Default__SubsystemBlueprintLibrary",
-        input_class="/Script/EnhancedInput.EnhancedInputLocalPlayerSubsystem", action=BLOCK_ACTION}) do
+        gameplay="/Script/Engine.Default__GameplayStatics", action=BLOCK_ACTION}) do
         b[key] = a.resolve(path)
         if not a.valid(b[key]) then return nil end
     end
@@ -67,29 +63,46 @@ end
 
 function Instance:_manual(s, fallback)
     local a, b = self.api, self:_bindings()
-    if not b or not a.valid(s.controller) then return nil end
-    local ok, subsystem = a.invoke(b.subsystems, "GetLocalPlayerSubsystem", s.controller, b.input_class)
-    local keys
-    if ok and a.valid(subsystem) then
-        local queried, array = a.invoke_function(INPUT.."QueryKeysMappedToAction", subsystem, b.action)
-        if queried and type(array) == "table" and #array > 0 and #array <= 32 then
-            keys = {}
-            for i = 1, #array do
-                -- Pinned UE4SS returns owned struct wrappers for array elements.
-                local decoded, key = pcall(function() return array[i]:get() end)
-                if not decoded or key == nil then return nil end
-                keys[#keys+1] = key
+    if not b or not a.valid(s.controller) then return nil,nil,"Player controller unavailable" end
+    local input = a.read(s.controller,"PlayerInput")
+    local owner_ok, owner = a.invoke(input,"GetOuter")
+    local keys, reason
+    if owner_ok and a.same(owner,s.controller) and bool(a,input,"IsA","/Script/EnhancedInput.EnhancedPlayerInput") == true then
+        local array = a.read(input,"EnhancedActionMappings")
+        local decoded, result = pcall(function()
+            local count = #array
+            if not a.finite(count) or count < 0 or count > 512 or count % 1 ~= 0 then error("Input mapping count outside supported range") end
+            local found, seen = {}, {}
+            for i=1,count do
+                local mapping = array[i] -- Reflected TArray indexing returns a struct directly.
+                if a.same(field(mapping,"Action"),b.action) then
+                    local name = field(field(mapping,"Key"),"KeyName")
+                    local text = type(name)=="string" and name or name:ToString()
+                    if type(text)~="string" or #text==0 or #text>128 then error("Block key name unavailable") end
+                    if text~="None" and not seen[text] then
+                        -- Keep an owned FName, not a borrowed mapping/FKey wrapper
+                        -- or its shared KeyDetails allocation, across map rebuilds.
+                        found[#found+1]={KeyName=a.fname(text)};seen[text]=true
+                        if #found>32 then error("Too many block keys") end
+                    end
+                end
             end
-        end
+            return found
+        end)
+        if decoded then keys=result else reason="Block key mappings could not be read" end
+    else
+        reason="Player input ownership unavailable"
     end
     -- Contexts may disappear while opening a menu. Previously verified keys are
     -- used only to release/hand off an existing pulse, never to start a new one.
-    keys = keys or fallback
-    if not keys or #keys == 0 then return nil end
+    if not keys or #keys==0 then
+        if fallback and #fallback>0 then keys=fallback
+        else return nil,keys,reason or "Auto parry waiting for combat block controls" end
+    end
     local held = false
     for _, key in ipairs(keys) do
         local down = bool(a, s.controller, "IsInputKeyDown", key)
-        if down == nil then return nil end
+        if down == nil then return nil,nil,"Block key state unavailable" end
         held = held or down
     end
     return held, keys
@@ -250,7 +263,7 @@ function Instance:tick(s)
     local press_at = math.min(point, now+time_to_hit-0.05)
     if now < press_at then return true end
     local manual, keys = self:_manual(s)
-    if manual ~= false then self.message = "Auto parry waiting for manual guard to release"; return true end
+    if manual ~= false then self.message = manual and "Auto parry waiting for manual guard to release" or "Auto parry waiting for combat block controls"; return true end
     if bool(a,s.combat,"WantsToBlock") ~= false or bool(a,s.combat,"IsBlocking") ~= false
         or bool(a,s.combat,"CanDefend") ~= true
         or bool(a,s.combat,"CanPerformBlockInDirection",attack.direction) ~= true then return true end
@@ -290,8 +303,9 @@ function Instance:apply(s, action, enabled)
     if self.active then return true,self.message end
     if self.lease then return false,"Auto parry cleanup pending; release guard and try disabling again" end
     if not s or not self:_context(s) then return false,"Auto parry bindings unavailable in this build" end
-    if self:_manual(s) == nil then return false,"Auto parry needs mapped block keys; restore the block mapping and try again" end
-    self.state, self.active, self.message = s, true, "Auto parry watching for a parryable attack"
+    local manual, keys, reason = self:_manual(s)
+    if manual == nil and keys == nil then return false,reason end
+    self.state, self.active, self.message = s, true, manual==nil and reason or "Auto parry watching for a parryable attack"
     return true,self.message
 end
 function Instance:enabled() return {[ACTION]=self.active == true} end

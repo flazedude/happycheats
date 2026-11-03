@@ -7,7 +7,19 @@ local function fixture()
     local f={now=100,hit=100.04,point=99.99,incoming=true,wanted=false,writes={},held={},mapping={"RemappedGuard","Gamepad_LeftShoulder"}}
     local a={}
     function a.valid(o) return type(o)=="table" and o.valid==true end
-    function a.read(o,k) return a.valid(o) and o[k] or nil end
+    function a.fname(text) return {ToString=function() return text end} end
+    function a.read(o,k)
+        if o==f.input and k=="EnhancedActionMappings" then
+            if f.raw_mappings then return f.raw_mappings end
+            if f.bad_mapping then return f.bad_mapping end
+            local result={}
+            for _,name in ipairs(f.mapping) do
+                result[#result+1]={Action=a.resolve("/Game/_Dawnwalker/Player/Input/Actions/Combat/IA_Combat_Block.IA_Combat_Block"),Key={KeyName=a.fname(name)}}
+            end
+            return result
+        end
+        return a.valid(o) and o[k] or nil
+    end
     function a.same(x,y) return a.valid(x) and x==y end
     function a.identity(o) return a.valid(o) and o.name or "" end
     function a.finite(n) return type(n)=="number" and n==n and math.abs(n)<math.huge end
@@ -15,6 +27,9 @@ local function fixture()
     f.pawn,f.combat,f.controller,f.world=object("Player"),object("PlayerCombat"),object("Controller"),object("World")
     f.enemy,f.actor,f.enemy_combat=object("EnemyStub"),object("Enemy"),object("EnemyCombat")
     f.stub,f.board,f.config,f.input=object("PlayerStub"),object("Board"),object("Config"),object("InputSubsystem")
+    f.controller.PlayerInput=f.input
+    function f.input:GetOuter() return f.wrong_input_owner and f.pawn or f.controller end
+    function f.input:IsA(path) assert(path=="/Script/EnhancedInput.EnhancedPlayerInput");return not f.wrong_input_type end
     f.pawn.CombatComponent=f.combat;f.actor.CombatComponent=f.enemy_combat
     f.config.ParryInputCooldown=0.5
     f.combat.BlockingDirection,f.combat.DefenseAngleDot=0,0.5
@@ -63,7 +78,8 @@ local function fixture()
     function f.controller:IsMoveInputIgnored() return f.ignored==true end
     function f.controller:IsInputKeyDown(key)
         if f.input_error then error("input unavailable") end
-        return f.held[key.key]==true
+        assert(key.key==nil and key.KeyName,"Native FKey argument has a copied KeyName, no borrowed wrapper")
+        return f.held[key.KeyName:ToString()]==true
     end
     function f.stub:GetActor() return f.pawn end
     function f.stub:GetAIBoard() return not f.no_board and f.board or nil end
@@ -74,15 +90,6 @@ local function fixture()
     function f.enemy:IsPlayer() return f.enemy_player==true end
     function f.enemy:IsInitializedAndHasPawn() return not f.enemy_unready end
     function f.enemy:IsHostileTowardsPlayer() return not f.friendly end
-    function f.input:QueryKeysMappedToAction(action)
-        assert(action.name:match("IA_Combat_Block$"))
-        if f.bad_mapping then return f.bad_mapping end
-        local result={}
-        for _,name in ipairs(f.mapping) do
-            local key={key=name};result[#result+1]={get=function() return key end}
-        end
-        return result
-    end
     function a.invoke(o,method,...)
         if not a.valid(o) then return false,"Invalid object" end
         local args=table.pack(...)
@@ -90,7 +97,6 @@ local function fixture()
             if method=="GetAIStubFromActor" then assert(args[1]==f.pawn);return f.stub end
             if method=="GetTimeSeconds" then return f.now end
             if method=="IsGamePaused" then return f.paused==true end
-            if method=="GetLocalPlayerSubsystem" then assert(args[1]==f.controller);return f.input end
             if method=="GetNextIncomingAttacker" then
                 assert(args[1]==f.stub and args[2]~=args[3],"Separate native OUT tables required")
                 if not f.missing_out then args[2].bIsHitIncoming=f.incoming;args[3].TimeToHitWindow=f.hit-f.now end
@@ -101,8 +107,7 @@ local function fixture()
         end)
     end
     function a.invoke_function(path,o,...)
-        assert(path=="/Script/EnhancedInput.EnhancedInputSubsystemInterface:QueryKeysMappedToAction")
-        return a.invoke(o,"QueryKeysMappedToAction",...)
+        error("Interface exec thunks must not be called with UObject context")
     end
     f.api=a;f.trainer=dofile("modules/dawnwalker/Scripts/parry.lua").new(a)
     function f:enable() self.trainer:refresh(self.state);return self.trainer:apply(self.state,"dawnwalker_auto_parry",true) end
@@ -212,13 +217,30 @@ for _,failure in ipairs({"press_ignored","press_throws","direction_ignored","dir
     equal(f.trainer:enabled().dawnwalker_auto_parry,false,failure)
     equal(f.wanted,false,"Partial requests are cleaned: "..failure)
 end
-for _,kind in ipairs({"input_error","empty","malformed","too_many"}) do
+for _,kind in ipairs({"input_error","malformed","too_many","wrong_input_owner","wrong_input_type"}) do
     local f=fixture()
-    if kind=="empty" then f.mapping={}
-    elseif kind=="malformed" then f.bad_mapping={{}}
+    if kind=="malformed" then f.bad_mapping={{Action=f.api.resolve("/Game/_Dawnwalker/Player/Input/Actions/Combat/IA_Combat_Block.IA_Combat_Block"),Key={}}}
     elseif kind=="too_many" then for i=1,33 do f.mapping[i]=tostring(i) end
-    else f.input_error=true end
+    else f[kind]=true end
     equal(f:enable(),false,kind);equal(#f.writes,0)
+end
+do
+    local f=fixture();f.mapping={}
+    equal(f:enable(),true,"Out-of-combat context can arm without pretending a block mapping is broken")
+    f:tick();equal(#f.writes,0,"No guard request without current block keys")
+    f.mapping={"RemappedGuard"};f:tick();equal(f.wanted,true,"Effective combat mappings arm guard when they appear")
+end
+do
+    local f=fixture();f.mapping={"None","RemappedGuard","RemappedGuard"}
+    equal(f:enable(),true);f.held.RemappedGuard=true;f:tick();equal(#f.writes,0,"Unbound and duplicate rows cannot conceal held manual guard")
+end
+do
+    local f=fixture();local a=f.api
+    f.raw_mappings={{Action=object("IA_DrawToggleSword"),Key={KeyName=a.fname("Gamepad_LeftShoulder")}}}
+    equal(f:enable(),true);f:tick();equal(#f.writes,0,"Exploration L1 mapping is not assumed to be the block binding")
+    f.raw_mappings={{Action=a.resolve("/Game/_Dawnwalker/Player/Input/Actions/Combat/IA_Combat_Block.IA_Combat_Block"),Key={KeyName=a.fname("Gamepad_LeftShoulder")}}}
+    f.held.Gamepad_LeftShoulder=true;f:tick();equal(#f.writes,0,"Active combat L1 mapping preserves manual guard")
+    f.held.Gamepad_LeftShoulder=false;f:tick();equal(f.wanted,true,"Combat mapping transition enables automatic guard without rearming")
 end
 for _,kind in ipairs({"no_board","stub_unready","missing_out","bad_clock"}) do
     local f=fixture()
