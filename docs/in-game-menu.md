@@ -16,6 +16,8 @@ From 0.3.63, menu buttons, choices, scrolling and mouse navigation do not activa
 
 Existing trainer hotkeys and native menus remain available. Onimusha's **Menu+RB** now toggles the shared menu; **F6** still toggles its native status panel. Its direct cheat chords are unchanged. Dawnwalker's **F6** also opens the shared menu, and its direct cheat chords are unchanged. Its three controller shortcut pages remain selectable with **Menu+View**; current mappings appear on the client page and in the shared menu. Controller shortcut pages and menu control groups remain independent.
 
+From **0.3.69**, requested toggles stay On through loading and new player/session identities. Pending effects show **On · waiting to restore**, rather than claiming an active effect. The shared module path restores them after readiness/availability checks. Explicit Off or Disable all cancels pending restoration. One-shot actions are never replayed. Requests are held only in the current client process; standalone/native hotkey Off in a stable session remains authoritative. Restoration failures are reported and logged once per unchanged state; Off then On retries. Memory connections remain explicit.
+
 ## Adding a game
 
 Register the new `IGameModule` in `ModuleCatalog` and provide `GameExecutables`: exact executable paths relative to the discovered installation. List supported renderer/launcher variants where needed. The locator validates those paths, checks the running executable and refuses ambiguous matches. An empty list leaves the menu unable to attach, so every catalog module must provide target metadata; the catalog regression check enforces this.

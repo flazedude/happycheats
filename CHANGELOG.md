@@ -2,7 +2,17 @@
 
 **[Download the latest release / 下载最新版本](https://github.com/flazedude/happycheats/releases/latest)** · [Home](README.md) · [中文首页](README.zh-CN.md)
 
-## Latest · 0.3.68
+## Latest · 0.3.69
+
+- Requested toggles survive loading/session changes across all trainer modules; pending requests are distinct from confirmed effects.
+- Off and Disable all cancel restoration; one-shot actions are never replayed. Failures are reported and logged without endless retries.
+- Dawnwalker 1.0.6 / payload 0.5.5 renews retired health/stamina locks and F4 refills both blood and stamina.
+
+加载或会话变化后保留功能开启请求，验证新会话后恢复；关闭或全部关闭可取消，单次操作不会重复。黎明行者之血同时修复资源锁定失效，并合并持续血量与耐力恢复。实际新版游戏效果仍待验证。
+
+[English](docs/releases/0.3.69.en.txt) · [中文](docs/releases/0.3.69.zh.txt)
+
+## 0.3.68
 
 - Trainer updates list only newer packages for games installed on this PC. Current trainers and missing games are omitted, including in focused checks.
 - Verified installations leave the list; unfinished setup remains retryable. Empty lists explain that no installed games need updates.

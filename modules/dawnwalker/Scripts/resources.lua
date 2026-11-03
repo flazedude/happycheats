@@ -109,7 +109,11 @@ end
 function Instance:apply(state, action, enabled)
     local c, a = CONFIG[action], self.api
     if not c or type(enabled) ~= "boolean" then return false, "An explicit resource toggle is required" end
-    if not enabled then return self:_disable(action) end
+    if not enabled then
+        local ok,message=self:_disable(action)
+        if ok then self.diagnostics[action],self.problems[action]=nil,nil end
+        return ok,message
+    end
     if not state or state.key ~= self.key then return false, "Player session changed; reconnect before enabling" end
     local binding = self:_resolve(action)
     if not binding then return false, c.label .. " lock binding unavailable" end
@@ -120,6 +124,7 @@ function Instance:apply(state, action, enabled)
     if lease then
         if self.flags[action] and not lease.uncertain and a.same(asc, lease.asc) and a.same(state.combat, lease.combat)
             and a.read(lease.combat, c.field) == lease.handle.Handle and self:_count(lease) == 1 then
+            self.problems[action]=nil
             return true, c.label .. " lock already enabled"
         end
         return false, c.label .. " previous lock must be resolved before enabling"
@@ -170,11 +175,13 @@ function Instance:apply(state, action, enabled)
         return false, cleaned and (c.label .. " lock was not confirmed") or message
     end
     self.flags[action]=true
+    self.problems[action]=nil
     return true, c.label .. " locked full; native resource depletion is blocked"
 end
 function Instance:refill(state, action)
     local was_enabled = self.flags[action]
     if was_enabled then
+        if not self.leases[action] then return false, CONFIG[action].label .. " is waiting for the game's active resource lock" end
         local ok,message=self:_top_up(state,action)
         if ok then return true,CONFIG[action].label .. " restored; infinite resource remains enabled" end
         local cleaned,cleanup=self:_disable(action)
@@ -198,7 +205,7 @@ function Instance:disable_all()
     return success, success and "Resource locks disabled" or table.concat(messages, "; ")
 end
 function Instance:refresh(state)
-    local available, values = {}, {diagnostic_health_mode="Owned native full-health lock; no periodic refill gaps", diagnostic_stamina_mode="Owned native full-stamina lock; no periodic refill gaps"}
+    local available, values = {}, {diagnostic_health_mode="Owned native full-health lock; retired effects are renewed", diagnostic_stamina_mode="Owned native full-stamina lock; retired effects are renewed"}
     if not state or self.key ~= state.key then
         local cleaned, message = self:disable_all()
         if not cleaned then
@@ -207,6 +214,7 @@ function Instance:refresh(state)
             return available, values
         end
         self.key, self.bindings = state and state.key or nil, {}
+        self.diagnostics,self.problems={},{}
     end
     if not state then
         for action in pairs(CONFIG) do available[action]=false end
@@ -218,11 +226,34 @@ function Instance:refresh(state)
         if lease then
             local current = self.api.read(lease.combat, c.field)
             local count = self:_count(lease)
-            if not self.api.same(self.api.read(state.character, "AbilitySystemComponent"), lease.asc)
+            local same_owner = self.api.same(self.api.read(state.character, "AbilitySystemComponent"), lease.asc)
+                and self.api.same(state.combat, lease.combat)
+            if same_owner and count == 0 and self.flags[action] then
+                -- Native resource setters and normal game effects can retire an
+                -- override without clearing its component handle. Keep the
+                -- requested toggle; an ended lease is not a user disable.
+                self.leases[action] = nil
+                local binding = self:_resolve(action)
+                local inactive
+                if binding and handle_id(self.api,current) then inactive=self:_inactive(binding,current) end
+                if inactive == true then
+                    local restored,message = self:apply(state,action,true)
+                    self.diagnostics[action] = restored and (c.label .. " lock renewed after its native effect ended") or message
+                    if not restored then self.flags[action]=false;self.problems[action]=message end
+                elseif inactive == false then
+                    self.diagnostics[action] = c.label .. " waiting for the game's active resource lock; it was preserved"
+                else
+                    self.flags[action]=false
+                    self.diagnostics[action] = c.label .. " lock ended and its replacement could not be checked; enable again"
+                    self.problems[action]=self.diagnostics[action]
+                end
+            elseif not same_owner
                 or not self.api.same(state.combat, lease.combat) or current ~= (lease.handle and lease.handle.Handle) or count ~= 1 then
                 local cleaned, message = self:_disable(action)
                 available[action] = available[action] and cleaned
                 values["diagnostic_" .. action .. "_lock"] = message
+                self.diagnostics[action] = message
+                if not cleaned then self.problems[action]=message end
             elseif self.flags[action] then
                 local ok, percent = self.api.invoke(state.combat, c.getter)
                 if not ok or not self.api.finite(percent) then available[action]=false
@@ -231,10 +262,36 @@ function Instance:refresh(state)
                     -- change. Never replace a game-created lock or revive a pawn.
                     local restored, message = self:refill(state, action)
                     values["diagnostic_" .. action .. "_lock"] = message
-                    if not restored then self.flags[action]=false end
+                    if not restored then self.flags[action]=false;self.problems[action]=message end
                 end
             end
+        elseif self.flags[action] then
+            -- A foreign active lock can temporarily own this resource after
+            -- our effect ends. Never adopt or unlock it; resume only once the
+            -- native lookup confirms it has ended.
+            local binding = self:_resolve(action)
+            local current = self.api.read(state.combat,c.field)
+            local inactive
+            if binding and handle_id(self.api,current) then inactive=self:_inactive(binding,current) end
+            if inactive == true then
+                local restored,message = self:apply(state,action,true)
+                self.diagnostics[action] = restored and (c.label .. " lock renewed after the game-owned lock ended") or message
+                if not restored then self.flags[action]=false;self.problems[action]=message end
+            elseif inactive == nil then
+                self.flags[action]=false
+                self.diagnostics[action]=c.label .. " replacement lock could not be checked; enable again"
+                self.problems[action]=self.diagnostics[action]
+            end
         end
+        if self.diagnostics[action] then values["diagnostic_" .. action .. "_lock"] = self.diagnostics[action] end
+    end
+    local errors={}
+    for _,action in ipairs({"dawnwalker_health","dawnwalker_stamina"}) do
+        if self.problems[action] then errors[#errors+1]=self.problems[action] end
+    end
+    if #errors>0 then
+        values.dawnwalker_resource_status=table.concat(errors,"; ")
+        values.diagnostic_control_error="true"
     end
     return available, values
 end
@@ -242,6 +299,6 @@ function Instance:enabled()
     return {dawnwalker_health=self.flags.dawnwalker_health, dawnwalker_stamina=self.flags.dawnwalker_stamina}
 end
 function M.new(api)
-    return setmetatable({api=api, leases={}, bindings={}, flags={dawnwalker_health=false,dawnwalker_stamina=false}}, Instance)
+    return setmetatable({api=api, leases={}, bindings={}, diagnostics={}, problems={}, flags={dawnwalker_health=false,dawnwalker_stamina=false}}, Instance)
 end
 return M

@@ -1,5 +1,9 @@
 # HappyCheats project instructions
 
+## Keep requested controls through loading (3 November 2026)
+
+Keep requested toggle states through loads, player/session replacement and location changes for every trainer. Restore them through the existing module command path only after the new session is connected, ready and the feature is available. Explicit Off and Disable all cancel restoration, including while waiting for gameplay. Do not replay one-shot actions such as XP, currency grants or manual teleport. Preserve operation-time ownership/integrity checks, clickable controls and explicit memory Connect actions. Show pending restoration separately from confirmed active effects and report/log failed restoration without an unbounded retry loop. This supersedes older automatic toggle-reset expectations; a new client process still starts with no remembered requests.
+
 ## Trainer update experience (1 November 2026)
 
 Keep each game's update as one operation: download and verify its package, repair the cache if needed, load only that game's module, then install/repair its trainer files through the existing module installer. Do not require a separate Repair or Reload library step. Report completion only after installation verifies; show progress and an actionable error on failure, with the same Update/Install action retrying unfinished setup. Require the affected game to be closed before file changes; never launch or close it automatically. Preserve unrelated games and shared menu/controller behavior. Elden Ring's live Connect action remains explicit after offline launch because it is a memory session, not trainer-file installation. This preference supersedes the manual reload/install instructions below.

@@ -1,0 +1,9 @@
+The Blood of Dawnwalker package 1.0.6 — trainer 0.5.5
+
+Repairs the captured case where the game retired active health/stamina override effects but retained their component IDs, causing the old trainer to silently switch both options off. A confirmed-ended owned effect now preserves its requested toggle and renews through the guarded native path. Active game-owned replacements remain untouched; unreadable/uncertain state still fails closed with diagnostics. Renewal uses the existing 250 ms maintenance cycle, so a retirement can leave a brief gap; scripted or instantly lethal damage is not guaranteed to be prevented.
+
+F4 is now Refill blood and stamina continuously. It refills stamina even with full blood, uses verified owned/temporary locks, preserves the separate Infinite stamina request and rechecks player ownership between resource operations. The existing controller chord and action ID remain compatible. Client 0.3.69 supplies the updated English/Chinese labels and library-wide toggle continuity through loading/session replacement; older compatible clients can use this package but retain their old caption/reset behavior.
+
+Close Dawnwalker and click Update beside Library Sort for download, verification and trainer installation in one operation. Compatible clients 0.3.65+ can load the package; the new global continuity behavior requires client 0.3.69. Exact executable pins, shared menu, teleport and unrelated games are preserved.
+
+Validation: user-operated old-payload session observed read-only, rebuilt payload, eight Lua suites, real binding/resource-extension integration and required offline release suites. No agent game commands, launch/close or save changes were used. New-payload gameplay, loading/teleport effects, physical controllers and performance remain unverified.

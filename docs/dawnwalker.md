@@ -1,6 +1,8 @@
 # The Blood of Dawnwalker
 
-Experimental trainer **0.5.4**, independent Dawnwalker package **1.0.5**, for HappyCheats **0.3.65 or later**. Supports the inspected Windows Steam builds **25915545** and **26379537**, executable version `dw1-pc-265636-shipping-patch3-all-CL-265636` (Unreal Engine 5.5.4). Other executable hashes are rejected pending a compatibility check.
+Experimental trainer **0.5.5**, independent Dawnwalker package **1.0.6**, for HappyCheats **0.3.65 or later**. Supports the inspected Windows Steam builds **25915545** and **26379537**, executable version `dw1-pc-265636-shipping-patch3-all-CL-265636` (Unreal Engine 5.5.4). Other executable hashes are rejected pending a compatibility check.
+
+Version 0.5.5 preserves Infinite health/stamina requests when the game retires their active native effects, renews only confirmed-ended effects and waits for active game-owned replacements instead of adopting or removing them. F4 is now **Refill blood and stamina continuously**, retaining the existing controller chord and action ID. HappyCheats 0.3.69 also remembers requested toggles for all games through loading and session changes, with explicit Off/Disable all cancelling restoration. [Resource investigation and limits](dawnwalker-resource-continuity.md), [package notes](cheats/dawnwalker/1.0.6.en.txt).
 
 Version 0.5.4 adds the exact executable from Steam build **26379537**, retaining the previously inspected patch 3 executable. The installed file still identifies CL-265636 / Unreal 5.5.4. Comparison with both retained Steam depot manifests verifies unchanged native binding, registration and loader-resolver regions; unknown hashes remain rejected. All fifteen controls, ownership guards and shared shortcuts are unchanged. Close Dawnwalker and click **Update** beside Library Sort to install package **1.0.5** in one operation. The HappyCheats client EXE/version is unchanged. Startup, actual cheat effects and controller behavior on the new build remain unverified. [Compatibility evidence](dawnwalker-build26379537.md), [package notes](cheats/dawnwalker/1.0.5.en.txt).
 
@@ -45,7 +47,7 @@ Version 0.1.2 corrects a player-readiness check, handles exFAT timestamp roundin
 | Infinite health | F1 | Page 1, D-pad up |
 | Infinite stamina | F2 | Page 1, D-pad right |
 | Refill health and stamina once | F3 | Page 1, D-pad down |
-| Refill blood continuously | F4 | Page 1, D-pad left |
+| Refill blood and stamina continuously | F4 | Page 1, D-pad left |
 | Invulnerability | F5 | Page 2, D-pad up |
 | Auto parry | NumPad5 | Shared menu toggle (mouse/keyboard) |
 | Super damage | F8 | Page 2, D-pad right |
@@ -73,7 +75,7 @@ Infinite carry weight uses the native zero limit and restores the original limit
 
 Add XP instantly grants exactly the remaining XP to reach the next level once. It checks the game's actual level cache through its guarded getter, progression state and player ownership, rechecks immediately before the native level-up call, and confirms one level gained with zero leftover XP. It makes no quest-reward-cache calls and does not complete a quest. A positive following-level row is also required, so the button can be unavailable near the cap. Coins and XP may persist in normal saves and are not rolled back.
 
-Infinite health and stamina fill the living player's resource and acquire an owned native lock, preventing ordinary resource depletion between polls. Existing game locks are refused and later game replacements are preserved. Blood remains a periodic refill. Scripted death is not prevented by a resource lock. Toggles start off and reset when the player or world changes. A missing binding disables its control. Refill is a single action and does not enable the toggles.
+Infinite health and stamina fill the living player's resource and acquire an owned native lock, preventing ordinary resource depletion between polls. Existing game locks are refused and later game replacements are preserved. F4 periodically refills both blood and stamina. Scripted death is not prevented by a resource lock. The payload resets unsafe native leases on player/world changes; client 0.3.69 retains requested toggles and restores them only after the new session validates. A new client process starts with no remembered requests. A missing binding disables its control. Refill is a single action and does not enable the toggles.
 
 The blood control is available only when the local player's blood component and native methods are available. Filling blood with this native method also restores damaged blood segments. These resource changes may be retained by normal game saves. Turning a toggle off stops replenishment; it does not undo earlier refills or segment restoration.
 

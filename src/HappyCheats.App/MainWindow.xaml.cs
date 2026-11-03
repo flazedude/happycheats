@@ -500,6 +500,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 game.Installation = discovered; installation = discovered; game.Changed();
             }
             var previous = game.Status;
+            game.Toggles.Observe(game.Module.Definition.Features, previous);
             var current = await game.Module.ReadStatusAsync(installation);
             if (_busy || epoch != _controlEpoch) return;
             if (game == _selected)
@@ -514,19 +515,34 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 }
             }
             game.Status = current;
+            game.Toggles.Observe(game.Module.Definition.Features, current);
             game.Changed();
             if (game == _selected)
             {
                 if (previous.Connected != game.Status.Connected || previous.Ready != game.Status.Ready
                     || game.Id is "crimson-desert" or "astroneer" && previous.SessionId != game.Status.SessionId
-                    || game.Id is "civilization-vi" or "civilization-vii" or "witcher-3" or "elden-ring" or "astroneer" or "project-hospital" && previous.Message != game.Status.Message)
-                    SetMessage(game.Status.Message, game.Id == "project-hospital" && !game.Status.Connected
+                    || game.Id is "civilization-vi" or "civilization-vii" or "witcher-3" or "elden-ring" or "astroneer" or "project-hospital" or "dawnwalker" && previous.Message != game.Status.Message)
+                    SetMessage(game.Status.Message, game.Status.Values.GetValueOrDefault("diagnostic_control_error") == "true" || game.Id == "project-hospital" && !game.Status.Connected
                         && game.Status.Message.StartsWith("Project Hospital", StringComparison.Ordinal));
                 else if (game.Id == "crimson-desert" && game.Status.Connected
                     && game.Status.Values.TryGetValue("crimson_teleport_status", out var teleportStatus)
                     && (!previous.Values.TryGetValue("crimson_teleport_status", out var previousTeleport) || teleportStatus != previousTeleport))
                     ShowCrimsonTeleportStatus(game.Status);
                 RefreshBindings();
+                var restore = game.Toggles.Next(game.Module.Definition.Features, game.Status);
+                if (restore != null)
+                    await RunOperationAsync(async target =>
+                    {
+                        if (target != game || target.Installation is not { IsInstalled: true } found) return;
+                        await target.Module.SendAsync(found, target.Status, restore.Id, true);
+                        target.Status = await target.Module.ReadStatusAsync(found);
+                        target.Toggles.Observe(target.Module.Definition.Features, target.Status);
+                        if (!target.Status.Enabled.GetValueOrDefault(restore.Id))
+                            throw new InvalidOperationException(Localization.Choose(
+                                $"{restore.Name}: restoration is not confirmed. The On request is retained; turn it off and on to retry.",
+                                $"{Localization.FeatureName(restore)}：尚未确认恢复。已保留开启请求；关闭后重新开启可重试。"));
+                        SetLocalizedMessage(() => Localization.Choose($"{restore.Name}: restored after loading.", $"{Localization.FeatureName(restore)}：已在加载后恢复。"));
+                    }, Localization.Choose("Restoring requested trainer control…", "正在恢复已开启的修改器功能…"));
             }
         }
         catch (Exception error)
@@ -534,6 +550,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             if (epoch != _controlEpoch) return;
             if (game == _selected) { _controllerProcessIds.Clear(); _gameWindow = IntPtr.Zero; }
             game.Status = TrainerStatus.Offline(error.Message);
+            game.Toggles.Observe(game.Module.Definition.Features, game.Status);
             game.Changed();
             if (game == _selected) { SetMessage(error.Message, true); RefreshBindings(); }
         }
@@ -567,6 +584,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         game.Installation = await game.Module.DiscoverAsync(directory);
         game.Status = game.Installation.IsInstalled ? await game.Module.ReadStatusAsync(game.Installation) : TrainerStatus.Offline(game.Installation.Message);
+        game.Toggles.Observe(game.Module.Definition.Features, game.Status);
         if (game.Installation.IsInstalled && !_captureMode)
         {
             _paths[game.Id] = game.Installation.Directory;
@@ -791,11 +809,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             await RunOperationAsync(async game =>
             {
+                bool? enable = feature.IsToggle ? !game.Toggles.IsOn(feature.Id, game.Status) : null;
+                if (feature.Id == "disable_all") game.Toggles.CancelAll(game.Module.Definition.Features);
+                else if (enable.HasValue) { game.Toggles.Request(feature.Id, enable.Value); game.Toggles.Attempted(feature.Id); }
                 if (game.Installation is not { IsInstalled: true }) throw new InvalidOperationException(Localization.Choose("Game installation not found. Choose Find in Steam or Browse folder.", "未找到游戏安装目录，请点击“在 Steam 中查找”或“浏览目录”。"));
-                bool? enable = feature.IsToggle ? !(game.Status.Enabled.TryGetValue(feature.Id, out var active) && active) : null;
                 var requestSession = game.Status.SessionId;
                 await game.Module.SendAsync(game.Installation, game.Status, feature.Id, enable);
                 game.Status = await game.Module.ReadStatusAsync(game.Installation);
+                game.Toggles.Observe(game.Module.Definition.Features, game.Status);
                 if (game.Id == "elden-ring")
                 {
                     if (!game.Status.Connected || game.Status.SessionId != requestSession)
@@ -974,7 +995,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void RefreshBindings()
     {
-        foreach (var feature in Features) feature.Update(_selected?.Status, !_busy, _witcherControlPending);
+        foreach (var feature in Features) feature.Update(_selected?.Status, !_busy, _witcherControlPending,
+            _selected?.Toggles.Requested(feature.Definition.Id) == true);
         RefreshOverlay();
         Notify("");
     }
@@ -1009,6 +1031,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
 public sealed class GameItem : INotifyPropertyChanged
 {
+    internal ToggleContinuity Toggles { get; set; } = new();
     public IGameModule Module { get; }
     public GameInstallation? Installation { get; set; }
     public TrainerStatus Status { get; set; } = TrainerStatus.Offline();
@@ -1051,6 +1074,7 @@ public sealed class FeatureItem : INotifyPropertyChanged
     public FeatureDefinition Definition { get; }
     public IReadOnlyList<FeatureChoiceItem> Choices { get; }
     private bool _active;
+    private bool _restorePending, _confirmedActive;
     private bool _unavailable, _connected, _working, _initializationFailed;
     private bool _witcherControlPending;
     private string? _unavailableReason;
@@ -1096,13 +1120,14 @@ public sealed class FeatureItem : INotifyPropertyChanged
     public Visibility NumberErrorVisibility => _numberErrorKey == null ? Visibility.Collapsed : Visibility.Visible;
     public string StateLabel => _witcherControlPending && _working
         ? Localization.Choose("Queued", "已排队")
+        : !_working && _restorePending ? Localization.Choose("On · waiting to restore", "已开启 · 等待恢复")
         : !_working && _connected && !CanUse && _unavailableReason != null
             ? Localization.Message(_unavailableReason)
         : Localization.Text(_working ? "pleaseWait" : _unavailable ? "sceneUnavailable" : !CanUse ? (_connected ? (_initializationFailed ? "initializationFailed" : "waitingGameplay") : "waitingGame") : Definition.IsToggle ? (_active ? "enabled" : "off") : "ready");
     public string ActionLabel => Localization.Text(Definition.IsToggle ? (_active ? "turnOff" : "turnOn") : "apply");
-    public Brush StateBrush => ThemeManager.Brush(_active && CanUse ? "SuccessBrush" : "MutedBrush");
-    public Brush ActionBrush => ThemeManager.Brush(_active && CanUse ? "SuccessSurfaceBrush" : "ButtonBrush");
-    public Brush ActionBorderBrush => ThemeManager.Brush(_active && CanUse ? "SuccessBorderBrush" : "ButtonBorderBrush");
+    public Brush StateBrush => ThemeManager.Brush(_confirmedActive && CanUse ? "SuccessBrush" : "MutedBrush");
+    public Brush ActionBrush => ThemeManager.Brush(_confirmedActive && CanUse ? "SuccessSurfaceBrush" : "ButtonBrush");
+    public Brush ActionBorderBrush => ThemeManager.Brush(_confirmedActive && CanUse ? "SuccessBorderBrush" : "ButtonBorderBrush");
     public FeatureItem(FeatureDefinition definition)
     {
         Definition = definition;
@@ -1125,9 +1150,11 @@ public sealed class FeatureItem : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(NumberErrorVisibility)));
         return _numberErrorKey == null;
     }
-    public void Update(TrainerStatus? status, bool available, bool witcherControlPending = false)
+    public void Update(TrainerStatus? status, bool available, bool witcherControlPending = false, bool requestedOn = false)
     {
-        _active = status?.Enabled.TryGetValue(Definition.Id, out var active) == true && active;
+        _confirmedActive = status?.Enabled.TryGetValue(Definition.Id, out var active) == true && active;
+        _restorePending = Definition.IsToggle && requestedOn && !_confirmedActive;
+        _active = _confirmedActive || _restorePending;
         _connected = status?.Connected == true;
         _working = !available;
         _witcherControlPending = witcherControlPending && Definition.Id.StartsWith("witcher3_", StringComparison.Ordinal);

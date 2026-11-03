@@ -246,6 +246,86 @@ do
     f.functions["/Script/DogwoodCombat.CombatComponentBase:SetStaminaPercent"]=nil; f.stamina=0.2
     local count=#f.writes; ready(f); equal(f.trainer:enabled().dawnwalker_stamina,false); equal(#f.writes,count)
 end
+do
+    local f=fixture();ready(f)
+    equal(f.trainer:apply("dawnwalker_blood",true),true)
+    equal(f.blood_amount,100);equal(f.stamina,1);equal(f.health,0.4,"Combined refill never refills health")
+    equal(f.trainer:enabled().dawnwalker_stamina,false,"Combined refill does not enable the separate infinite toggle")
+    f.stamina=0.15;local writes=#f.writes;ready(f)
+    equal(f.stamina,1,"Full blood still permits stamina maintenance")
+    equal(#f.writes,writes+1);equal(f.writes[#f.writes],"stamina")
+    equal(f.trainer:apply("dawnwalker_blood",false),true)
+    f.stamina,f.blood_amount=0.2,5;writes=#f.writes;ready(f)
+    equal(#f.writes,writes,"Disabling combined refill stops both resources")
+    equal(f.trainer:apply("dawnwalker_stamina",true),true)
+    equal(f.trainer:apply("dawnwalker_blood",true),true)
+    equal(f.trainer:apply("dawnwalker_blood",false),true)
+    equal(f.trainer:enabled().dawnwalker_stamina,true,"Combined off preserves separately enabled infinite stamina")
+end
+do
+    local f=fixture();f.functions["/Script/DogwoodCombat.CombatComponentBase:SetStaminaPercent"]=nil
+    local _,available=ready(f)
+    equal(available.dawnwalker_blood,false,"Combined action requires both resource bindings")
+    equal(f.trainer:apply("dawnwalker_blood",true),false);equal(#f.writes,0)
+end
+do
+    local f=fixture();ready(f);f.blood_amount=100;f.setter_error="stamina"
+    local ok,message=f.trainer:apply("dawnwalker_blood",true)
+    equal(ok,false);equal(message,"Stamina setter failed")
+    equal(f.trainer:enabled().dawnwalker_blood,false,"Partial failure never reports combined activation")
+end
+do
+    local f=fixture();ready(f);f.after_write=function(resource) if resource=="blood" then f.world=object("NewWorld") end end
+    local ok,message=f.trainer:apply("dawnwalker_blood",true)
+    equal(ok,false);equal(message,"Player session changed during blood refill; enable again")
+    equal(f.stamina,0.3,"Session change between blood and stamina prevents the second write")
+end
+do
+    -- Run the production binding and resource extension together. The native
+    -- fixture recreates the component lock when SetStaminaPercent is called.
+    local f=fixture(true,{resources=dofile("modules/dawnwalker/Scripts/resources.lua")})
+    local asc,library,default=object("ASC"),object("Library"),object("ResourceDefault")
+    default.DurationPolicy,default.StackingType=1,0
+    f.pawn.AbilitySystemComponent=asc
+    f.combat.HappyCheatsHealthLockHandle,f.combat.HappyCheatsStaminaLockHandle=-1,-1
+    local effects,next_id={},2000
+    function f.combat:GetAbilitySystemComponent() return asc end
+    function library:GetActiveGameplayEffectStackCount(handle) return effects[handle.Handle] or 0 end
+    local function lock(field)
+        effects[f.combat[field]]=0;next_id=next_id+1;f.combat[field]=next_id;effects[next_id]=1
+    end
+    local function unlock(field) effects[f.combat[field]]=0;f.combat[field]=-1 end
+    function f.combat:LockHealth() lock("HappyCheatsHealthLockHandle") end
+    function f.combat:LockStamina() lock("HappyCheatsStaminaLockHandle") end
+    function f.combat:UnlockHealth() unlock("HappyCheatsHealthLockHandle") end
+    function f.combat:UnlockStamina() unlock("HappyCheatsStaminaLockHandle") end
+    local original=f.combat.SetStaminaPercent
+    function f.combat:SetStaminaPercent(value)
+        local relock=self.HappyCheatsStaminaLockHandle~=-1
+        if relock then unlock("HappyCheatsStaminaLockHandle") end
+        original(self,value)
+        if relock then lock("HappyCheatsStaminaLockHandle") end
+    end
+    f.functions["/Script/GameplayAbilities.Default__AbilitySystemBlueprintLibrary"]=library
+    f.functions["/Script/GameplayAbilities.AbilitySystemBlueprintLibrary:GetActiveGameplayEffectStackCount"]=object("StackGetter")
+    for _,resource in ipairs({"Health","Stamina"}) do
+        f.functions["/Game/_Dawnwalker/Stats/Effects/GE_"..resource.."Override.Default__GE_"..resource.."Override_C"]=default
+        for _,method in ipairs({"Lock"..resource,"Unlock"..resource,"Get"..resource.."Percentage","GetAbilitySystemComponent"}) do
+            f.functions["/Script/DogwoodCombat.CombatComponentBase:"..method]=object("Function")
+        end
+    end
+    ready(f);equal(f.trainer:apply("dawnwalker_blood",true),true)
+    equal(f.stamina,1);equal(f.combat.HappyCheatsStaminaLockHandle,-1,"Combined-only refill releases its temporary lock")
+    for _,count in pairs(effects) do equal(count,0,"Combined-only refill leaves no active native lock") end
+    equal(f.trainer:apply("dawnwalker_stamina",true),true)
+    f.stamina=0.2;ready(f)
+    equal(f.stamina,1);equal(f.trainer:enabled().dawnwalker_stamina,true)
+    equal(effects[f.combat.HappyCheatsStaminaLockHandle],1,"Combined refill retains the independently owned stamina successor")
+    equal(f.trainer:apply("dawnwalker_blood",false),true)
+    equal(f.trainer:enabled().dawnwalker_stamina,true)
+    equal(f.trainer:apply("dawnwalker_stamina",false),true)
+    for _,count in pairs(effects) do equal(count,0,"Final disable removes only the tracked resource effect") end
+end
 for _, unavailable in ipairs({"absent","negative","bad_capacity","nonfinite"}) do
     local f=fixture()
     if unavailable=="absent" then f.pawn.BloodBar=nil

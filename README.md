@@ -4,11 +4,11 @@ A Windows trainer library with 17 games, English / 中文, and one shared in-gam
 
 **[Download HappyCheats.exe](https://github.com/flazedude/happycheats/releases/latest/download/HappyCheats.exe)** · [Latest release](https://github.com/flazedude/happycheats/releases/latest) · [Changelog](CHANGELOG.md) · [中文说明](README.zh-CN.md)
 
-## Latest version · 0.3.68
+## Latest version · 0.3.69
 
-Trainer updates now show only newer packages for games installed on this PC. Current trainers and absent games stay out of the list; completed updates disappear and unfinished setup remains retryable. Close the affected game before updating. Offline/synthetic validation only.
+Requested toggles now survive loading and location/session changes across the trainer library. The client restores them only after the new session validates; Off and Disable all cancel restoration. Dawnwalker also renews retired health/stamina locks and F4 now continuously refills blood and stamina. Validation is offline/synthetic with read-only evidence of the previous failure; the new effects still need gameplay verification.
 
-[Full release notes](docs/releases/0.3.68.en.txt)
+[Full release notes](docs/releases/0.3.69.en.txt)
 
 ![HappyCheats library and Stardew Valley trainer controls in the English dark theme](docs/images/happycheats-library.png)
 

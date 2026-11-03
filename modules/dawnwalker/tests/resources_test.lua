@@ -89,7 +89,9 @@ for _,action in ipairs({HEALTH,STAMINA}) do
     eq(f.sets,0);eq(#f.calls,0);eq(f.effects[900],1)
     f.combat[key]=-1;eq(f.trainer:apply(f.state,action,true),true)
     local own=f.combat[key];f.effects[own]=0;f.combat[key]=901;f.effects[901]=1
-    f.trainer:refresh(f.state);eq(f.trainer:enabled()[action],false);eq(f.effects[901],1);eq(#f.calls,1,"Replacement game lock is never unlocked")
+    f.trainer:refresh(f.state);eq(f.trainer:enabled()[action],true);eq(f.effects[901],1);eq(#f.calls,1,"Replacement game lock is never unlocked")
+    eq(f.trainer:apply(nil,action,false),true,"Disable while waiting cancels the request without touching the foreign effect")
+    eq(f.effects[901],1);eq(#f.calls,1)
 end
 do
     local f=fixture();ready(f);eq(f.trainer:apply(f.state,HEALTH,true),true);eq(f.trainer:apply(f.state,STAMINA,true),true)
@@ -198,5 +200,45 @@ do
     eq(f.trainer:refill(f.state,HEALTH),false,"One-shot cleanup failure is reported")
     eq(f.trainer:enabled()[HEALTH],false,"One-shot cleanup failure never turns the infinite toggle on")
     eq(f.trainer:apply(f.state,HEALTH,true),false,"Uncertain temporary cleanup blocks a replacement mutation")
+end
+for _,action in ipairs({HEALTH,STAMINA}) do
+    local f=fixture();ready(f);eq(f.trainer:apply(f.state,action,true),true)
+    local key=action==HEALTH and "HappyCheatsHealthLockHandle" or "HappyCheatsStaminaLockHandle"
+    local resource=action==HEALTH and "health" or "stamina"
+    local own=f.combat[key]
+    f.effects[own]=0;f[resource]=0.4
+    local _,values=f.trainer:refresh(f.state)
+    eq(f.trainer:enabled()[action],true,"An ended native effect does not cancel the user's toggle")
+    eq(f[resource],1);eq(f.effects[f.combat[key]],1);eq(f.combat[key]~=own,true)
+    eq(values["diagnostic_"..action.."_lock"]:find("renewed",1,true)~=nil,true)
+    own=f.combat[key];f.effects[own]=0;f.combat[key]=999;f.effects[999]=1
+    local calls=#f.calls
+    for _=1,5 do ready(f) end
+    eq(#f.calls,calls,"A foreign active replacement is neither adopted nor removed")
+    eq(f.trainer:enabled()[action],true);eq(f.effects[999],1)
+    eq(f.trainer:refill(f.state,action),false,"Refill cannot steal a foreign active lock")
+    eq(f.trainer:enabled()[action],true,"A blocked combined refill preserves the separate requested toggle")
+    f.effects[999]=0;f[resource]=0.2;ready(f)
+    eq(f.trainer:enabled()[action],true);eq(f[resource],1);eq(f.effects[f.combat[key]],1)
+    for _=1,20 do
+        f.effects[f.combat[key]]=0;f[resource]=0.5;ready(f)
+        local active=0;for _,count in pairs(f.effects) do active=active+count end
+        eq(active,1,"Repeated retirement cannot accumulate active trainer locks")
+    end
+    eq(f.trainer:apply(nil,action,false),true)
+    f[resource]=0.3;calls=#f.calls;ready(f);eq(#f.calls,calls,"A user disable prevents automatic renewal")
+    eq(f[resource],0.3)
+end
+do
+    local f=fixture();ready(f);eq(f.trainer:apply(f.state,HEALTH,true),true)
+    f.effects[f.combat.HappyCheatsHealthLockHandle]=0;f.count_error=true
+    local calls=#f.calls;f.trainer:refresh(f.state)
+    eq(#f.calls,calls,"Unreadable effect state never authorizes another lock")
+    local _,values=f.trainer:refresh(f.state)
+    eq(values.diagnostic_control_error,"true","Resource failures remain visible after the next status poll")
+    eq(type(values.dawnwalker_resource_status),"string")
+    f.count_error=false;f.trainer:refresh(f.state)
+    _,values=f.trainer:refresh(f.state)
+    eq(values.diagnostic_control_error,nil,"A confirmed renewed effect clears the failed-state indicator")
 end
 print("Dawnwalker resource locks: "..checks.." assertions passed")

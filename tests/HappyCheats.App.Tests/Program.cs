@@ -53,7 +53,8 @@ internal static class Program
             main.InitializeAsync(preview: true).GetAwaiter().GetResult();
             Layout(main);
             Check(app.Windows.Count == 1, "App startup unexpectedly created another window.");
-            if (args.Contains("--clickable")) Results.Add(ClickableControlsChecks.Run(main, root));
+            if (args.Contains("--toggle-continuity")) Results.Add(ToggleContinuityChecks.Run(main, root));
+            else if (args.Contains("--clickable")) Results.Add(ClickableControlsChecks.Run(main, root));
             else if (args.Contains("--cheat-updates")) Results.Add(CheatUpdateUiChecks.Run(main, artifacts));
             else if (args.Contains("--crimson"))
             {
@@ -69,6 +70,7 @@ internal static class Program
             else if (args.Contains("--background-updates")) Results.Add(BackgroundUpdateUiChecks.Run(root));
             else
             {
+            Results.Add(ToggleContinuityChecks.Run(main, root));
             Results.Add(ClickableControlsChecks.Run(main, root));
             Results.Add(CheatUpdateUiChecks.Run(main, artifacts));
             Results.Add(LibrarySortChecks.Run(main, root, artifacts, Check));

@@ -244,10 +244,18 @@ function Instance:_top_up(action, state)
             or not finite(fresh.blood_capacity) or fresh.blood_capacity <= 0 then
             return false, "Blood bar unavailable"
         end
-        if fresh.blood_amount >= fresh.blood_capacity * 0.9999 then return true end
-        if not invoke(fresh.blood, "SetBloodPercent", 1.0) then return false, "Blood setter failed" end
-        local value = number_from(fresh.blood, "GetBlood")
-        return value ~= nil and value >= fresh.blood_capacity * 0.999, "Blood setter did not refill the resource"
+        if fresh.blood_amount < fresh.blood_capacity * 0.9999 then
+            if not invoke(fresh.blood, "SetBloodPercent", 1.0) then return false, "Blood setter failed" end
+            local value = number_from(fresh.blood, "GetBlood")
+            if value == nil or value < fresh.blood_capacity * 0.999 then return false, "Blood setter did not refill the resource" end
+        end
+        -- Stamina is maintained even when blood was already full. Use the
+        -- resource extension's verified temporary/owned lock path so this
+        -- toggle never leaves an untracked native effect behind.
+        local after = self:_state(fresh.character)
+        if not after or after.key ~= self.key then return false, "Player session changed during blood refill; enable again" end
+        if after.stamina >= 0.9999 then return true end
+        return self:_top_up("dawnwalker_stamina", fresh)
     end
     return false, "Unknown top-up"
 end
@@ -289,14 +297,16 @@ function Instance:refresh()
         for action, supported in pairs(available) do self.available[action] = supported end
         for name, value in pairs(values) do self.values[name] = value end
     end
-    self.message = self.extensions.resources and "Ready; health and stamina use owned native locks; blood uses periodic top-ups"
-        or "Ready; health, stamina and blood use periodic top-ups"
+    self.available.dawnwalker_blood = self.available.dawnwalker_blood and self.available.dawnwalker_stamina
+    self.message = self.values.dawnwalker_resource_status or (self.extensions.resources and "Ready; health and stamina use owned native locks; blood and stamina use periodic top-ups"
+        or "Ready; health, stamina and blood use periodic top-ups")
     for _, action in ipairs(IDS) do
         if self.flags[action] then
-            local ok = self.available[action] and self:_top_up(action, state)
+            local ok,reason
+            if self.available[action] then ok,reason=self:_top_up(action, state) end
             if not ok then
                 self.flags[action] = false
-                self.message = "A top-up became unavailable and was disabled"
+                self.message = reason or "A top-up became unavailable and was disabled"
                 self:_changed(action, self.message)
             end
         end
@@ -334,8 +344,8 @@ function Instance:apply(action, enabled)
         self:_changed(action, "Health and stamina refilled")
         return true, "Health and stamina refilled"
     end
-    local ok = self:_top_up(action, state)
-    if not ok then return false, "The native top-up could not be applied" end
+    local ok,reason = self:_top_up(action, state)
+    if not ok then return false, reason or "The native top-up could not be applied" end
     self.flags[action] = true
     self:_changed(action, "Periodic top-up enabled")
     return true, "Periodic top-up enabled"

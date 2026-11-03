@@ -131,6 +131,7 @@ public partial class MainWindow
                     throw new IOException(Localization.Choose("Trainer installation did not verify. ", "修改器安装验证未通过。") + Localization.Message(installation.Message));
             }
             var item = new GameItem(replacement) { Installation = installation,
+                Toggles = previous?.Toggles ?? new(),
                 Status = await replacement.ReadStatusAsync(installation), LoadedCheatVersion = release.Version };
             var selected = _selected == previous && previous != null;
             if (previous != null) Games[Games.IndexOf(previous)] = item;

@@ -4,11 +4,11 @@ Windows 游戏修改器合集，支持 17 款游戏、中英双语和统一游�
 
 **[下载 HappyCheats.exe](https://github.com/flazedude/happycheats/releases/latest/download/HappyCheats.exe)** · [最新发行版](https://github.com/flazedude/happycheats/releases/latest) · [更新日志](CHANGELOG.md) · [English](README.md)
 
-## 最新版本 · 0.3.68
+## 最新版本 · 0.3.69
 
-修改器更新现在只显示本机已安装游戏的较新修改器包，不再列出已是最新版本的修改器或未安装的游戏。完成的更新会自动移除，未完成的安装仍可重试。更新前请关闭对应游戏。仅进行离线及合成验证。
+所有修改器会在加载、地点或会话变化时保留已开启功能的请求，并在新会话验证通过后恢复；关闭功能或“全部关闭”会取消恢复。黎明行者之血同时修复生命与耐力锁定失效后自动关闭的问题，F4 改为持续恢复血量与耐力。新效果尚待游戏内验证。
 
-[完整更新说明](docs/releases/0.3.68.zh.txt)
+[完整更新说明](docs/releases/0.3.69.zh.txt)
 
 ![HappyCheats 英文深色界面的游戏库与星露谷物语修改器](docs/images/happycheats-library.png)
 

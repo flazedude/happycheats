@@ -13,7 +13,7 @@ public sealed class DawnwalkerModule(string baseDirectory) : IGameModule
     public const string SupportedExecutableHash = "75006EE2B3D662E7AA697804A5129B04F336E40F76C2FE8D3A72AD107552A8C6";
     public const string PreviousSupportedExecutableHash = "E6222B815B1C376F2C85A2189120C5A9B5CD30AC5688A34B61A2C18EFBC9B117";
     public const string BridgeRoot = "Dawnwalker/Binaries/Win64/ue4ss/Mods/HappyCheatsDawnwalker/bridge/";
-    public const string TrainerVersion = "0.5.4";
+    public const string TrainerVersion = "0.5.5";
     private readonly string package = Path.Combine(baseDirectory, "payload", "dawnwalker");
     private readonly SemaphoreSlim commandLock = new(1, 1);
     private readonly object inspectionLock = new();
@@ -29,7 +29,7 @@ public sealed class DawnwalkerModule(string baseDirectory) : IGameModule
             new("dawnwalker_health", "Infinite health", "Lock health full through the native resource effect. Existing game-owned locks are preserved; scripted deaths are not covered.", "F1", true, "Survival"),
             new("dawnwalker_stamina", "Infinite stamina", "Lock stamina full through the native resource effect while enabled. Existing game-owned locks are preserved.", "F2", true, "Survival"),
             new("dawnwalker_refill", "Refill health and stamina", "Restore the current player's health and stamina once without enabling either toggle.", "F3", false, "Survival"),
-            new("dawnwalker_blood", "Refill blood continuously", "Periodically fill the player's blood bar and restore damaged blood segments through the game's native setter. These refills may persist in normal saves.", "F4", true, "Survival"),
+            new("dawnwalker_blood", "Refill blood and stamina continuously", "Every 250 ms, refill blood and stamina through the native resource methods. Damaged blood segments are restored. Works alongside Infinite stamina; disabling this refill leaves that separate toggle unchanged. Refills may persist in normal saves.", "F4", true, "Survival"),
             new("dawnwalker_invulnerable", "Invulnerability", "Apply the game's invulnerability effect to prevent health damage. Disable removes only the effect created by this trainer.", "F5", true, "Combat & movement"),
             new("dawnwalker_auto_parry", "Auto parry", "Time a native directional guard against the next nearby frontal enemy attack. Skips unblockable attacks, yields to manual guard and releases its own guard after the attack. Native stamina, cooldown and combat rules apply; experimental gameplay validation is pending.", "NumPad5", true, "Combat & movement"),
             new("dawnwalker_damage", "Super damage", "Apply and verify 10× melee, claw, magic and unarmed attack multipliers. Measured correction accounts for active scaling; overrides and clamps can prevent application. Disable restores values still owned by this trainer; game changes can turn the control off.", "F8", true, "Combat & movement"),
