@@ -255,8 +255,11 @@ function Instance:tick(s)
         trace.stage="waiting for player control"
         return true
     end
-    local hit, timing = {}, {}
-    local incoming_ok, enemy = a.invoke(b.incoming, "GetNextIncomingAttacker", context.stub, hit, timing)
+    -- The pinned loader does not consume a scalar OUT argument when it records
+    -- its table reference. Consecutive scalar OUTs therefore both target the
+    -- first supplied table. Share it explicitly so neither result is lost.
+    local hit = {}
+    local incoming_ok, enemy = a.invoke(b.incoming, "GetNextIncomingAttacker", context.stub, hit, hit)
     if not incoming_ok or type(hit.bIsHitIncoming) ~= "boolean" then
         self:_stop("Auto parry incoming-attack data unavailable"); return true
     end
@@ -264,7 +267,7 @@ function Instance:tick(s)
     local attack,reason
     if hit.bIsHitIncoming then attack,reason=self:_attack(s,enemy,now) end
     trace.attack_check=reason or (attack and "eligible" or "no incoming attack")
-    local time_to_hit = timing.TimeToHitWindow
+    local time_to_hit = hit.TimeToHitWindow
     if a.finite(time_to_hit) then trace.time_to_hit_ms=time_to_hit*1000 end
     if self.lease then
         if now >= self.lease.until_time or not attack or attack.key ~= self.lease.attack then

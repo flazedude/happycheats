@@ -98,8 +98,10 @@ local function fixture()
             if method=="GetTimeSeconds" then return f.now end
             if method=="IsGamePaused" then return f.paused==true end
             if method=="GetNextIncomingAttacker" then
-                assert(args[1]==f.stub and args[2]~=args[3],"Separate native OUT tables required")
-                if not f.missing_out then args[2].bIsHitIncoming=f.incoming;args[3].TimeToHitWindow=f.hit-f.now end
+                assert(args[1]==f.stub)
+                -- Actual pinned-loader behavior: both scalar OUT refs bind the
+                -- first table; the third supplied argument is not consumed.
+                if not f.missing_out then args[2].bIsHitIncoming=f.incoming;args[2].TimeToHitWindow=f.hit-f.now end
                 return f.enemy
             end
             if method=="GetParryPointNotificationTime" then return f.point end

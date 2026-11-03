@@ -1,5 +1,7 @@
 # Dawnwalker automatic parry
 
+The local **0.5.3 candidate** corrects a scalar-OUT marshalling bug found after the 0.5.2 release: pinned loader b4cefa18 records consecutive scalar OUT parameters against the first Lua table because it does not consume that argument before continuing. `GetNextIncomingAttacker` has distinct native output slots (bool +0x08, float +0x0C), but both Lua results must use one shared output table. The old separate Lua timing table remained empty, causing every eligible attack to miss the timing check without a guard attempt. The fixture now models the actual first-table behavior. Gate diagnostics record timer, control suppression, attack, timing, mapping and defense state. The candidate was installed and hash-verified while the game was closed; post-restart auto-guard validation remains pending and no new package is public yet.
+
 Trainer **0.5.2**, independent Dawnwalker package **1.0.3**, uses the existing exact executable pin for Steam build **25915545 / CL-265636**. Enable **Auto parry** with **NumPad5** or the main client/shared menu. It starts off and resets on player/world changes. Existing controller shortcuts, Ctrl+Del, Menu+RB and instant marker teleport are unchanged.
 
 The option watches the game's next incoming attacker on the shared 16 ms game-thread timer, active only while flight or auto parry is enabled. It uses native predicted hit-window time and the animation parry point to request one directional guard. It releases its request after a bounded pulse, attack cancellation, target changes, pause/cutscene, lost possession, disable or session transition. The existing 250 ms heartbeat remains. No synthetic input, damage-result replacement, additional native hooks or global actor scan is used.
@@ -18,7 +20,7 @@ These RVAs are audit references, not runtime offsets. Gameplay fields are reflec
 
 | Contract | Evidence |
 | --- | --- |
-| `DogwoodAICombatBlueprintFunctionLibrary.GetNextIncomingAttacker` | Player stub, separate OUT bool `bIsHitIncoming`, OUT float `TimeToHitWindow`, returned enemy stub. Thunk `0x60FC7B4`; native `0x60F51B0` selects the earliest hit and subtracts world game time. |
+| `DogwoodAICombatBlueprintFunctionLibrary.GetNextIncomingAttacker` | Player stub, distinct native OUT bool `bIsHitIncoming` and float `TimeToHitWindow`, returned enemy stub; pinned loader requires a shared Lua OUT table to retain both fields. Thunk `0x60FC7B4`; native `0x60F51B0` selects the earliest hit and subtracts world game time. |
 | `CombatBlueprintFunctionLibrary.GetParryPointNotificationTime` | Enemy stub to absolute world-time float. Thunk `0x5FE8D40`, implementation `0x600517C`; missing notifies may return a sentinel. |
 | `CombatComponentBase.SetDesiredBlockState` | Bool. Thunk `0x5FEF6B4`, current PlayerCombatComponent virtual target `0x6044FE8`. |
 | `PlayerCombatComponent.SetBlockingDirection` | `EBlockingDirection`; thunk `0x5FFC7CC`, change notification `0x603FAB4`. |
