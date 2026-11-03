@@ -146,6 +146,7 @@ function Instance:_stop(message)
     self.active = false
     local cleaned = self:_release()
     self.message = cleaned and message or "Auto parry cleanup pending; release guard and try disabling again"
+    self.trace.stage=self.message
     return cleaned, self.message
 end
 
@@ -169,12 +170,15 @@ function Instance:refresh(s)
     if self.state and self.state.key ~= s.key then
         self:_stop("Auto parry disabled after player session changed")
         self.bindings, self.seen, self.order, self.last_attempt, self.last_clock = nil, {}, {}, nil, nil
+        self.trace={fast_ticks=0,stage="session changed"}
     end
     self.state = s
     if not self.active and self.lease and self:_release() then self.message = "Auto parry disabled" end
     local supported = self:_context(s) ~= nil
     if self.active and not supported then self:_stop("Auto parry bindings became unavailable") end
-    return {[ACTION]=supported}, {dawnwalker_auto_parry_status=self.message, dawnwalker_auto_parry_attempts=self.attempts}
+    local values={dawnwalker_auto_parry_status=self.message,dawnwalker_auto_parry_attempts=self.attempts}
+    for key,value in pairs(self.trace) do values["diagnostic_parry_"..key]=value end
+    return {[ACTION]=supported},values
 end
 
 local function vector(a, value)
@@ -186,40 +190,50 @@ function Instance:_attack(s, enemy, now)
     local a = self.api
     if not a.valid(enemy) or bool(a, enemy, "IsPlayer") ~= false
         or bool(a, enemy, "IsInitializedAndHasPawn") ~= true
-        or bool(a, enemy, "IsHostileTowardsPlayer") ~= true then return nil end
+        or bool(a, enemy, "IsHostileTowardsPlayer") ~= true then return nil,"attacker identity/hostility unavailable" end
     local ok, actor = a.invoke(enemy, "GetActor")
-    if not ok or not a.valid(actor) or a.same(actor, s.character) then return nil end
+    if not ok or not a.valid(actor) or a.same(actor, s.character) then return nil,"attacker actor unavailable" end
     local world_ok, world = a.invoke(actor, "GetWorld")
-    if not world_ok or not a.same(world, s.world) then return nil end
+    if not world_ok or not a.same(world, s.world) then return nil,"attacker world differs" end
     local combat = a.read(actor, "CombatComponent")
     local owner_ok, owner = a.invoke(combat, "GetCharacter")
-    if not owner_ok or not a.same(owner, actor) or bool(a, combat, "IsAlive") ~= true then return nil end
+    if not owner_ok or not a.same(owner, actor) or bool(a, combat, "IsAlive") ~= true then return nil,"attacker combat/liveness unavailable" end
     local attack = a.read(combat, "CurrentAttack")
     local direction = DIRECTIONS[field(attack, "Direction")]
     local stamp, montage_id = field(attack,"TimePerformed"), field(attack,"PlayedAttackMontageInstanceID")
     local montage, action = field(attack,"PlayedAttackMontage"), field(attack,"Action")
-    if not direction or field(attack,"bIsUnblockable") ~= false
-        or not a.same(field(attack,"Target"), s.combat) or not a.same(field(attack,"Instigator"), combat)
-        or not a.finite(stamp) or stamp < 0 or stamp > now+0.05 or now-stamp > 15
+    self.trace.attack_direction=tostring(field(attack,"Direction"))
+    self.trace.attack_unblockable=tostring(field(attack,"bIsUnblockable"))
+    if a.finite(stamp) then self.trace.attack_age_ms=(now-stamp)*1000 end
+    self.trace.montage_id=tostring(montage_id);self.trace.montage_valid=tostring(a.valid(montage));self.trace.action_valid=tostring(a.valid(action))
+    if not direction then return nil,"attack direction unavailable" end
+    if field(attack,"bIsUnblockable")~=false then return nil,"unblockable flag is not false" end
+    if not a.same(field(attack,"Target"),s.combat) then return nil,"attack targets another combat component" end
+    if not a.same(field(attack,"Instigator"),combat) then return nil,"attack instigator differs" end
+    if not a.finite(stamp) or stamp < 0 or stamp > now+0.05 or now-stamp > 15
         or not a.finite(montage_id) or montage_id < 0 or montage_id % 1 ~= 0
-        or not a.valid(montage) or not a.valid(action) then return nil end
+        or not a.valid(montage) or not a.valid(action) then return nil,"attack timestamp/montage/action unavailable" end
     local p_ok, p = a.invoke(s.character, "K2_GetActorLocation")
     local e_ok, e = a.invoke(actor, "K2_GetActorLocation")
     local f_ok, forward = a.invoke(s.combat, "GetCombatForwardDirection")
     local px,py,pz = vector(a,p); local ex,ey,ez = vector(a,e); local fx,fy = vector(a,forward)
     local angle = a.read(s.combat, "DefenseAngleDot")
     if not p_ok or not e_ok or not f_ok or not px or not ex or not fx or not a.finite(angle)
-        or angle < -1 or angle > 1 then return nil end
+        or angle < -1 or angle > 1 then return nil,"defensive position/facing unavailable" end
     local dx,dy = ex-px,ey-py
     local distance, length = math.sqrt(dx*dx+dy*dy), math.sqrt(fx*fx+fy*fy)
+    self.trace.distance=distance;self.trace.height_difference=math.abs(ez-pz);self.trace.facing_length=length;self.trace.facing_cutoff=angle
+    if distance>=1 and length>=0.01 then self.trace.facing_dot=(dx*fx+dy*fy)/(distance*length) end
     if distance < 1 or distance > 1200 or length < 0.01 or math.abs(ez-pz) > 300
-        or (dx*fx+dy*fy)/(distance*length) < angle then return nil end
+        or (dx*fx+dy*fy)/(distance*length) < angle then return nil,"attack outside defensive distance/arc" end
     return {key=a.identity(enemy)..":"..a.identity(action)..":"..a.identity(montage)..":"..montage_id..":"..string.format("%.17g",stamp),
         direction=direction, combat=combat, actor=actor, stamp=stamp, montage_id=montage_id}
 end
 
 function Instance:tick(s)
     if not self.active then return true end
+    local trace=self.trace
+    trace.fast_ticks=trace.fast_ticks+1;trace.stage="checking player context"
     if not s or not self.state or s.key ~= self.state.key or not self:_current(s) then
         self:_stop("Auto parry disabled after player session changed"); return true
     end
@@ -234,9 +248,11 @@ function Instance:tick(s)
     local paused = bool(a, b.gameplay, "IsGamePaused", s.character)
     local ignored = bool(a, s.controller, "IsMoveInputIgnored")
     local cinematic = bool(a, context.stub, "IsInCinematicMode")
+    trace.paused=tostring(paused);trace.input_ignored=tostring(ignored);trace.cinematic=tostring(cinematic);trace.world_time=now
     if paused ~= false or ignored ~= false or cinematic ~= false then
         if not self:_release() then self:_stop("Auto parry cleanup pending; release guard and try disabling again") end
         self.message = self.lease and self.message or "Auto parry waiting for player control"
+        trace.stage="waiting for player control"
         return true
     end
     local hit, timing = {}, {}
@@ -244,8 +260,12 @@ function Instance:tick(s)
     if not incoming_ok or type(hit.bIsHitIncoming) ~= "boolean" then
         self:_stop("Auto parry incoming-attack data unavailable"); return true
     end
-    local attack = hit.bIsHitIncoming and self:_attack(s,enemy,now) or nil
+    trace.incoming=tostring(hit.bIsHitIncoming)
+    local attack,reason
+    if hit.bIsHitIncoming then attack,reason=self:_attack(s,enemy,now) end
+    trace.attack_check=reason or (attack and "eligible" or "no incoming attack")
     local time_to_hit = timing.TimeToHitWindow
+    if a.finite(time_to_hit) then trace.time_to_hit_ms=time_to_hit*1000 end
     if self.lease then
         if now >= self.lease.until_time or not attack or attack.key ~= self.lease.attack then
             if not self:_release() then self:_stop("Auto parry cleanup pending; release guard and try disabling again") end
@@ -253,20 +273,23 @@ function Instance:tick(s)
         if self.lease then return true end
     end
     self.message = "Auto parry watching for a parryable attack"
+    trace.stage=trace.attack_check
     if not attack or self.seen[attack.key] then return true end
-    if not a.finite(time_to_hit) or time_to_hit < -0.02 or time_to_hit > 0.25 then return true end
-    if self.last_attempt and now-self.last_attempt < context.cooldown then return true end
+    if not a.finite(time_to_hit) or time_to_hit < -0.02 or time_to_hit > 0.25 then trace.stage="outside hit prediction window";return true end
+    if self.last_attempt and now-self.last_attempt < context.cooldown then trace.stage="native guard cooldown";return true end
     local point_ok, point = a.invoke(b.combat, "GetParryPointNotificationTime", enemy)
+    trace.parry_point=tostring(point)
     -- Native timestamps use world game time. Missing notifies return a sentinel.
     -- Never queue a wall-clock callback that can fire after pause/loading.
-    if not point_ok or not a.finite(point) or point < 0 or point > now+2 then return true end
+    if not point_ok or not a.finite(point) or point < 0 or point > now+2 then trace.stage="parry timestamp unavailable/outside window";return true end
     local press_at = math.min(point, now+time_to_hit-0.05)
-    if now < press_at then return true end
-    local manual, keys = self:_manual(s)
-    if manual ~= false then self.message = manual and "Auto parry waiting for manual guard to release" or "Auto parry waiting for combat block controls"; return true end
-    if bool(a,s.combat,"WantsToBlock") ~= false or bool(a,s.combat,"IsBlocking") ~= false
-        or bool(a,s.combat,"CanDefend") ~= true
-        or bool(a,s.combat,"CanPerformBlockInDirection",attack.direction) ~= true then return true end
+    if now < press_at then trace.stage="waiting for parry press time";return true end
+    local manual, keys, mapping_reason = self:_manual(s)
+    trace.manual=tostring(manual);trace.key_count=keys and #keys or 0;trace.mapping=mapping_reason or "available"
+    if manual ~= false then self.message = manual and "Auto parry waiting for manual guard to release" or "Auto parry waiting for combat block controls";trace.stage=self.message;return true end
+    local wants,blocking,defend,direction_ok=bool(a,s.combat,"WantsToBlock"),bool(a,s.combat,"IsBlocking"),bool(a,s.combat,"CanDefend"),bool(a,s.combat,"CanPerformBlockInDirection",attack.direction)
+    trace.wants=tostring(wants);trace.blocking=tostring(blocking);trace.can_defend=tostring(defend);trace.direction_allowed=tostring(direction_ok)
+    if wants~=false or blocking~=false or defend~=true or direction_ok~=true then trace.stage="native defense gate";return true end
     local previous = a.read(s.combat,"BlockingDirection")
     if not VALID_DIRECTIONS[previous] then self:_stop("Auto parry guard direction unavailable"); return true end
     -- Recheck the attack immediately before mutation, including cancellation,
@@ -276,6 +299,7 @@ function Instance:tick(s)
     self.seen[attack.key] = true; self.order[#self.order+1] = attack.key
     if #self.order > 64 then self.seen[table.remove(self.order,1)] = nil end
     self.last_attempt, self.attempts = now, self.attempts+1
+    trace.stage="guard request"
     -- Press before changing direction. Native guard-press and direction-change
     -- both update cooldown timestamps; reversing this order flags a double tap.
     self.lease = {state=s, attack=attack.key, previous_direction=previous, direction=previous,
@@ -311,6 +335,6 @@ end
 function Instance:enabled() return {[ACTION]=self.active == true} end
 function Instance:disable_all() return self:_stop("Auto parry disabled") end
 function M.new(api)
-    return setmetatable({api=api, active=false, attempts=0, seen={}, order={}, message="Auto parry disabled"},Instance)
+    return setmetatable({api=api, active=false, attempts=0, seen={}, order={},trace={fast_ticks=0,stage="disabled"}, message="Auto parry disabled"},Instance)
 end
 return M
