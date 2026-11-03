@@ -486,6 +486,10 @@ do
     equal(#f.interned_names,2,"Both temporary attribute aliases are interned")
     equal(f.name_pool.HappyCheatsAttributeResolvedField,true)
     equal(f.name_pool.HappyCheatsAttributeWeakOwner,true)
+    equal(api_seen.register_property("HappyCheatsAttributePathData","/Script/GameplayAbilities.GameplayAttribute","Int64Property",0x20),true)
+    equal(api_seen.register_property("HappyCheatsAttributePathShape","/Script/GameplayAbilities.GameplayAttribute","Int64Property",0x28),true)
+    equal(f.name_pool.HappyCheatsAttributePathData,true);equal(f.name_pool.HappyCheatsAttributePathShape,true)
+    equal(api_seen.register_property("HappyCheatsAttributePathData","/Script/GameplayAbilities.GameplayAttribute","Int64Property",0x28),false,"Borrowed path layout cannot be moved")
     equal(api_seen.register_property("HappyCheatsAttributeResolvedField","/Script/GameplayAbilities.GameplayAttribute","Int64Property",0x18),false,"Descriptor field offset is pinned")
     equal(api_seen.register_property("HappyCheatsAttributeWeakOwner","/Script/GameplayAbilities.GameplayAttribute","IntProperty",0x18),false,"Descriptor weak owner requires eight bytes")
     local map,location={}, {X=1,Y=2,Z=3}

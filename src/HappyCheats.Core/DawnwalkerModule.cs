@@ -12,7 +12,7 @@ public sealed class DawnwalkerModule(string baseDirectory) : IGameModule
     public const string Executable = "Dawnwalker/Binaries/Win64/Dawnwalker.exe";
     public const string SupportedExecutableHash = "E6222B815B1C376F2C85A2189120C5A9B5CD30AC5688A34B61A2C18EFBC9B117";
     public const string BridgeRoot = "Dawnwalker/Binaries/Win64/ue4ss/Mods/HappyCheatsDawnwalker/bridge/";
-    public const string TrainerVersion = "0.5.2";
+    public const string TrainerVersion = "0.5.3";
     private readonly string package = Path.Combine(baseDirectory, "payload", "dawnwalker");
     private readonly SemaphoreSlim commandLock = new(1, 1);
     private readonly object inspectionLock = new();

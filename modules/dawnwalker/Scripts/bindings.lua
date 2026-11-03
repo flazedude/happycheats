@@ -39,7 +39,9 @@ local function register_property(name, owner, kind, offset)
     -- temporary native parameter structs. No gameplay attribute data is exposed.
     local attribute_reference = owner == "/Script/GameplayAbilities.GameplayAttribute" and kind == "Int64Property"
         and ((name == "HappyCheatsAttributeResolvedField" and offset == 0x10)
-            or (name == "HappyCheatsAttributeWeakOwner" and offset == 0x18))
+            or (name == "HappyCheatsAttributeWeakOwner" and offset == 0x18)
+            or (name == "HappyCheatsAttributePathData" and offset == 0x20)
+            or (name == "HappyCheatsAttributePathShape" and offset == 0x28))
     if not item and not player_visibility and not hit_flags and not resource_lock and not attribute_reference then return false, "Unverified custom property" end
     if registered_properties[name] ~= nil then return registered_properties[name], "Cached custom property" end
     local ok, reason = pcall(function()

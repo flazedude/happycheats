@@ -23,7 +23,8 @@ local function fixture()
     f.attributes, f.bases, f.attribute_writes = {}, {}, {}
     for i, name in ipairs(f.attribute_names) do
         f.attributes[i] = {name=name,AttributeName=name,AttributeOwner=f.class,
-            HappyCheatsAttributeResolvedField=0x1000+i*8,HappyCheatsAttributeWeakOwner=0x123456}
+            HappyCheatsAttributeResolvedField=0x1000+i*8,HappyCheatsAttributeWeakOwner=0x123456,
+            HappyCheatsAttributePathData=0x4000+i*16,HappyCheatsAttributePathShape=(2<<32)|1}
         f.bases[name] = 1+i*0.25
     end
     function f.asc:GetAllAttributes(output)
@@ -56,6 +57,11 @@ local function fixture()
     function f.combat_library:SetAttributeValue(asc, attribute, value)
         assert(type(attribute)=="table" and attribute.name==nil,"Native mutable reference requires an OUT table, not descriptor userdata")
         assert(attribute.HappyCheatsAttributeResolvedField and attribute.HappyCheatsAttributeWeakOwner,"FieldPath must survive table marshalling")
+        local expected
+        for _,source in ipairs(f.attributes) do if source.name==attribute.AttributeName then expected=source end end
+        assert(expected and attribute.HappyCheatsAttributePathData==expected.HappyCheatsAttributePathData
+            and attribute.HappyCheatsAttributePathShape==expected.HappyCheatsAttributePathShape,
+            "GAS map identity includes the full serialized field path; scalar getters alone cannot validate it")
         local reference=attribute
         attribute={name=reference.AttributeName}
         equal(asc, f.asc, "Native attribute write uses original ASC")
@@ -117,7 +123,7 @@ local function fixture()
         end,
         register_property = function(name, owner, kind, offset)
             if owner=="/Script/GameplayAbilities.GameplayAttribute" then
-                equal(kind,"Int64Property");equal(offset,name=="HappyCheatsAttributeResolvedField" and 0x10 or 0x18)
+                equal(kind,"Int64Property");equal(offset,({HappyCheatsAttributeResolvedField=0x10,HappyCheatsAttributeWeakOwner=0x18,HappyCheatsAttributePathData=0x20,HappyCheatsAttributePathShape=0x28})[name])
                 f.attribute_registrations=(f.attribute_registrations or 0)+1
                 return not f.registration_failed
             end
@@ -842,5 +848,15 @@ do
     damage_enable(f)
     equal(f.trainer:apply(f.state,"dawnwalker_damage",false),true,"Native FString descriptor names are copied as Lua strings")
     originals(f)
+end
+for _,shape in ipairs({0,(2<<32)|3,(65<<32)|1}) do
+    local f=fixture();f.attributes[1].HappyCheatsAttributePathShape=shape;f.trainer:refresh(f.state)
+    equal(f.trainer:apply(f.state,"dawnwalker_damage",true),false,"Incomplete/invalid serialized path cannot reach native writes")
+    equal(#f.attribute_writes,0)
+end
+do
+    local f=fixture();f.attributes[1].HappyCheatsAttributePathData=0;f.trainer:refresh(f.state)
+    equal(f.trainer:apply(f.state,"dawnwalker_damage",true),false,"Missing path storage is rejected")
+    equal(#f.attribute_writes,0)
 end
 print("Dawnwalker combat: " .. checks .. " assertions passed")

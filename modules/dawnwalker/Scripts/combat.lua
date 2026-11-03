@@ -21,6 +21,7 @@ local INVISIBLE_FUNCTIONS = {
 local DAMAGE_FIELDS = {"MeleeDamageMultiplier", "ClawsDamageMultiplier", "MagicDamageMultiplier", "UnarmedDamageMultiplier"}
 local ATTRIBUTE = "/Script/GameplayAbilities.GameplayAttribute"
 local ATTRIBUTE_FIELD, ATTRIBUTE_OWNER = "HappyCheatsAttributeResolvedField", "HappyCheatsAttributeWeakOwner"
+local ATTRIBUTE_PATH, ATTRIBUTE_SHAPE = "HappyCheatsAttributePathData", "HappyCheatsAttributePathShape"
 local DAMAGE_FUNCTIONS = {
     "/Script/GameplayAbilities.AbilitySystemComponent:GetAllAttributes",
     "/Script/GameplayAbilities.AbilitySystemBlueprintLibrary:GetDebugStringFromGameplayAttribute",
@@ -163,7 +164,9 @@ function Instance:_resolve_damage()
     if not self.api.valid(combat) then self.damage_reason = "Damage setter library unavailable"; return nil end
     if type(self.api.register_property) ~= "function"
         or not self.api.register_property(ATTRIBUTE_FIELD,ATTRIBUTE,"Int64Property",0x10)
-        or not self.api.register_property(ATTRIBUTE_OWNER,ATTRIBUTE,"Int64Property",0x18) then
+        or not self.api.register_property(ATTRIBUTE_OWNER,ATTRIBUTE,"Int64Property",0x18)
+        or not self.api.register_property(ATTRIBUTE_PATH,ATTRIBUTE,"Int64Property",0x20)
+        or not self.api.register_property(ATTRIBUTE_SHAPE,ATTRIBUTE,"Int64Property",0x28) then
         self.damage_reason = "Damage reference-parameter binding unavailable"; return nil
     end
     self.damage_bindings = {library = library, combat = combat}
@@ -200,23 +203,31 @@ local function damage_close(value, expected)
 end
 
 function Instance:_damage_reference(lease, entry)
-    local ok, field, weak, name, owner = pcall(function()
+    local ok, field, weak, name, owner, path, shape = pcall(function()
         local attribute_name = entry.attribute.AttributeName
         if type(attribute_name) ~= "string" then attribute_name = attribute_name:ToString() end
         return entry.attribute[ATTRIBUTE_FIELD], entry.attribute[ATTRIBUTE_OWNER],
-            attribute_name, entry.attribute.AttributeOwner
+            attribute_name, entry.attribute.AttributeOwner, entry.attribute[ATTRIBUTE_PATH],entry.attribute[ATTRIBUTE_SHAPE]
     end)
     local a = self.api
     if not ok or not a.finite(field) or field <= 0 or field % 8 ~= 0
-        or not a.finite(weak) or weak <= 0 or weak % 1 ~= 0 or name ~= entry.name or not a.valid(owner) then
+        or not a.finite(weak) or weak <= 0 or weak % 1 ~= 0 or name ~= entry.name or not a.valid(owner)
+        or not a.finite(path) or path<=0 or path%8~=0 or not a.finite(shape) or shape<=0 or math.type(shape)~="integer" then
         return nil,"Native damage descriptor could not be copied: " .. entry.name
     end
+    local count,capacity=shape & 0xffffffff,(shape >> 32) & 0xffffffff
+    if count<1 or count>16 or capacity<count or capacity>64 then return nil,"Native damage field path is invalid: "..entry.name end
     -- SetAttributeValue's AttributeToSet has OUT|ReferenceParm and is not const.
-    -- The pinned loader requires a table for that argument. Its ordinary table
-    -- conversion omits FieldPathProperty, so copy only the native descriptor's
-    -- resolved field/weak owner through narrow aliases, with an empty owned path.
-    -- AttributeName and AttributeOwner remain normal reflected fields.
-    local reference = {[ATTRIBUTE_FIELD]=field,[ATTRIBUTE_OWNER]=weak,AttributeName=name,AttributeOwner=owner}
+    -- The pinned loader requires a table and omits FieldPathProperty conversion.
+    -- Keep the complete field-path identity: GAS equality compares both its
+    -- weak owner and serialized FName path, not just the resolved FProperty.
+    -- For this exact setter/pinned loader only, borrow the retained descriptor's
+    -- path for the synchronous call. Its exec thunk does not mutate/free the
+    -- reference, and UE4SS's raw parameter buffer does not destroy its fields.
+    -- The audited scalar getters make native by-value copies with owned paths.
+    -- Use only those getters/this setter, retaining their source descriptor.
+    local reference = {[ATTRIBUTE_FIELD]=field,[ATTRIBUTE_OWNER]=weak,[ATTRIBUTE_PATH]=path,[ATTRIBUTE_SHAPE]=shape,
+        AttributeName=name,AttributeOwner=owner}
     local checked, debug_name = a.invoke(lease.library,"GetDebugStringFromGameplayAttribute",reference)
     if checked and type(debug_name) ~= "string" then checked,debug_name=pcall(function() return debug_name:ToString() end) end
     local probe={attribute=reference,name=entry.name}
@@ -230,6 +241,13 @@ end
 function Instance:_write_damage_base(lease, entry, value)
     local source = entry.reference
     if not source or not self.api.valid(source.AttributeOwner) then return false,"Damage reference owner unavailable" end
+    local checked,unchanged=pcall(function()
+        for _,key in ipairs({ATTRIBUTE_FIELD,ATTRIBUTE_OWNER,ATTRIBUTE_PATH,ATTRIBUTE_SHAPE}) do
+            if entry.attribute[key]~=source[key] then return false end
+        end
+        return self.api.same(entry.attribute.AttributeOwner,source.AttributeOwner)
+    end)
+    if not checked or not unchanged then return false,"Damage descriptor lifetime or identity changed" end
     -- OUT conversion mutates its table. Always use a fresh argument, preserving
     -- the verified descriptor snapshot for correction and conditional cleanup.
     local reference={}
@@ -308,7 +326,7 @@ function Instance:_apply_damage(state, enabled)
             end
         end
     end
-    local lease = {asc = asc, library = bindings.library, combat = bindings.combat, entries = {}}
+    local lease = {asc = asc, library = bindings.library, combat = bindings.combat, entries = {}, descriptor_source=attributes}
     local planned, active_fields = {}, 0
     for _, name in ipairs(DAMAGE_FIELDS) do
         if not descriptors[name] then return false, "Verified damage attribute missing: " .. name end
@@ -372,7 +390,9 @@ function Instance:_apply_damage(state, enabled)
             if not ok or readback ~= entry.written or not damage_close(current, entry.expected_current) then
                 local cleaned, message = self:_disable_damage()
                 if not ok and cleaned then return false,"Damage setter binding failed for "..entry.name..": "..tostring(write_error):sub(1,400) end
-                return false, cleaned and ("The game did not confirm 10x damage for " .. entry.name .. "; active effects may override or scale the factor") or message
+                return false, cleaned and ("The game did not confirm 10x damage for " .. entry.name
+                    .. "; base "..tostring(readback).." / "..tostring(entry.written)
+                    .. ", evaluated "..tostring(current).." / "..tostring(entry.expected_current)) or message
             end
         end
     end

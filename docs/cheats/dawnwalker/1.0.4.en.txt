@@ -1,0 +1,7 @@
+Dawnwalker package 1.0.4 candidate — trainer 0.5.3 — not published
+
+- Preserves the complete native GameplayAttribute identity, including its serialized field path, when applying and restoring Super Damage. Earlier copies passed scalar getter checks but failed GAS aggregator-key equality, bypassing active modifiers and producing failed verification/zero cached readings.
+- Retains the original descriptor source and validates all four copied identity words before each audited synchronous call. No raw damage values, game effect records or UFunction flags are assigned. Tenfold verification, bounded correction and conditional restoration remain.
+- Reports requested and observed base/evaluated values on verification failure. Other Dawnwalker features and the HappyCheats client EXE are unchanged.
+
+Current validation: exact-build read-only attribute/effect/map-key inspection, actual pinned-loader ownership review and offline regression/build checks. The candidate has not been installed into the running game. The user requested keeping the game open; local installation, post-restart native enable/restore and actual hit validation remain pending. Do not treat this note as an available signed update. Recheck the provisional package version before publication.
