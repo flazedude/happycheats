@@ -1,0 +1,7 @@
+HappyCheats 0.3.68 — Relevant trainer updates
+
+Trainer updates now list only newer trainer packages for games installed on this PC. Current bundled/downloaded trainers, older catalog versions, missing game folders/executables and catalog-only games are omitted in both the normal and game-focused views.
+
+Completed trainer updates leave the list after installation verifies. Unfinished updates remain available as Finish update, with the same one-click download, cache repair and installation retry. The empty state explains that no installed games need trainer updates; current-trainer setup/repair remains on each game's Library page. Uninstalled games no longer receive package-update warnings.
+
+Validation: signed synthetic package/version/filtering tests, WPF one-click installation/retry and English/Chinese empty states, plus the offline release suites. No games were launched, saves changed or physical controllers tested. Trainer payload source is unchanged; the complete distributions retain all seventeen games at the integrated package versions.

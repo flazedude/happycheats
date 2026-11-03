@@ -82,7 +82,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public bool CanManage => !_busy;
     public string ClientVersionLabel => "HappyCheats  /  " + UpdateLauncher.CurrentVersion;
     public string CheatUpdateLabel => Localization.Choose("Update", "更新");
-    public string CheatUpdateHint => Localization.Choose("Check individual cheat updates and new games", "检查各游戏修改器更新和新增游戏");
+    public string CheatUpdateHint => Localization.Choose("Check trainer updates for installed games", "检查已安装游戏的修改器更新");
     public Visibility UpdateBadgeVisibility => _availableRelease == null ? Visibility.Collapsed : Visibility.Visible;
     public string UpdateBadgeLabel => _updates?.Staged != null ? Localization.Choose("RESTART", "重启安装")
         : _updates?.State == BackgroundUpdateState.Downloading ? Localization.Choose("DOWNLOADING", "下载中") : Labels["newUpdate"];
@@ -1015,8 +1015,8 @@ public sealed class GameItem : INotifyPropertyChanged
     public string? LoadedCheatVersion { get; internal set; }
     public string? DownloadedCheatVersion { get; internal set; }
     public string? AvailableCheatVersion { get; internal set; }
-    public bool NeedsCheatReload => TrainerVersionWarning.Newer(DownloadedCheatVersion, LoadedCheatVersion);
-    public bool HasCheatUpdate => TrainerVersionWarning.Newer(AvailableCheatVersion, LoadedCheatVersion);
+    public bool NeedsCheatReload => Installation?.IsInstalled == true && TrainerVersionWarning.Newer(DownloadedCheatVersion, LoadedCheatVersion);
+    public bool HasCheatUpdate => Installation?.IsInstalled == true && TrainerVersionWarning.Newer(AvailableCheatVersion, LoadedCheatVersion);
     public bool HasTrainerWarning => HasCheatUpdate || NeedsCheatReload
         || TrainerVersionWarning.InstallationMismatch(Installation) || TrainerVersionWarning.RuntimeMismatch(Status);
     public Visibility TrainerWarningVisibility => HasTrainerWarning ? Visibility.Visible : Visibility.Collapsed;

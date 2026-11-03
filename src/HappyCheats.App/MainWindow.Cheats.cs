@@ -30,7 +30,7 @@ public partial class MainWindow
             return;
         }
         var window = new CheatUpdateWindow(_cheatConfiguration, _cheatStore, _bundledCheatVersions,
-            Games.Select(g => (g.Id, g.Name)), _cheatLoadError, _isolatedUpdates,
+            () => Games, _cheatLoadError, _isolatedUpdates,
             (release, download) => ApplyCheatUpdateAsync(_cheatStore!, release, download), _updateLifetime.Token,
             checkForUpdates: CheckCheatCatalogAsync)
             { Owner = this, ShowActivated = ShowActivated };

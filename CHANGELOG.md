@@ -2,7 +2,17 @@
 
 **[Download the latest release / 下载最新版本](https://github.com/flazedude/happycheats/releases/latest)** · [Home](README.md) · [中文首页](README.zh-CN.md)
 
-## Latest · 0.3.67
+## Latest · 0.3.68
+
+- Trainer updates list only newer packages for games installed on this PC. Current trainers and missing games are omitted, including in focused checks.
+- Verified installations leave the list; unfinished setup remains retryable. Empty lists explain that no installed games need updates.
+- English/Chinese WPF and signed synthetic regressions; no gameplay or physical-controller validation.
+
+修改器更新只显示本机已安装游戏的较新版本，不再列出已是最新的修改器或未安装的游戏。完成后自动移除，未完成的安装仍可重试。仅离线及合成验证。
+
+[English](docs/releases/0.3.68.en.txt) · [中文](docs/releases/0.3.68.zh.txt)
+
+## 0.3.67
 
 - One-click per-game Update downloads, verifies, repairs, loads and installs the trainer. No separate Repair or Reload library action is needed.
 - Verifies installation before completion, reports actionable errors and retries unfinished setup through the same action. Other game modules stay loaded.
