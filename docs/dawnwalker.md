@@ -1,6 +1,8 @@
 # The Blood of Dawnwalker
 
-Experimental trainer **0.5.2**, independent Dawnwalker package **1.0.3**, for HappyCheats **0.3.65 or later**. Supports the inspected Windows Steam build **25915545**, executable version `dw1-pc-265636-shipping-patch3-all-CL-265636` (Unreal Engine 5.5.4). Other executable hashes are rejected pending a compatibility check.
+Experimental trainer **0.5.3**, independent Dawnwalker package **1.0.4**, for HappyCheats **0.3.65 or later**. Supports the inspected Windows Steam build **25915545**, executable version `dw1-pc-265636-shipping-patch3-all-CL-265636` (Unreal Engine 5.5.4). Other executable hashes are rejected pending a compatibility check.
+
+Version 0.5.3 preserves complete native attribute-key identity for Super Damage and fixes Auto parry losing its incoming-hit timing through scalar OUT marshalling. A user-started live session confirmed all four native damage multipliers reached 10× and restored exactly after disabling. Actual hit damage and automatic blocking remain unverified; the user requested publication without further combat testing. Instant teleport, resources and shared shortcuts are unchanged. Close the game and use **Update** beside Library Sort for the signed package. [Package notes](cheats/dawnwalker/1.0.4.en.txt), [damage evidence](dawnwalker-damage.md), [parry limits](dawnwalker-auto-parry.md).
 
 Version 0.5.2 corrects struct alias name registration for Super Damage, reads effective native input mappings for Auto parry, and keeps health/stamina restoration compatible with their infinite toggles by following native lock recreation. [Package notes](cheats/dawnwalker/1.0.3.en.txt), [resource audit](dawnwalker-resources.md).
 
