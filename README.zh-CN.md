@@ -1,6 +1,6 @@
 # HappyCheats
 
-Windows 游戏修改器合集，支持 18 款游戏、中英双语和统一游戏内菜单。
+Windows 游戏修改器合集，支持 19 款游戏（17 款内置，Nomad Drive 和生存日志通过独立模块添加）、中英双语和统一游戏内菜单。
 
 **[下载 HappyCheats.exe](https://github.com/flazedude/happycheats/releases/latest/download/HappyCheats.exe)** · [最新发行版](https://github.com/flazedude/happycheats/releases/latest) · [更新日志](CHANGELOG.md) · [English](README.md)
 
@@ -14,7 +14,7 @@ Windows 游戏修改器合集，支持 18 款游戏、中英双语和统一游�
 
 *客户端截图，未运行游戏。*
 
-生存日志独立修改器包 **1.0.0** 支持 Steam **26294912**，可通过**修改器库 → 更新**添加。0.3.69 启动EXE不变；请使用已签名游戏包添加支持。[功能与验证范围](docs/survival-log.md)
+生存日志独立修改器包 **1.0.0** 支持 Steam **26294912**。首次请关闭客户端及游戏后运行 `scripts/Add-SurvivalLog.ps1`，后续使用**修改器库 → 更新**。0.3.69 启动EXE不变；请使用已签名游戏包添加支持。[功能与验证范围](docs/survival-log.md)
 
 ## 开始使用
 
@@ -48,8 +48,8 @@ Windows 游戏修改器合集，支持 18 款游戏、中英双语和统一游�
 | [艾尔登法环](docs/elden-ring.md) | [GTA V Enhanced · 故事模式](docs/gta-v-enhanced.md) | [酒店建筑师](docs/hotel-architect.md) |
 | [洗衣店模拟器](modules/laundry/README.md) | [鬼武者：剑之道](docs/onimusha.md) | [影之刃零](docs/phantom-blade.md) |
 | [医院计划 Project Hospital](docs/project-hospital.md) | [荒野大镖客 2 · 故事模式](docs/rdr2.md) | [星露谷物语](docs/stardew.md) |
-| [生存日志 Survival Log](docs/survival-log.md) | | |
-| [黎明行者之血](docs/dawnwalker.md) | [巫师 3：狂猎 — 重制版](docs/witcher-3.md) | |
+| [黎明行者之血](docs/dawnwalker.md) | [巫师 3：狂猎 — 重制版](docs/witcher-3.md) | [Nomad Drive · 独立模块](docs/nomad-drive.md) |
+| [生存日志 · 独立模块](docs/survival-log.md) | | |
 
 请使用各游戏说明中支持的单人 / 离线模式。资源和进度改动可能被游戏保存；关闭功能不会撤销之前的改动。
 

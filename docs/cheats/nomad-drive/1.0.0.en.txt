@@ -1,0 +1,7 @@
+Nomad Drive 1.0.0 — new independent game module for Steam build 26391437.
+
+Eleven controls: damage healing; food, water and energy refills; poison treatment; nearest-vehicle fuel refill and engine repair; independent food/water/energy locks; rapid healing. Requires a living local character in a solo hosted session. Vehicle actions require installed parts within 15 metres; refueling preserves gasoline type. Rapid healing does not prevent instant death or revive characters.
+
+Uses the existing shared Ctrl+Del / Menu held 350 ms + RB menu. No client version or standalone EXE change. Close supported games before installing. Clients whose update window hides a new game's Library entry can use scripts/Add-NomadDrive.ps1 once, then reopen the same client EXE. Later updates use normal Library updates.
+
+Exact installed assembly signatures, payload compilation, synthetic runtime/protocol tests, transactional installer checks and shared UI/controller regressions were checked offline. Game startup, gameplay effects, physical-controller behavior and achievement/leaderboard behavior remain unverified. Validation did not launch games or change saves. Game values can persist through normal in-game saving.
