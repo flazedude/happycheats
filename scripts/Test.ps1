@@ -24,6 +24,7 @@ foreach ($hcTest in @('modules/nomad-drive/tests', 'tests\HappyCheats.Tests', 't
 & dotnet run --project (Join-Path $hcRoot 'tests\HappyCheats.App.Tests') -c Release --no-launch-profile -- --data-root $hcRoot
 if ($LASTEXITCODE -ne 0) { throw 'WPF modeless-update regression suite failed.' }
 & (Join-Path $PSScriptRoot 'Test-LivinCream.ps1')
+& (Join-Path $PSScriptRoot 'Test-SurvivalLog.ps1')
 & (Join-Path $PSScriptRoot 'Test-NomadDrive.ps1')
 & (Join-Path $PSScriptRoot 'Test-Astroneer.ps1')
 & (Join-Path $PSScriptRoot 'Test-Dawnwalker.ps1')

@@ -1,0 +1,64 @@
+{
+  "steam_app_id": "4164790",
+  "steam_build": "26294912",
+  "game_assembly_sha256": "d8ad5d8965ee787c8fd8b106b929a87fa322d5daa5709ec128586f202cd78895",
+  "metadata_sha256": "7048ef9b9f512a9e6c987d6eadc10479c1509bec178ff6b7e500954b8cf7b45b",
+  "live_tested": false,
+  "bindings": [
+    {
+      "name": "WorldUpdate",
+      "rva": 51499424,
+      "prefix": "40574883ec60803da81be70200488bf90f297424500f28f2"
+    },
+    {
+      "name": "EndBattle",
+      "rva": 51467280,
+      "prefix": "40534883ec20488bd9488b49584885c9745533d2e8676e57"
+    },
+    {
+      "name": "GetLeadingRole",
+      "rva": 50932432,
+      "prefix": "40534883ec20803d42bfef0200488bd97513488d0d376ebb"
+    },
+    {
+      "name": "SetFloat",
+      "rva": 50615584,
+      "prefix": "48895c24084889742410574883ec40803d5f92f40200410f"
+    },
+    {
+      "name": "SetInt",
+      "rva": 50616032,
+      "prefix": "48895c24084889742410574883ec30803d9d90f40200418b"
+    },
+    {
+      "name": "GetTotalFloat",
+      "rva": 50611856,
+      "prefix": "48895c2408574883ec30803dfea0f402008bfa488bd97537"
+    },
+    {
+      "name": "GetTotalInt",
+      "rva": 50612144,
+      "prefix": "48895c2408574883ec30803ddd9ff402008bda488bf9752b"
+    },
+    {
+      "name": "SetGold",
+      "rva": 51404816,
+      "prefix": "48895c2408574883ec20803d5c8ce802008bda488bf9751f"
+    },
+    {
+      "name": "AddSurvival",
+      "rva": 42492992,
+      "prefix": "48895c2408574883ec20803dbd4d7003008bda488bf97513"
+    },
+    {
+      "name": "GetBurden",
+      "rva": 50800448,
+      "prefix": "48895c2408574883ec408b5950488bf903594485db0f8e8e"
+    },
+    {
+      "name": "AddExp",
+      "rva": 41909680,
+      "prefix": "48896c24185741544155415641574883ec20803d78307903"
+    }
+  ]
+}

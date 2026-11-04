@@ -1,6 +1,6 @@
 # HappyCheats
 
-Windows 游戏修改器合集，支持 19 款游戏（内置 17 款，甜蜜冰淇淋与 Nomad Drive 通过独立包添加）、中英双语和统一游戏内菜单。
+Windows 游戏修改器合集，支持 20 款游戏（内置 17 款，甜蜜冰淇淋、Nomad Drive 和生存日志通过独立包添加）、中英双语和统一游戏内菜单。
 
 **[下载 HappyCheats.exe](https://github.com/flazedude/happycheats/releases/latest/download/HappyCheats.exe)** · [最新发行版](https://github.com/flazedude/happycheats/releases/latest) · [更新日志](CHANGELOG.md) · [English](README.md)
 
@@ -10,15 +10,17 @@ Windows 游戏修改器合集，支持 19 款游戏（内置 17 款，甜蜜冰�
 
 [完整更新说明](docs/releases/0.3.69.zh.txt)
 
-**新增独立修改器：[甜蜜冰淇淋 1.0.0](docs/livin-cream.md)** — 金钱、店铺经验、技能点、顾客耐心和软冰淇淋原料。客户端 0.3.68/0.3.69 的更新列表会隐藏未知游戏，首次添加请使用说明中的签名包安装助手；后续使用修改器库的正常“更新”。客户端 EXE 与版本不变。已完成离线/静态/合成验证，实际游戏效果与加载器启动尚未验证。
+**新增独立修改器：[甜蜜冰淇淋 1.0.0](docs/livin-cream.md)** — 金钱、店铺经验、技能点、顾客耐心和软冰淇淋原料。客户端 0.3.69 的更新列表会隐藏未知游戏，首次添加请使用说明中的签名包安装助手；后续使用修改器库的正常“更新”。客户端 EXE 与版本不变。已完成离线/静态/合成验证，实际游戏效果与加载器启动尚未验证。
 
 ![HappyCheats 英文深色界面的游戏库与星露谷物语修改器](docs/images/happycheats-library.png)
 
 *客户端截图，未运行游戏。*
 
+生存日志独立修改器包 **1.0.0** 支持 Steam **26294912**。首次请关闭客户端及游戏后运行 `scripts/Add-SurvivalLog.ps1`，后续使用**修改器库 → 更新**。0.3.69 启动EXE不变；请使用已签名游戏包添加支持。[功能与验证范围](docs/survival-log.md)
+
 ## 开始使用
 
-1. 下载上方的 **HappyCheats.exe**，在 **Windows x64** 上运行。已包含完整客户端和全部修改器内容；启动器无需单独安装 .NET。
+1. 下载上方的 **HappyCheats.exe**，在 **Windows x64** 上运行。包含完整客户端及该版本内置修改器；通过修改器库“更新”添加新游戏。启动器无需单独安装 .NET。
 2. 选择游戏。Steam 安装路径会自动识别；未找到时使用“浏览”手动选择。
 3. 保持游戏关闭，点击“安装 / 更新”，按游戏页面的提示完成设置。
 4. 点击“启动游戏”，载入存档或角色。若页面提供“连接修改器”，请在载入后点击。
@@ -49,7 +51,7 @@ Windows 游戏修改器合集，支持 19 款游戏（内置 17 款，甜蜜冰�
 | [洗衣店模拟器](modules/laundry/README.md) | [鬼武者：剑之道](docs/onimusha.md) | [影之刃零](docs/phantom-blade.md) |
 | [医院计划 Project Hospital](docs/project-hospital.md) | [荒野大镖客 2 · 故事模式](docs/rdr2.md) | [星露谷物语](docs/stardew.md) |
 | [黎明行者之血](docs/dawnwalker.md) | [巫师 3：狂猎 — 重制版](docs/witcher-3.md) | [甜蜜冰淇淋：冰淇淋店模拟器](docs/livin-cream.md) |
-| [Nomad Drive · 独立模块](docs/nomad-drive.md) | | |
+| [Nomad Drive · 独立模块](docs/nomad-drive.md) | [生存日志 · 独立模块](docs/survival-log.md) | |
 
 请使用各游戏说明中支持的单人 / 离线模式。资源和进度改动可能被游戏保存；关闭功能不会撤销之前的改动。
 
