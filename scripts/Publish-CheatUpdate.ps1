@@ -15,7 +15,7 @@ $ErrorActionPreference='Stop'
 $hcRoot=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $hcRepository='flazedude/happycheats'
 if ($GameId -cnotmatch '^[a-z0-9]+(-[a-z0-9]+)*$' -or $GameId.Length -gt 80 -or $Version -cnotmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$') { throw 'Use a game ID and independent major.minor.patch version.' }
-$hcBuilders=@{'chinese-parents'='ChineseParents';'project-hospital'='ProjectHospital';'hotel-architect'='HotelArchitect';'civilization-vi'='CivilizationVI';'civilization-vii'='CivilizationVII';'elden-ring'='EldenRing';'onimusha'='Onimusha';'laundry'='Laundry';'astroneer'='Astroneer';'stardew'='Stardew';'dawnwalker'='Dawnwalker';'crimson-desert'='CrimsonDesert';'black-myth-wukong'='Wukong';'phantom-blade-zero'='PhantomBlade';'red-dead-redemption-2'='Rdr2';'gta-v-enhanced'='GtaV';'witcher-3'='Witcher3'}
+$hcBuilders=@{'survival-log'='SurvivalLog';'chinese-parents'='ChineseParents';'project-hospital'='ProjectHospital';'hotel-architect'='HotelArchitect';'civilization-vi'='CivilizationVI';'civilization-vii'='CivilizationVII';'elden-ring'='EldenRing';'onimusha'='Onimusha';'laundry'='Laundry';'astroneer'='Astroneer';'stardew'='Stardew';'dawnwalker'='Dawnwalker';'crimson-desert'='CrimsonDesert';'black-myth-wukong'='Wukong';'phantom-blade-zero'='PhantomBlade';'red-dead-redemption-2'='Rdr2';'gta-v-enhanced'='GtaV';'witcher-3'='Witcher3'}
 if (!$hcBuilders.ContainsKey($GameId)) { throw 'Register the new game payload builder in Publish-CheatUpdate.ps1 before publishing.' }
 foreach ($hcNote in @($NotesEnglish,$NotesChinese)) { if (!(Test-Path -LiteralPath $hcNote -PathType Leaf)) { throw "Missing release notes: $hcNote" } }
 $hcConfig=Get-HcPublisherConfiguration -Root $hcRoot -RequireLan

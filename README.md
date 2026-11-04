@@ -1,6 +1,6 @@
 # HappyCheats
 
-A Windows trainer library with 17 games, English / 中文, and one shared in-game menu.
+A Windows trainer library with 18 games, English / 中文, and one shared in-game menu.
 
 **[Download HappyCheats.exe](https://github.com/flazedude/happycheats/releases/latest/download/HappyCheats.exe)** · [Latest release](https://github.com/flazedude/happycheats/releases/latest) · [Changelog](CHANGELOG.md) · [中文说明](README.zh-CN.md)
 
@@ -14,9 +14,11 @@ Requested toggles now survive loading and location/session changes across the tr
 
 *Client screenshot; no game is running.*
 
+Survival Log is available as independent package **1.0.0** for Steam build **26294912** through **Library → Update**. The 0.3.69 starter EXE is unchanged; use the signed game package to add it. [Controls and validation limits](docs/survival-log.md)
+
 ## Get started
 
-1. Download **HappyCheats.exe** above and run it on **Windows x64**. The complete app and all trainer payloads are included; the launcher needs no separate .NET installation.
+1. Download **HappyCheats.exe** above and run it on **Windows x64**. The starter includes its bundled trainers; add newer games through Library → Update. The launcher needs no separate .NET installation.
 2. Select your game. Steam installations are detected automatically; use **Browse** if yours is missing.
 3. With the game closed, choose **Install / update** and follow any game-specific setup instructions.
 4. Choose **Launch game**, then load a save or character. If the game page offers **Connect trainer**, select it after loading.
@@ -46,7 +48,7 @@ Compatibility and available controls depend on the game build. Some trainers are
 | [Elden Ring](docs/elden-ring.md) | [GTA V Enhanced · Story Mode](docs/gta-v-enhanced.md) | [Hotel Architect](docs/hotel-architect.md) |
 | [Laundry Store Simulator](modules/laundry/README.md) | [Onimusha: Way of the Sword](docs/onimusha.md) | [Phantom Blade Zero](docs/phantom-blade.md) |
 | [Project Hospital](docs/project-hospital.md) | [Red Dead Redemption 2 · Story Mode](docs/rdr2.md) | [Stardew Valley](docs/stardew.md) |
-| [The Blood of Dawnwalker](docs/dawnwalker.md) | [The Witcher 3: Wild Hunt — Remastered](docs/witcher-3.md) | |
+| [Survival Log](docs/survival-log.md) | [The Blood of Dawnwalker](docs/dawnwalker.md) | [The Witcher 3: Wild Hunt — Remastered](docs/witcher-3.md) |
 
 Use the supported single-player/offline modes described in each guide. Progression and resource changes may be saved by the game; turning a cheat off does not undo earlier changes.
 

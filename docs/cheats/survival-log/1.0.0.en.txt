@@ -1,0 +1,6 @@
+Survival Log cheat package 1.0.0 (native trainer 0.1.0)
+
+Adds Survival Log for inspected Steam build 26294912, with explicit Connect, unlimited satiety/morale/stamina/health/life, high carrying capacity, freeze clock, set money, add survival points and a 1–100 skill XP multiplier.
+Uses the existing shared Ctrl+Del and Menu-held-350-ms + RB menu. Player-only ownership checks, exact native/metadata hashes, expiring session commands and a client lease guard the trainer. Seven toggle requests restore through HappyCheats after loading; one-shot grants never replay. XP multiplier resets after loading/disconnection.
+Install/update the game package with Survival Log closed, then launch normally and Connect. Minimum HappyCheats 0.3.69 supports the current toggle-restoration behavior. Client EXE/version unchanged.
+Validation: read-only game inspection, native synthetic hook/session/ownership/clock tests, installer and shared menu/controller regressions. No game launched or saves changed. Actual startup, gameplay effects and physical-controller validation remain pending. Resource/progression changes may be saved by the game.
