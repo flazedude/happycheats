@@ -148,4 +148,3 @@ public static class NomadDriveInstaller
         progress?.Report("Trainer removed. The shared BepInEx loader is preserved for other mods.");
     }
 }
-
