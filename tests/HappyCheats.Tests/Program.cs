@@ -7,12 +7,14 @@ internal static class Program
     private static int passed, failed;
     private static int Main(string[] args)
     {
+        if (args.Contains("--nomad-drive")) return NomadDriveTests.RunAll();
         if (args.Contains("--witcher3")) return Witcher3Tests.RunAll() == 0 ? 0 : 1;
         if (args.Contains("--cheat-updates")) return CheatUpdateTests.RunAll() == 0 ? 0 : 1;
         if (args.Contains("--witcher3-installer")) return Witcher3InstallerTests.RunAll();
         if (args.Contains("--elden-ring")) return EldenRingTests.RunAll();
         if (args.Contains("--cache-cleanup")) return UpdateCacheCleanupTests.RunAll();
         if (args.Contains("--updates")) return UpdateTests.RunAll() | BackgroundUpdateTests.RunAll() | UpdateInstallerTests.RunAll() | UpdateCacheCleanupTests.RunAll();
+        failed += NomadDriveTests.RunAll();
         var legacy = OnimushaTrainer.BackendTests.Main();
         var controllers = HappyCheats.App.ControllerTests.Main();
         var onimusha = OnimushaModuleTests.RunAll();
@@ -96,7 +98,7 @@ internal static class Program
         Run("safe path rejects absolute escape", () => { using var f = new Fixture(); Fails(() => SafePath(f.Game, f.Package)); });
         Run("empty plugin payload rejected", () => { using var f = new Fixture(); WriteJson(Path.Combine(f.Package, "package.json"), new { files = Array.Empty<object>() }); Fails(() => OwnedInstaller.ReadPackage(f.Package)); });
         Run("module catalog has distinct trainer controls", () => {
-            var modules = ModuleCatalog.Create(); Assert(modules.Count == 17);
+            var modules = ModuleCatalog.Create(); Assert(modules.Count == 18);
             Assert(modules.Select(module => module.Definition.Id).Distinct().Count() == modules.Count);
             Assert(modules.Single(module => module.Definition.Id == "civilization-vii") is CivilizationVIIModule);
             foreach (var module in modules) Assert(module.Definition.Features.Select(f => f.Id).Distinct().Count() == module.Definition.Features.Count);

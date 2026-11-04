@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework><AssemblyName>HappyCheats.NomadDrive</AssemblyName>
+    <LangVersion>latest</LangVersion><Nullable>disable</Nullable><ImplicitUsings>disable</ImplicitUsings><Version>1.0.0</Version>
+    <GameDirectory Condition="'$(GameDirectory)' == ''">G:\Games\SteamLib\steamapps\common\Nomad Drive</GameDirectory>
+    <Managed>$(GameDirectory)\Nomad Drive_Data\Managed</Managed>
+    <BepInExDirectory>$(MSBuildThisFileDirectory)..\..\.tools\bepinex\5.4.23.5-x64\extracted\BepInEx</BepInExDirectory>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="BepInEx"><HintPath>$(BepInExDirectory)\core\BepInEx.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Assembly-CSharp"><HintPath>$(Managed)\Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Mirror"><HintPath>$(Managed)\Mirror.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine"><HintPath>$(Managed)\UnityEngine.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.CoreModule"><HintPath>$(Managed)\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.InputLegacyModule"><HintPath>$(Managed)\UnityEngine.InputLegacyModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Newtonsoft.Json"><HintPath>$(Managed)\Newtonsoft.Json.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+  <ItemGroup><Compile Remove="tests\**\*.cs" /></ItemGroup>
+</Project>

@@ -1,6 +1,6 @@
 # HappyCheats
 
-A Windows trainer library with 17 games, English / 中文, and one shared in-game menu.
+A Windows trainer library with 18 supported games (17 bundled plus the independent Nomad Drive package), English / 中文, and one shared in-game menu.
 
 **[Download HappyCheats.exe](https://github.com/flazedude/happycheats/releases/latest/download/HappyCheats.exe)** · [Latest release](https://github.com/flazedude/happycheats/releases/latest) · [Changelog](CHANGELOG.md) · [中文说明](README.zh-CN.md)
 
@@ -46,7 +46,7 @@ Compatibility and available controls depend on the game build. Some trainers are
 | [Elden Ring](docs/elden-ring.md) | [GTA V Enhanced · Story Mode](docs/gta-v-enhanced.md) | [Hotel Architect](docs/hotel-architect.md) |
 | [Laundry Store Simulator](modules/laundry/README.md) | [Onimusha: Way of the Sword](docs/onimusha.md) | [Phantom Blade Zero](docs/phantom-blade.md) |
 | [Project Hospital](docs/project-hospital.md) | [Red Dead Redemption 2 · Story Mode](docs/rdr2.md) | [Stardew Valley](docs/stardew.md) |
-| [The Blood of Dawnwalker](docs/dawnwalker.md) | [The Witcher 3: Wild Hunt — Remastered](docs/witcher-3.md) | |
+| [The Blood of Dawnwalker](docs/dawnwalker.md) | [The Witcher 3: Wild Hunt — Remastered](docs/witcher-3.md) | [Nomad Drive · independent add-on](docs/nomad-drive.md) |
 
 Use the supported single-player/offline modes described in each guide. Progression and resource changes may be saved by the game; turning a cheat off does not undo earlier changes.
 

@@ -62,7 +62,7 @@ internal static class GameOverlayChecks
         {
             main.SetLanguage("en", persist: false);
             main.SetTheme("dark", persist: false);
-            Check(catalog.Count >= 17 && catalog.Select(module => module.Definition.Id).Distinct().Count() == catalog.Count,
+            Check(catalog.Count >= 18 && catalog.Select(module => module.Definition.Id).Distinct().Count() == catalog.Count,
                 "the complete catalog must have unique game IDs");
             Check(typeof(MainWindow).GetFields(Private).Any(field => field.FieldType == typeof(GameOverlay)),
                 "MainWindow must use the shared menu");

@@ -1,0 +1,47 @@
+using HappyCheats.NomadDrive;
+using Mirror;
+using NomadDrive.Features.Player;
+using NomadDrive.Features.Vehicle;
+using NomadDrive.Features.Vehicle.Modules;
+using NomadDrive.Features.LiquidTransferSystem;
+using NomadDrive.Features.Attachables;
+
+var checks = 0;
+void Check(bool ok) { if (!ok) throw new Exception("Nomad runtime assertion failed"); checks++; }
+void Reject(Action action) { try { action(); } catch (Exception e) when (e is InvalidOperationException or InvalidDataException or ArgumentException) { checks++; return; } throw new Exception("Invalid operation accepted"); }
+var runtime = new Runtime();
+var player = new PlayerStatsManager();
+NetworkClient.localPlayer = new UnityEngine.Component();
+NetworkClient.localPlayer.Components[typeof(PlayerStatsManager)] = player;
+Check(runtime.TryGetPlayer(out var current, out var record) && ReferenceEquals(current, record));
+runtime.Apply(current, "refill_food"); Check(player.Nutrition.CurrentValue == player.Nutrition.MaxValue);
+runtime.Apply(current, "refill_water"); Check(player.Hydration.CurrentValue == player.Hydration.MaxValue);
+runtime.Apply(current, "refill_energy"); Check(player.Energy.CurrentValue == player.Energy.MaxValue);
+runtime.Apply(current, "heal"); Check(player.Health.CurrentValue == player.Health.MaxValue);
+runtime.Apply(current, "cure"); Check(player.Poison.CurrentValue == 0);
+Reject(() => runtime.Apply(current, "unknown"));
+player.IsDead = true; Reject(() => runtime.Apply(current, "heal")); player.IsDead = false;
+NetworkServer.connections[1] = new(); Check(!runtime.TryGetPlayer(out _, out _)); Reject(() => runtime.Apply(current, "heal")); NetworkServer.connections.Remove(1);
+NetworkServer.active = false; Check(!runtime.TryGetPlayer(out _, out _)); NetworkServer.active = true;
+NetworkClient.localPlayer.Components[typeof(PlayerStatsManager)] = new PlayerStatsManager(); Reject(() => runtime.Apply(current, "refill_food")); NetworkClient.localPlayer.Components[typeof(PlayerStatsManager)] = player;
+Reject(() => runtime.Apply(current, "refuel"));
+var vehicle = new VehicleManager(); var fuel = new LiquidContainerComponent(); vehicle.FuelContainer=fuel;
+vehicle.transform.position = new() { x=10 }; UnityEngine.Object.Scene = [vehicle];
+runtime.Apply(current, "refuel"); Check(fuel.Amount == fuel.Capacity);
+fuel.CurrentLiquidType = LiquidType.Water; fuel.Amount=4; Reject(() => runtime.Apply(current, "refuel")); Check(fuel.Amount == 4);
+fuel.CurrentLiquidType = LiquidType.Gasoline;
+vehicle.transform.position = new() { x=16 }; Reject(() => runtime.Apply(current, "refuel")); vehicle.transform.position = new() { x=10 };
+var other = new VehicleManager(); other.transform.position = new() { x=10.5f }; UnityEngine.Object.Scene = [vehicle, other]; Reject(() => runtime.Apply(current, "refuel")); UnityEngine.Object.Scene = [vehicle];
+Reject(() => runtime.Apply(current, "repair_engine"));
+var condition = new ConditionComponent(); var engine = new UnityEngine.Component(); engine.Components[typeof(ConditionComponent)] = condition;
+vehicle.Components[typeof(VehicleEngineModule)] = new VehicleEngineModule { InstalledEngine=engine };
+runtime.Apply(current, "repair_engine"); Check(condition.Condition == condition.MaxCondition);
+var id=Guid.NewGuid().ToString("N"); var session=Guid.NewGuid().ToString("N");
+var command = new TrainerCommand { schema_version=1, request_id=id, session_id=session, action="heal", created_utc=100 };
+Protocol.Validate(command, id+".json", session, 100); checks++;
+Reject(() => Protocol.Validate(command, id+".json", "old-session", 100));
+Reject(() => Protocol.Validate(command, id+".json", session, 109));
+Reject(() => Protocol.Validate(command, id+".json", session, 94));
+command.action="unlimited_food"; Reject(() => Protocol.Validate(command, id+".json", session, 100)); command.enabled=true; Protocol.Validate(command, id+".json", session, 100); checks++;
+command.action="spawn_everything"; Reject(() => Protocol.Validate(command, id+".json", session, 100));
+Console.WriteLine($"PASS Nomad Drive runtime/protocol: {checks} synthetic checks. No game started.");
