@@ -1,6 +1,6 @@
 # HappyCheats
 
-Windows 游戏修改器合集，支持 19 款游戏（17 款内置，Nomad Drive 和生存日志通过独立模块添加）、中英双语和统一游戏内菜单。
+Windows 游戏修改器合集，支持 20 款游戏（内置 17 款，甜蜜冰淇淋、Nomad Drive 和生存日志通过独立包添加）、中英双语和统一游戏内菜单。
 
 **[下载 HappyCheats.exe](https://github.com/flazedude/happycheats/releases/latest/download/HappyCheats.exe)** · [最新发行版](https://github.com/flazedude/happycheats/releases/latest) · [更新日志](CHANGELOG.md) · [English](README.md)
 
@@ -9,6 +9,8 @@ Windows 游戏修改器合集，支持 19 款游戏（17 款内置，Nomad Drive
 所有修改器会在加载、地点或会话变化时保留已开启功能的请求，并在新会话验证通过后恢复；关闭功能或“全部关闭”会取消恢复。黎明行者之血同时修复生命与耐力锁定失效后自动关闭的问题，F4 改为持续恢复血量与耐力。新效果尚待游戏内验证。
 
 [完整更新说明](docs/releases/0.3.69.zh.txt)
+
+**新增独立修改器：[甜蜜冰淇淋 1.0.0](docs/livin-cream.md)** — 金钱、店铺经验、技能点、顾客耐心和软冰淇淋原料。客户端 0.3.69 的更新列表会隐藏未知游戏，首次添加请使用说明中的签名包安装助手；后续使用修改器库的正常“更新”。客户端 EXE 与版本不变。已完成离线/静态/合成验证，实际游戏效果与加载器启动尚未验证。
 
 ![HappyCheats 英文深色界面的游戏库与星露谷物语修改器](docs/images/happycheats-library.png)
 
@@ -48,8 +50,8 @@ Windows 游戏修改器合集，支持 19 款游戏（17 款内置，Nomad Drive
 | [艾尔登法环](docs/elden-ring.md) | [GTA V Enhanced · 故事模式](docs/gta-v-enhanced.md) | [酒店建筑师](docs/hotel-architect.md) |
 | [洗衣店模拟器](modules/laundry/README.md) | [鬼武者：剑之道](docs/onimusha.md) | [影之刃零](docs/phantom-blade.md) |
 | [医院计划 Project Hospital](docs/project-hospital.md) | [荒野大镖客 2 · 故事模式](docs/rdr2.md) | [星露谷物语](docs/stardew.md) |
-| [黎明行者之血](docs/dawnwalker.md) | [巫师 3：狂猎 — 重制版](docs/witcher-3.md) | [Nomad Drive · 独立模块](docs/nomad-drive.md) |
-| [生存日志 · 独立模块](docs/survival-log.md) | [Builder Simulator · 独立模块](docs/builder-simulator.md) | |
+| [黎明行者之血](docs/dawnwalker.md) | [巫师 3：狂猎 — 重制版](docs/witcher-3.md) | [甜蜜冰淇淋：冰淇淋店模拟器](docs/livin-cream.md) |
+| [Nomad Drive · 独立模块](docs/nomad-drive.md) | [生存日志 · 独立模块](docs/survival-log.md) | [Builder Simulator · 独立模块](docs/builder-simulator.md) |
 
 请使用各游戏说明中支持的单人 / 离线模式。资源和进度改动可能被游戏保存；关闭功能不会撤销之前的改动。
 

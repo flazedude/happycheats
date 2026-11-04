@@ -27,6 +27,7 @@ if ($ReleaseSourceCommit -and $ReleaseSourceCommit -cnotmatch '^[0-9a-f]{40}$') 
 if ($SingleExe -and $FrameworkDependent) { throw 'SingleExe requires a self-contained release; omit FrameworkDependent.' }
 if ($UpdatePublicKeyPath -and !(Test-Path -LiteralPath $UpdatePublicKeyPath -PathType Leaf)) { throw 'UpdatePublicKeyPath must point to the public verification PEM file.' }
 if (!$SkipPayloads) {
+    & (Join-Path $PSScriptRoot 'Build-LivinCream.ps1')
     if ($ChineseParentsGameDirectory) { & (Join-Path $PSScriptRoot 'Build-ChineseParents.ps1') -GameDirectory $ChineseParentsGameDirectory }
     else { & (Join-Path $PSScriptRoot 'Build-ChineseParents.ps1') }
     & (Join-Path $PSScriptRoot 'Build-SurvivalLog.ps1')
@@ -80,7 +81,7 @@ if ($ReleaseSourceCommit) {
         (& git -C $hcRoot status --porcelain --untracked-files=all)) { throw 'Release source changed during the build. Commit and review it before publishing.' }
     [ordered]@{ version=$Version; commit=$ReleaseSourceCommit } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $hcStaging 'release-source.json') -Encoding utf8NoBOM
 }
-foreach ($hcGame in @('builder-simulator','survival-log','nomad-drive','chinese-parents','onimusha','laundry','astroneer','stardew','dawnwalker','crimson-desert','black-myth-wukong','phantom-blade-zero','red-dead-redemption-2','gta-v-enhanced','project-hospital','hotel-architect','civilization-vi','civilization-vii','witcher-3','elden-ring')) {
+foreach ($hcGame in @('builder-simulator','livin-cream','survival-log','nomad-drive','chinese-parents','onimusha','laundry','astroneer','stardew','dawnwalker','crimson-desert','black-myth-wukong','phantom-blade-zero','red-dead-redemption-2','gta-v-enhanced','project-hospital','hotel-architect','civilization-vi','civilization-vii','witcher-3','elden-ring')) {
     $hcPayload = Join-Path $hcRoot ('payload\' + $hcGame)
     if (!(Test-Path -LiteralPath $hcPayload)) { throw "Missing payload: $hcGame" }
     New-Item -ItemType Directory -Force -Path (Join-Path $hcStaging 'payload') | Out-Null

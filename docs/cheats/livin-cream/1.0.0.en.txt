@@ -1,0 +1,11 @@
+Livin' the Cream: Ice Cream Simulator — cheat package 1.0.0
+
+Adds Steam app 4621810, inspected build 26415994, through independent signed cheat updates. Requires the already-published HappyCheats 0.3.69+ for shared toggle restoration; older clients show an actionable compatibility error. No client rebuild or new client release.
+
+Six controls: set money (0–100,000,000), add shop XP (1–10,000), add skill points (1–1,000), unlimited customer patience, unlimited existing soft-serve stock, and refill nonempty soft-serve reservoirs while preserving flavors. Native progression methods retain normal rewards/notifications. Patience does not change play style; Off restarts a full native timer when applicable. These stock controls do not refill scoop pans or other supplies.
+
+First installation on client 0.3.69: close HappyCheats and the game, then run scripts/Install-LivinCream.cmd from this source checkout (PowerShell 7 and .NET 8 SDK required). Its update list hides unknown games, so this helper adds the game through the same signed catalog, verified package store and owned installer without replacing the EXE. Reopen your existing 0.3.69+ EXE to see the new game. Later versions use the normal Update beside Library Sort. Launch normally and load your shop. Use Ctrl+Del or hold Menu 350 ms then tap RB with Xbox shortcuts enabled. Mouse/keyboard operate menu controls.
+
+Exact-build and package integrity checks, owned installation, session-bound expiring commands and at-most-once grants are included. The shared client restores requested toggles after loads through the normal ready-session path; one-shot grants are never replayed. Off / Disable all cancels requested effects. Normal game saving may retain money/progression/refills; toggles do not undo earlier grants.
+
+Validated by static inspection of the installed assembly, real-reference payload compilation, synthetic runtime/protocol/installer tests and shared menu/controller regressions. No game was launched and no saves were changed. Actual gameplay, Unity loader startup, exclusive fullscreen and physical-controller behavior remain unverified.

@@ -23,6 +23,7 @@ foreach ($hcTest in @('modules/builder-simulator/tests','modules/nomad-drive/tes
 # Exercise modeless Updates: downloads and progress must leave trainer controls usable.
 & dotnet run --project (Join-Path $hcRoot 'tests\HappyCheats.App.Tests') -c Release --no-launch-profile -- --data-root $hcRoot
 if ($LASTEXITCODE -ne 0) { throw 'WPF modeless-update regression suite failed.' }
+& (Join-Path $PSScriptRoot 'Test-LivinCream.ps1')
 & (Join-Path $PSScriptRoot 'Test-SurvivalLog.ps1')
 & (Join-Path $PSScriptRoot 'Test-BuilderSimulator.ps1')
 & (Join-Path $PSScriptRoot 'Test-NomadDrive.ps1')

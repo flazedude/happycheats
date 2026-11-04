@@ -1,6 +1,6 @@
 # HappyCheats
 
-A Windows trainer library with 19 supported games (17 bundled plus independent Nomad Drive and Survival Log packages), English / 中文, and one shared in-game menu.
+A Windows trainer library with 20 supported games (17 bundled plus independent Livin' the Cream, Nomad Drive and Survival Log packages), English / 中文, and one shared in-game menu.
 
 **[Download HappyCheats.exe](https://github.com/flazedude/happycheats/releases/latest/download/HappyCheats.exe)** · [Latest release](https://github.com/flazedude/happycheats/releases/latest) · [Changelog](CHANGELOG.md) · [中文说明](README.zh-CN.md)
 
@@ -9,6 +9,8 @@ A Windows trainer library with 19 supported games (17 bundled plus independent N
 Requested toggles now survive loading and location/session changes across the trainer library. The client restores them only after the new session validates; Off and Disable all cancel restoration. Dawnwalker also renews retired health/stamina locks and F4 now continuously refills blood and stamina. Validation is offline/synthetic with read-only evidence of the previous failure; the new effects still need gameplay verification.
 
 [Full release notes](docs/releases/0.3.69.en.txt)
+
+**New independent cheat: [Livin' the Cream 1.0.0](docs/livin-cream.md)** — money, shop XP, skill points, customer patience and soft-serve stock. Client 0.3.69 needs the one-time setup helper described in the guide to verify and add the signed package because its update list hides unknown games. Later updates use the Library Update action. The client EXE/version stays unchanged. Validation is offline/static/synthetic; gameplay and loader startup remain unverified.
 
 ![HappyCheats library and Stardew Valley trainer controls in the English dark theme](docs/images/happycheats-library.png)
 
@@ -48,8 +50,8 @@ Compatibility and available controls depend on the game build. Some trainers are
 | [Elden Ring](docs/elden-ring.md) | [GTA V Enhanced · Story Mode](docs/gta-v-enhanced.md) | [Hotel Architect](docs/hotel-architect.md) |
 | [Laundry Store Simulator](modules/laundry/README.md) | [Onimusha: Way of the Sword](docs/onimusha.md) | [Phantom Blade Zero](docs/phantom-blade.md) |
 | [Project Hospital](docs/project-hospital.md) | [Red Dead Redemption 2 · Story Mode](docs/rdr2.md) | [Stardew Valley](docs/stardew.md) |
-| [The Blood of Dawnwalker](docs/dawnwalker.md) | [The Witcher 3: Wild Hunt — Remastered](docs/witcher-3.md) | [Nomad Drive · independent add-on](docs/nomad-drive.md) |
-| [Survival Log · independent add-on](docs/survival-log.md) | [Builder Simulator · independent add-on](docs/builder-simulator.md) | |
+| [The Blood of Dawnwalker](docs/dawnwalker.md) | [The Witcher 3: Wild Hunt — Remastered](docs/witcher-3.md) | [Livin' the Cream: Ice Cream Simulator](docs/livin-cream.md) |
+| [Nomad Drive · independent add-on](docs/nomad-drive.md) | [Survival Log · independent add-on](docs/survival-log.md) | [Builder Simulator · independent add-on](docs/builder-simulator.md) |
 
 Use the supported single-player/offline modes described in each guide. Progression and resource changes may be saved by the game; turning a cheat off does not undo earlier changes.
 
