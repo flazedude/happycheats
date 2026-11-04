@@ -4,6 +4,7 @@ public static class ModuleCatalog
 {
     public static IReadOnlyList<IGameModule> Create(string? baseDirectory = null) => new IGameModule[]
     {
+        new BuilderSimulatorModule(baseDirectory ?? AppContext.BaseDirectory),
         new SurvivalLogModule(baseDirectory ?? AppContext.BaseDirectory),
         new NomadDriveModule(baseDirectory ?? AppContext.BaseDirectory),
         new ChineseParentsModule(baseDirectory ?? AppContext.BaseDirectory),

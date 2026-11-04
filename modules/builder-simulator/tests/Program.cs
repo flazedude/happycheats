@@ -1,0 +1,108 @@
+using System.Reflection;
+using Builder.Mixer;
+using Core.Data;
+using Core.Managers;
+using HappyCheats.BuilderSimulator;
+using Newtonsoft.Json;
+using UnityEngine;
+using Runtime = HappyCheats.BuilderSimulator.Runtime;
+
+var checks = 0;
+void Check(bool condition, string reason) { if (!condition) throw new Exception(reason); checks++; }
+void Reject(Action action) { try { action(); } catch (Exception e) when (e is InvalidOperationException or InvalidDataException or ArgumentException) { checks++; return; } throw new Exception("Invalid command accepted"); }
+ScenesCommunicator.Instance = new();
+var runtime = new Runtime(); Runtime.Current = runtime;
+Check(runtime.Refresh() && runtime.Ready, "site ready");
+var equipment = ScenesCommunicator.GetGameData.equipmentData;
+var player = FirstPersonController.Instance;
+runtime.Execute("unlimited_money", true, null);
+var cash = 50; MoneyReadPatch.Postfix(equipment, ref cash);
+Check(cash == 100000000 && equipment.PlayerCash == 50 && !MoneyWritePatch.Prefix(equipment), "virtual cash and frozen original");
+cash = 25; var foreign = new EquipmentData(); MoneyReadPatch.Postfix(foreign, ref cash);
+Check(cash == 25 && MoneyWritePatch.Prefix(foreign), "foreign equipment preserved");
+runtime.Execute("unlimited_money", false, null);
+Check(MoneyWritePatch.Prefix(equipment), "money Off");
+runtime.Execute("materials_never_decrease", true, null);
+Check(MaterialsPatch.TargetMethods().Count() == 3 && !MaterialsPatch.Prefix(equipment) && MaterialsPatch.Prefix(foreign), "all inventory removal overloads guarded");
+runtime.Execute("mixes_never_decrease", true, null);
+var tray = new WheelbarrowMixController { mix = new Mix { amountOfMix = 8, mixType = 2, mixQuality = 90 } };
+var result = 0f;
+Check(!MixPatch.Prefix(tray, 20, ref result) && result == 8 && tray.mix.amountOfMix == 8 && tray.mix.mixType == 2 && tray.mix.mixQuality == 90, "partial existing mix preserved");
+tray.mix.amountOfMix = 0;
+Check(MixPatch.Prefix(tray, 5, ref result), "empty tray not fabricated");
+var legacy = new WheelbarrowMix { mix = new Mix { amountOfMix = 9 } };
+Check(!LegacyMixPatch.Prefix(legacy, 2, ref result) && result == 2 && legacy.mix.amountOfMix == 9, "legacy mix path");
+runtime.Execute("super_walk_speed", true, null); runtime.Execute("super_walk_speed", null, "5");
+var speed = 4f; WalkPatch.Postfix(player, ref speed); Check(speed == 20, "walk multiplier");
+speed = 4; WalkPatch.Postfix(new FirstPersonController(), ref speed); Check(speed == 4, "other controller preserved");
+runtime.Execute("super_jump", true, null); runtime.Execute("super_jump", null, "3");
+var impulse = 2f; JumpPatch.Postfix(player, ref impulse); Check(Math.Abs(impulse - 2 * Math.Sqrt(3)) < 0.00001, "height uses square root impulse");
+runtime.Execute("game_speed", true, null); Check(Time.timeScale == 2, "time speed enabled");
+runtime.TickTime(); Check(Time.timeScale == 2, "no compounding");
+Time.timeScale = 0; runtime.TickTime(); Check(Time.timeScale == 0, "game pause preserved");
+Time.timeScale = 1; runtime.TickTime(); Check(Time.timeScale == 2, "resume multiplier");
+runtime.Execute("game_speed", null, "0.5"); Check(Time.timeScale == 0.5f, "time choice restores baseline first");
+Time.timeScale = 0.75f; runtime.Execute("game_speed", false, null); Check(Time.timeScale == 0.75f, "foreign time write preserved on Off");
+Time.timeScale = 1; runtime.Execute("game_speed", true, null);
+var skills = ScenesCommunicator.GetGameData.PlayerProfile.upgradesData.skillsData;
+runtime.Execute("max_skill_level", null, null); Check(skills["test"].currentLevel == 3 && skills["test"].Calls == 2, "bounded game level-up path");
+GameSceneManager.Instance.IsLoadingSaveData = true;
+Check(!runtime.Enabled("materials_never_decrease") && MaterialsPatch.Prefix(equipment), "operation-time loading gate before next heartbeat");
+Check(runtime.Refresh() && !runtime.Ready && Time.timeScale == 1, "load clears active effects and time ownership");
+Check(runtime.Requested["super_walk_speed"] && !runtime.Active["super_walk_speed"] && runtime.Values()["pending_super_walk_speed"] == "true", "requested vs confirmed pending state");
+runtime.Execute("super_jump", false, null); Reject(() => runtime.Execute("max_skill_level", null, null));
+ScenesCommunicator.GetGameData.equipmentData = new(); FirstPersonController.Instance = new();
+GameSceneManager.Instance = new();
+Check(runtime.Refresh() && runtime.Enabled("super_walk_speed") && !runtime.Enabled("super_jump"), "new site restores requested controls and honors waiting Off");
+Check(skills["test"].Calls == 2, "one-shot not replayed on load");
+runtime.Execute("disable_all", null, null);
+Check(runtime.Requested.Values.All(on => !on) && runtime.Active.Values.All(on => !on) && Time.timeScale == 1, "disable all cancels restoration and restores time");
+GameSceneManager.Instance.IsLoadingSaveData = true; runtime.Refresh(); runtime.Execute("disable_all", null, null);
+GameSceneManager.Instance.IsLoadingSaveData = false; runtime.Refresh(); Check(!runtime.Active.Values.Any(on => on), "Disable all during loading");
+skills = ScenesCommunicator.GetGameData.PlayerProfile.upgradesData.skillsData;
+skills["refuse"] = new() { Refuse = true };
+Reject(() => runtime.Execute("max_skill_level", null, null)); Check(skills["refuse"].Calls == 2, "no unbounded level-up retry"); skills.Remove("refuse");
+Reject(() => runtime.Execute("game_speed", null, "NaN")); Reject(() => runtime.Execute("super_walk_speed", null, "999"));
+Reject(() => runtime.Execute("max_skill_level", null, "2")); Reject(() => runtime.Execute("unknown", null, null));
+
+var id = Guid.NewGuid().ToString("N"); var session = Guid.NewGuid().ToString("N");
+var command = new TrainerCommand { schema_version = 1, request_id = id, session_id = session, action = "unlimited_money", enabled = true, created_utc = 100 };
+Protocol.Validate(command, id + ".json", session, 100); checks++;
+Reject(() => Protocol.Validate(command, id + ".json", "old-session", 100));
+Reject(() => Protocol.Validate(command, id + ".json", session, 109));
+Reject(() => Protocol.Validate(command, id + ".json", session, 94));
+Reject(() => Protocol.Validate(command, Guid.NewGuid().ToString("N") + ".json", session, 100));
+command.choice = "2"; Reject(() => Protocol.Validate(command, id + ".json", session, 100));
+command.action = "game_speed"; Reject(() => Protocol.Validate(command, id + ".json", session, 100));
+command.enabled = null; Protocol.Validate(command, id + ".json", session, 100); checks++;
+command.choice = null; Reject(() => Protocol.Validate(command, id + ".json", session, 100));
+
+// Execute the actual mailbox code against synthetic runtime types, including acknowledgements,
+// replay markers, stale sessions, disabled hotkeys, and Off while a site is loading.
+var root = Path.Combine(Path.GetTempPath(), "hc-builder-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
+try {
+    var plugin = new Plugin();
+    var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+    void Field(string name, object value) => typeof(Plugin).GetField(name, flags)!.SetValue(plugin, value);
+    object Call(string name, params object[] args) => typeof(Plugin).GetMethod(name, flags)!.Invoke(plugin, args);
+    var commands = Path.Combine(root, "commands"); var responses = Path.Combine(root, "responses"); Directory.CreateDirectory(commands); Directory.CreateDirectory(responses);
+    Field("bindings", runtime); Field("ipcPath", root); Field("commandsPath", commands); Field("responsesPath", responses); Field("session", session); Field("bindingsValid", true);
+    command = new TrainerCommand { schema_version = 1, request_id = id, session_id = session, action = "max_skill_level", created_utc = Protocol.Now() };
+    skills["test"].currentLevel = 1; skills["test"].Calls = 0;
+    Protocol.WriteAtomic(Path.Combine(commands, id + ".json"), command); Call("PollCommands", null, true);
+    var response = JsonConvert.DeserializeObject<Dictionary<string, object>>(File.ReadAllText(Path.Combine(responses, id + ".json")));
+    Check((bool)response["success"] && skills["test"].Calls == 2, "acknowledged one-shot executes");
+    Protocol.WriteAtomic(Path.Combine(commands, id + ".json"), command); Call("PollCommands", null, true);
+    Check(skills["test"].Calls == 2 && !File.Exists(Path.Combine(commands, id + ".json")), "acknowledged request never replays");
+    id = Guid.NewGuid().ToString("N"); command.request_id = id; command.session_id = "stale";
+    Protocol.WriteAtomic(Path.Combine(commands, id + ".json"), command); Call("PollCommands", null, true);
+    response = JsonConvert.DeserializeObject<Dictionary<string, object>>(File.ReadAllText(Path.Combine(responses, id + ".json")));
+    Check(!(bool)response["success"] && skills["test"].Calls == 2, "stale request rejected and acknowledged");
+    runtime.Execute("super_jump", true, null); GameSceneManager.Instance.IsLoadingSaveData = true; runtime.Refresh();
+    id = Guid.NewGuid().ToString("N"); command = new TrainerCommand { schema_version = 1, request_id = id, session_id = session, action = "super_jump", enabled = false, created_utc = Protocol.Now() };
+    Protocol.WriteAtomic(Path.Combine(commands, id + ".json"), command); Call("PollCommands", null, false);
+    Check(!runtime.Requested["super_jump"], "mailbox Off cancels pending restore while loading");
+    Input.Pressed = KeyCode.F1; Call("PollHotkeys", null, false);
+    Check(!runtime.Requested["unlimited_money"] && plugin.Logger.Errors.Count > 0, "unready hotkey produces actionable local error");
+} finally { Directory.Delete(root, true); }
+Console.WriteLine($"PASS Builder Simulator: {checks} synthetic runtime, patch, lifecycle, time ownership and IPC checks. No game started; Harmony application and gameplay remain untested.");

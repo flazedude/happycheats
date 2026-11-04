@@ -45,6 +45,7 @@ internal static class ControllerMenuChecks
             var panel = LogicalDescendants(main).OfType<Border>().Single(control =>
                 BindingOperations.GetBinding(control, UIElement.VisibilityProperty)?.Path.Path == nameof(MainWindow.ControllerVisibility));
             var catalog = main.Games.ToArray();
+            Check(catalog.Any(game => game.Id == "builder-simulator"), "Builder Simulator must use the shared controller path");
             foreach (var language in new[] { "en", "zh" })
             {
                 main.SetLanguage(language, persist: false);

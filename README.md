@@ -49,7 +49,7 @@ Compatibility and available controls depend on the game build. Some trainers are
 | [Laundry Store Simulator](modules/laundry/README.md) | [Onimusha: Way of the Sword](docs/onimusha.md) | [Phantom Blade Zero](docs/phantom-blade.md) |
 | [Project Hospital](docs/project-hospital.md) | [Red Dead Redemption 2 · Story Mode](docs/rdr2.md) | [Stardew Valley](docs/stardew.md) |
 | [The Blood of Dawnwalker](docs/dawnwalker.md) | [The Witcher 3: Wild Hunt — Remastered](docs/witcher-3.md) | [Nomad Drive · independent add-on](docs/nomad-drive.md) |
-| [Survival Log · independent add-on](docs/survival-log.md) | | |
+| [Survival Log · independent add-on](docs/survival-log.md) | [Builder Simulator · independent add-on](docs/builder-simulator.md) | |
 
 Use the supported single-player/offline modes described in each guide. Progression and resource changes may be saved by the game; turning a cheat off does not undo earlier changes.
 

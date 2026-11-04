@@ -1,0 +1,24 @@
+{
+  "steam_build": "26240179",
+  "assembly_sha256": "364320218449C22DB4A6E851276F4236CDC51DC74FCBF8EBA4AFB7FDFC1556F0",
+  "mvid": "758cc852-7cf1-4fb5-a270-c2a3b9156fd6",
+  "static_contract_valid": true,
+  "live_tested": false,
+  "errors": [],
+  "bindings": [
+    "System.Int32 Core.Data.EquipmentData::get_PlayerCash()",
+    "System.Void Core.Data.EquipmentData::set_PlayerCash(System.Int32)",
+    "System.Void Core.Data.EquipmentData::RemoveFromConstructionItem(ConstructionObjectID,System.Int32)",
+    "System.Void Core.Data.EquipmentData::RemoveFurnitureFromEquipment(System.String,System.Int32,System.Int32)",
+    "System.Void Core.Data.EquipmentData::RemoveFurnitureFromEquipment(System.String,UnityEngine.ResourceManagement.ResourceLocations.IResourceLocation)",
+    "System.Single Builder.Mixer.WheelbarrowMix::GetMix(System.Single)",
+    "System.Single Builder.Mixer.WheelbarrowMixController::GetMix(System.Single)",
+    "System.Single ECM.Controllers.BaseFirstPersonController::GetTargetSpeed()",
+    "System.Single ECM.Controllers.BaseCharacterController::get_jumpImpulse()",
+    "System.Void Gameplay.SkillsSystem.SkillData::LevelUp()",
+    "System.Collections.Generic.Dictionary\u00602\u003CGameplay.SkillsSystem.Skill,Gameplay.SkillsSystem.SkillData\u003E Gameplay.SkillsSystem.UpgradesData::get_skillsData()",
+    "System.Boolean Core.Managers.GameSceneManager::get_GameSceneIsPrepared()",
+    "System.Boolean Core.Managers.GameSceneManager::get_IsLoadingSaveData()",
+    "System.Boolean Core.ScenesLogic.SceneLoadingHandler::get_PreventFromMultipleLoad()"
+  ]
+}

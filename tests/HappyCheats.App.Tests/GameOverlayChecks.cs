@@ -97,6 +97,26 @@ internal static class GameOverlayChecks
                     id + " choice buttons do not match metadata");
                 Check(Disable().IsEnabled && actions.All(button => ((FeatureItem)button.Tag).Definition.Id != "disable_all"),
                     id + " must have one separate cleanup action");
+                if (id == "builder-simulator")
+                {
+                    Check(expected.Length == 7 && expected.Count(f => f.Definition.IsToggle) == 6
+                        && choices.Length == 10 && inputs.Length == 0, "Builder Simulator must expose seven controls and three multiplier selectors");
+                    Check(expected.Single(f => f.Definition.Id == "max_skill_level").Definition.IsToggle == false,
+                        "Builder Simulator maximum skills must remain a one-shot action");
+                    var previousSelection = main.Selected?.Id;
+                    main.SelectGame(id);
+                    var controller = (ControllerInput)typeof(MainWindow).GetField("_controller", Private)!.GetValue(main)!;
+                    Check(controller.Profile == "shared" && main.ControllerDirections.Contains("RB", StringComparison.Ordinal),
+                        "Builder Simulator must use the common controller menu path");
+                    ushort buttons = 0; long clock = 0;
+                    var synthetic = new ControllerInput((int slot, out ushort state) => { state = buttons; return slot == 0; }, () => clock) { Profile = controller.Profile };
+                    Check(synthetic.Poll(true, false) == null, "Builder Simulator synthetic neutral state");
+                    buttons = 0x10; clock = 1; Check(synthetic.Poll(true, false) == null, "Builder Simulator Menu hold started");
+                    clock = 351; Check(synthetic.Poll(true, false) == null, "Builder Simulator Menu hold armed");
+                    buttons = 0x210; clock = 352;
+                    Check(synthetic.Poll(true, false) == "game_menu", "Builder Simulator Menu held 350ms plus RB must open only the shared menu");
+                    if (previousSelection != null) main.SelectGame(previousSelection);
+                }
                 if (id == "astroneer")
                 {
                     var collection = expected.Single(feature => feature.Definition.Id == "resource_collection_10x");
@@ -261,7 +281,7 @@ internal static class GameOverlayChecks
                         id + " action brushes failed to follow the theme");
                     Check(Equals(Disable().Content, Localization.Text("disableAll")), id + " cleanup action did not translate");
                 }
-                if (artifacts != null && id is "astroneer" or "stardew" or "dawnwalker")
+                if (artifacts != null && id is "builder-simulator" or "astroneer" or "stardew" or "dawnwalker")
                     Capture(overlay, Path.Combine(artifacts, "shared-menu-" + id + "-zh-light.png"));
                 overlay.Hide();
             }

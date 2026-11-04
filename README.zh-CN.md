@@ -49,7 +49,7 @@ Windows 游戏修改器合集，支持 19 款游戏（17 款内置，Nomad Drive
 | [洗衣店模拟器](modules/laundry/README.md) | [鬼武者：剑之道](docs/onimusha.md) | [影之刃零](docs/phantom-blade.md) |
 | [医院计划 Project Hospital](docs/project-hospital.md) | [荒野大镖客 2 · 故事模式](docs/rdr2.md) | [星露谷物语](docs/stardew.md) |
 | [黎明行者之血](docs/dawnwalker.md) | [巫师 3：狂猎 — 重制版](docs/witcher-3.md) | [Nomad Drive · 独立模块](docs/nomad-drive.md) |
-| [生存日志 · 独立模块](docs/survival-log.md) | | |
+| [生存日志 · 独立模块](docs/survival-log.md) | [Builder Simulator · 独立模块](docs/builder-simulator.md) | |
 
 请使用各游戏说明中支持的单人 / 离线模式。资源和进度改动可能被游戏保存；关闭功能不会撤销之前的改动。
 

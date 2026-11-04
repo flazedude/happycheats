@@ -7,6 +7,7 @@ internal static class Program
     private static int passed, failed;
     private static int Main(string[] args)
     {
+        if (args.Contains("--builder-simulator")) return BuilderSimulatorTests.RunAll();
         if (args.Contains("--survival-log")) return SurvivalLogTests.RunAll();
         if (args.Contains("--nomad-drive")) return NomadDriveTests.RunAll();
         if (args.Contains("--witcher3")) return Witcher3Tests.RunAll() == 0 ? 0 : 1;
@@ -15,6 +16,7 @@ internal static class Program
         if (args.Contains("--elden-ring")) return EldenRingTests.RunAll();
         if (args.Contains("--cache-cleanup")) return UpdateCacheCleanupTests.RunAll();
         if (args.Contains("--updates")) return UpdateTests.RunAll() | BackgroundUpdateTests.RunAll() | UpdateInstallerTests.RunAll() | UpdateCacheCleanupTests.RunAll();
+        failed += BuilderSimulatorTests.RunAll();
         var survival = SurvivalLogTests.RunAll();
         failed += NomadDriveTests.RunAll();
         var legacy = OnimushaTrainer.BackendTests.Main();
@@ -100,7 +102,7 @@ internal static class Program
         Run("safe path rejects absolute escape", () => { using var f = new Fixture(); Fails(() => SafePath(f.Game, f.Package)); });
         Run("empty plugin payload rejected", () => { using var f = new Fixture(); WriteJson(Path.Combine(f.Package, "package.json"), new { files = Array.Empty<object>() }); Fails(() => OwnedInstaller.ReadPackage(f.Package)); });
         Run("module catalog has distinct trainer controls", () => {
-            var modules = ModuleCatalog.Create(); Assert(modules.Count == 19);
+            var modules = ModuleCatalog.Create(); Assert(modules.Count == 20);
             Assert(modules.Select(module => module.Definition.Id).Distinct().Count() == modules.Count);
             Assert(modules.Single(module => module.Definition.Id == "civilization-vii") is CivilizationVIIModule);
             foreach (var module in modules) Assert(module.Definition.Features.Select(f => f.Id).Distinct().Count() == module.Definition.Features.Count);

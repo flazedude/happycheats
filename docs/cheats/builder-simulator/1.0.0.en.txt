@@ -1,0 +1,6 @@
+Builder Simulator independent trainer 1.0.0
+
+Adds seven options covering the distinct published WeMod and Cheat Happens feature lists: unlimited money, max skill level, materials never decrease, mixes never decrease, super walk speed, super jump, and game speed.
+Supports inspected Steam build 26240179 (game 2.3.1), with virtual money and reversible movement/time effects, multiplier choices, persistent requested toggles through loads, and a one-shot level-3 skill action. Items and wheelbarrow mixes must already exist; deliberate tray emptying and DLC ownership checks remain.
+Uses the existing shared Ctrl+Del and Menu held 350ms + RB menu. Bilingual control metadata and a first-install helper for signed packages add the game without rebuilding the HappyCheats client or standalone EXE.
+Validation is offline: local assembly contracts, payload compilation, synthetic runtime/IPC/lifecycle checks, installer/package and shared menu/controller regressions. No game was launched and no save was changed. Unity/Harmony application, live gameplay and physical-controller operation are not verified.
