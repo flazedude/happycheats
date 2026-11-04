@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework><AssemblyName>HappyCheats.LivinCream</AssemblyName>
+    <LangVersion>latest</LangVersion><Nullable>disable</Nullable><Version>1.0.0</Version>
+    <GameDirectory Condition="'$(GameDirectory)' == ''">G:\Games\SteamLib\steamapps\common\Livin' the Cream Ice Cream Simulator</GameDirectory>
+    <Managed>$(GameDirectory)\Livin' the Cream Ice Cream Simulator_Data\Managed</Managed>
+    <Loader>$(MSBuildThisFileDirectory)..\..\.tools\bepinex\5.4.23.5-x64\extracted\BepInEx\core</Loader>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="BepInEx"><HintPath>$(Loader)\BepInEx.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="0Harmony"><HintPath>$(Loader)\0Harmony.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Assembly-CSharp"><HintPath>$(Managed)\Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine"><HintPath>$(Managed)\UnityEngine.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.CoreModule"><HintPath>$(Managed)\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Newtonsoft.Json"><HintPath>$(Managed)\Newtonsoft.Json.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+</Project>
