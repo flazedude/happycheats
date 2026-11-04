@@ -53,6 +53,31 @@ try {
     Assert-Reference $cap 'm_disabledEmployeeLimit'
     Assert-Reference $cap 'TWEAKABLE_EMPLOYEE_LIMIT'
     Assert-Reference $cap 'Lopital.Hospital::CountEmployees()'
+    Assert-Reference (Get-MethodDef HiringCardCharacterPanelController '<Init>m__0' 0) 'Lopital.Hospital::ReachedCharacterLimit()'
+    $entryId = Get-MethodDef DatabaseEntry get__DatabaseIDSurrogate 0
+    if ($entryId.IsStatic -or $entryId.ReturnType.FullName -ne 'System.String') { throw 'Tweakable ID signature changed' }
+    Assert-Reference $entryId 'DatabaseEntry::get_DatabaseID()'
+    $tweakable = Get-MethodDef GameDBTweakableFloat get_Value 0
+    if ($tweakable.IsStatic -or $tweakable.ReturnType.FullName -ne 'System.Single') { throw 'Patience threshold signature changed' }
+    $sitting = Get-MethodDef Lopital.BehaviorPatient UpdateStateWaitingSitting 1
+    Assert-Reference $sitting 'TWEAKABLE_PATIENT_MAX_WAIT_TIME_HOURS'
+    Assert-Reference $sitting 'TWEAKABLE_PATIENT_LEAVE_TIME_HOURS'
+    Assert-Reference $sitting 'GameDBTweakableFloat::get_Value()'
+    Assert-Reference $sitting 'NOTIF_PATIENT_LEFT_AFTER_LONG_WAIT'
+    Assert-Reference $sitting 'NOTIF_PATIENT_LEFT_AFTER_LONG_VISIT'
+    Assert-Reference $sitting 'Lopital.BehaviorPatient::LeaveAfterClosingHours()'
+    if (@($sitting.Body.Instructions | Where-Object { [string]$_.Operand -eq $tweakable.FullName }).Count -ne 3) { throw 'Expected exactly three sitting wait/visit threshold reads' }
+    $pharmacy = Get-MethodDef Lopital.BehaviorPatient UpdateStateWaitingInPharmacy 1
+    Assert-Reference $pharmacy 'TWEAKABLE_PHARMACY_WARNING_WAIT'
+    Assert-Reference $pharmacy 'TWEAKABLE_PHARMACY_MAX_WAIT'
+    Assert-Reference $pharmacy 'GameDBTweakableFloat::get_Value()'
+    if (@($pharmacy.Body.Instructions | Where-Object { [string]$_.Operand -eq $tweakable.FullName }).Count -ne 2) { throw 'Expected exactly two pharmacy waiting threshold reads' }
+    $waitMood = Get-MethodDef Lopital.BehaviorPatient UpdateWaitingTimeModifiers 0
+    if ($waitMood.IsStatic -or $waitMood.ReturnType.FullName -ne 'System.Void') { throw 'Waiting satisfaction signature changed' }
+    Assert-Reference $waitMood 'SAT_MOD_LONG_WAIT'
+    $conversion = Get-MethodDef Lopital.DayTime RealTimeSecondsToIngameTimeHours 1
+    if ($conversion.IsStatic -or $conversion.ReturnType.FullName -ne 'System.Single' -or $conversion.Parameters[0].ParameterType.FullName -ne 'System.Single') { throw 'Waiting hours conversion signature changed' }
+    if (@($waitMood.Body.Instructions | Where-Object { $_.OpCode.Code -in @('Call', 'Callvirt') -and [string]$_.Operand -eq $conversion.FullName }).Count -ne 1) { throw 'Expected exactly one waiting satisfaction hours conversion' }
     $count = Get-MethodDef Lopital.Hospital CountEmployees 0
     if ($count.IsStatic -or $count.ReturnType.FullName -ne 'System.Int32') { throw 'Staff count signature changed' }
     $update = Get-MethodDef Lopital.Hospital UpdateCurrentStatistics 0
@@ -90,7 +115,7 @@ try {
     Assert-Reference $dayUpdate 'Lopital.DayTime::OnNewHour'
     Assert-Reference (Get-MethodDef MapEditorController MainUpdate 1) 'Lopital.DayTime::MultiUpdate'
     New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
-    @($unlock, $cap, $update, $calculate, $dayUpdate, (Get-MethodDef Lopital.Hospital Pay 2), (Get-MethodDef Lopital.Hospital Spend 2), (Get-MethodDef MapEditorController Update 0)) | ForEach-Object {
+    @($unlock, $cap, $update, $calculate, $dayUpdate, $entryId, $tweakable, $sitting, $pharmacy, $waitMood, $conversion, (Get-MethodDef Lopital.Hospital Pay 2), (Get-MethodDef Lopital.Hospital Spend 2), (Get-MethodDef MapEditorController Update 0)) | ForEach-Object {
         $_.FullName
         $_.Body.Instructions | ForEach-Object { $_.ToString() }
         ''
@@ -99,7 +124,7 @@ try {
         assembly = $GameAssembly
         sha256 = $hash
         validation = 'Passed read-only Cecil signatures, field types and real game call paths. Does not load/execute the game or touch saves.'
-        checks = @('Campaign menu and click gates and categories', 'Persistent unlock saves profile; runtime hook avoids that path', 'Native employee limit, count and unlimited-setting path', 'Current prestige field types, clamp and aggregate recalculation', 'Money integer field and clock update signature', 'Initialized/loaded/unloading readiness fields')
+        checks = @('Campaign menu and click gates and categories', 'Persistent unlock saves profile; runtime hook avoids that path', 'Native employee limit and actual hiring click path', 'Patient long-wait/visit and pharmacy thresholds, ID and getter signatures', 'Exactly one elapsed-hours conversion in waiting satisfaction', 'Current prestige field types, clamp and aggregate recalculation', 'Money integer field and clock update signature', 'Initialized/loaded/unloading readiness fields')
     } | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $OutputDirectory 'validation.json')
     Write-Host 'PASS: Project Hospital read-only assembly binding validation'
 }

@@ -18,7 +18,10 @@ internal static class Program
             Check("Money raises low balance without lowering a larger balance", Money);
             Check("A replaced hospital state cannot inherit mutations", HospitalTransition);
             Check("Freeze only intercepts an active loaded hospital", Freeze);
-            Check("Staff extension preserves native unlimited settings", Staff);
+            Check("Unlimited staff removes the cap and preserves native unlimited settings", Staff);
+            Check("Patience scales only inspected thresholds and elapsed satisfaction; disable and transition restore defaults", Patience);
+            Check("Patience transpiler patches exactly one elapsed-hours read and preserves original instructions", PatienceTranspiler);
+            Check("Patience wire range and strict value types", PatienceCommands);
             Check("Campaign unlock is scoped to campaign categories", Campaign);
             Check("Prestige restores latest natural values without lowering bonuses", Prestige);
             Check("Prestige touches current statistics only across a new day", PrestigeRollover);
@@ -109,7 +112,7 @@ internal static class Program
         var values = bindings.ReadValues();
         Equal("false", values["hospital_loaded"]);
         Equal("True", values["available_unlock_campaigns"]);
-        foreach (var action in new[] { "max_money", "freeze_time", "max_staff", "max_prestige" })
+        foreach (var action in new[] { "max_money", "freeze_time", "unlimited_workers", "max_prestige", "patient_patience" })
         {
             Equal("False", values["available_" + action]);
             Equal(true, values.ContainsKey("reason_" + action));
@@ -152,7 +155,7 @@ internal static class Program
     private static void HospitalTransition()
     {
         var (bindings, hospital) = Loaded();
-        bindings.FreezeTime = bindings.MaxStaff = true;
+        bindings.FreezeTime = bindings.UnlimitedWorkers = true;
         bindings.SetPrestige(true);
         var oldState = hospital.m_state;
         hospital.m_state = new HospitalPersistentData();
@@ -192,17 +195,83 @@ internal static class Program
         hospital.EmployeeCount = 500;
         bool result = true;
         RuntimeHooks.StaffPostfix(hospital, ref result); Equal(true, result);
-        bindings.MaxStaff = true;
+        bindings.UnlimitedWorkers = true;
         RuntimeHooks.StaffPostfix(hospital, ref result); Equal(false, result);
         hospital.EmployeeCount = 999; result = true;
         RuntimeHooks.StaffPostfix(hospital, ref result); Equal(false, result);
-        hospital.EmployeeCount = 1000; result = true;
-        RuntimeHooks.StaffPostfix(hospital, ref result); Equal(true, result);
+        hospital.EmployeeCount = int.MaxValue; result = true;
+        RuntimeHooks.StaffPostfix(hospital, ref result); Equal(false, result);
         hospital.EmployeeCount = 1500; result = false;
         RuntimeHooks.StaffPostfix(hospital, ref result); Equal(false, result, "Native unlimited setting must remain unlimited.");
         var unrelated = new Hospital { EmployeeCount = 0 }; result = true;
         RuntimeHooks.StaffPostfix(unrelated, ref result); Equal(true, result);
-        Equal("1000", bindings.ReadValues()["hospital_staff_limit"]);
+        Equal("Unlimited", bindings.ReadValues()["hospital_staff_limit"]);
+        bindings.UnlimitedWorkers = false; result = true; RuntimeHooks.StaffPostfix(hospital, ref result); Equal(true, result);
+        Equal("Game setting", bindings.ReadValues()["hospital_staff_limit"]);
+    }
+    private static void Patience()
+    {
+        var (bindings, hospital) = Loaded();
+        Equal(1, bindings.PatienceMultiplier);
+        foreach (var multiplier in new[] { 1, 2, 10, 100 })
+        {
+            bindings.SetPatience(multiplier);
+            foreach (var id in new[] { "TWEAKABLE_PATIENT_MAX_WAIT_TIME_HOURS", "TWEAKABLE_PATIENT_LEAVE_TIME_HOURS", "TWEAKABLE_PHARMACY_WARNING_WAIT", "TWEAKABLE_PHARMACY_MAX_WAIT" })
+            {
+                var entry = new GameDBTweakableFloat { _DatabaseIDSurrogate = id, Value = 4f };
+                float value = RuntimeHooks.ScalePatienceThreshold(entry.Value, id);
+                Equal(4f * multiplier, value); Equal(4f, entry.Value, "Database values must not be mutated.");
+            }
+            Equal(10f / multiplier, RuntimeHooks.ScaleWaitElapsed(10f));
+            Equal(multiplier.ToString(), bindings.ReadValues()["patient_patience"]);
+        }
+        Equal(7f, bindings.ScalePatienceThreshold("UNRELATED_MEDICAL_TIMER", 7f));
+        Equal(float.MaxValue, bindings.ScalePatienceThreshold("TWEAKABLE_PHARMACY_MAX_WAIT", float.MaxValue));
+        Reject<ArgumentOutOfRangeException>(() => bindings.SetPatience(0));
+        Reject<ArgumentOutOfRangeException>(() => bindings.SetPatience(101));
+        bindings.DisableAll(); Equal(1, bindings.PatienceMultiplier);
+        Equal(10f, RuntimeHooks.ScaleWaitElapsed(10f));
+        bindings.SetPatience(10);
+        hospital.m_state = new HospitalPersistentData();
+        Equal(7f, bindings.ScalePatienceThreshold("TWEAKABLE_PHARMACY_MAX_WAIT", 7f));
+        Equal(10f, RuntimeHooks.ScaleWaitElapsed(10f));
+        Reject<InvalidOperationException>(() => bindings.SetPatience(10));
+        bindings.DisableAll(); Equal(1, bindings.PatienceMultiplier);
+    }
+    private static void PatienceTranspiler()
+    {
+        var (bindings, _) = Loaded();
+        var original = new HarmonyLib.CodeInstruction(System.Reflection.Emit.OpCodes.Callvirt, bindings.WaitHoursConversion);
+        var ret = new HarmonyLib.CodeInstruction(System.Reflection.Emit.OpCodes.Ret);
+        var result = PatienceHooks.WaitingModifiersTranspiler(new[] { original, ret }).ToArray();
+        Equal(3, result.Length); Equal(true, ReferenceEquals(original, result[0])); Equal(true, ReferenceEquals(ret, result[2]));
+        Equal("ScaleWaitElapsed", ((MethodInfo)result[1].operand).Name);
+        Reject<InvalidOperationException>(() => PatienceHooks.WaitingModifiersTranspiler(new[] { ret }).ToArray());
+        Reject<InvalidOperationException>(() => PatienceHooks.WaitingModifiersTranspiler(new[] { original, original, ret }).ToArray());
+        var threshold = new HarmonyLib.CodeInstruction(System.Reflection.Emit.OpCodes.Callvirt, bindings.TweakableValue);
+        var keys = new[] { "TWEAKABLE_PATIENT_MAX_WAIT_TIME_HOURS", "TWEAKABLE_PATIENT_MAX_WAIT_TIME_HOURS", "TWEAKABLE_PATIENT_LEAVE_TIME_HOURS" };
+        var instructions = keys.SelectMany(id => new[] { new HarmonyLib.CodeInstruction(System.Reflection.Emit.OpCodes.Ldstr, id), threshold }).ToArray();
+        var rewritten = PatienceHooks.WaitingThresholdsTranspiler(instructions, bindings.WaitingSitting).ToArray();
+        Equal(instructions.Length + 6, rewritten.Length);
+        Equal(3, rewritten.Count(i => i.operand is MethodInfo m && m.Name == "ScalePatienceThreshold"));
+        var pharmacy = new[] { "TWEAKABLE_PHARMACY_WARNING_WAIT", "TWEAKABLE_PHARMACY_MAX_WAIT" }.SelectMany(id => new[] { new HarmonyLib.CodeInstruction(System.Reflection.Emit.OpCodes.Ldstr, id), threshold }).ToArray();
+        Equal(pharmacy.Length + 4, PatienceHooks.WaitingThresholdsTranspiler(pharmacy, bindings.WaitingPharmacy).Count());
+        Reject<InvalidOperationException>(() => PatienceHooks.WaitingThresholdsTranspiler(new[] { threshold }, bindings.WaitingSitting).ToArray());
+        Reject<InvalidOperationException>(() => PatienceHooks.WaitingThresholdsTranspiler(instructions, bindings.WaitingPharmacy).ToArray());
+    }
+    private static void PatienceCommands()
+    {
+        foreach (var value in new[] { 1, 10, 100 })
+        {
+            var command = Command("patient_patience"); command.value = value;
+            var parsed = JsonCodec.ReadCommand(JsonCodec.Serialize(command)); Validate(parsed); Equal(value, parsed.value);
+        }
+        foreach (var value in new int?[] { null, 0, -1, 101 })
+        { var command = Command("patient_patience"); command.value = value; Reject<IOException>(() => Validate(command)); }
+        var wrong = Command("max_money"); wrong.value = 10; Reject<IOException>(() => Validate(wrong));
+        foreach (var raw in new[] { "1.5", "true", "\"10\"", "[]" })
+            Reject<IOException>(() => JsonCodec.ReadCommand("{\"value\":" + raw + "}"));
+        var toggle = Command("patient_patience"); toggle.value = 10; toggle.enabled = true; Reject<IOException>(() => Validate(toggle));
     }
     private static void Campaign()
     {
@@ -272,7 +341,7 @@ internal static class Program
     {
         var (bindings, hospital) = Loaded();
         hospital.m_state.m_dailyStatistics.m_reputation = 0.48f;
-        bindings.FreezeTime = bindings.MaxStaff = bindings.UnlockCampaigns = true;
+        bindings.FreezeTime = bindings.UnlimitedWorkers = bindings.UnlockCampaigns = true;
         bindings.SetPrestige(true);
         bindings.DisableAll();
         Equal(0.48f, hospital.m_state.m_dailyStatistics.m_reputation);
@@ -309,6 +378,7 @@ internal static class Program
         {
             var command = Command(action);
             if (Protocol.Toggles.Contains(action)) command.enabled = true;
+            if (action == "patient_patience") command.value = 10;
             Validate(command);
             if (Protocol.Toggles.Contains(action)) { command.enabled = false; Validate(command); }
         }
@@ -346,11 +416,11 @@ internal static class Program
             var path = Path.Combine(folder, "status.json");
             var status = new TrainerStatus { session_id = Session, process_id = 123, message = "测试 / ready", ready = true, updated_utc = Now, bindings_valid = true };
             status.values["hospital_money"] = "999999999";
-            status.enabled["max_staff"] = true;
+            status.enabled["unlimited_workers"] = true;
             Protocol.WriteAtomic(path, status);
             var roundtrip = JsonConvert.DeserializeObject<TrainerStatus>(File.ReadAllText(path));
             Equal(Session, roundtrip.session_id); Equal("测试 / ready", roundtrip.message);
-            Equal("999999999", roundtrip.values["hospital_money"]); Equal(true, roundtrip.enabled["max_staff"]);
+            Equal("999999999", roundtrip.values["hospital_money"]); Equal(true, roundtrip.enabled["unlimited_workers"]);
             var bytes = File.ReadAllBytes(path);
             Equal(false, bytes.Length > 2 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF);
             status.message = "replaced"; Protocol.WriteAtomic(path, status);

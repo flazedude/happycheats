@@ -1,0 +1,9 @@
+Project Hospital package 1.0.1 — trainer 0.1.2
+
+Unlimited workers (F3) replaces the old 1,000-staff cap with an uncapped hiring override. Disabling restores native hiring rules and keeps hired staff; no workers are spawned. The native statistics panel may still display its configured limit.
+
+Patient patience is a numeric 1×–100× control (suggested 10×, normal until applied). It extends long-wait, long-visit and pharmacy waiting tolerance and delays wait-related satisfaction penalties. 1×, Disable all or a hospital change restores normal thresholds without resetting elapsed waiting time. Closing hours, needs and medical risks still apply. Returning to 1× can cause overdue patients to leave.
+
+Close supported games and use Library Update beside Sort to update Project Hospital. Clients 0.3.65–0.3.66 also need Reload library and Project Hospital Install / update; newer clients use the existing automatic apply flow. The client version and standalone EXE are unchanged. Ctrl+Del and hold Menu 350 ms + RB still toggle the shared menu; operate its controls with mouse/keyboard.
+
+Validation: inspected Steam build 21161440 assembly/IL, payload compilation and stripped-runtime references, isolated worker/patience/protocol tests, installer/integrity checks and shared UI/menu/controller regressions. No game was started or save changed. Actual runtime hooks, worker hiring, patient effects and physical-controller gameplay remain unverified.

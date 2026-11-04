@@ -12,5 +12,7 @@
     <Compile Include="../Protocol.cs" Link="Protocol.cs" />
     <Compile Include="../JsonCodec.cs" Link="JsonCodec.cs" />
     <Compile Include="../HeartbeatPublisher.cs" Link="HeartbeatPublisher.cs" />
+    <Compile Include="../PatienceHooks.cs" Link="PatienceHooks.cs" />
+    <Reference Include="0Harmony"><HintPath>../../../.tools/bepinex/5.4.23.5-x64/extracted/BepInEx/core/0Harmony.dll</HintPath></Reference>
   </ItemGroup>
 </Project>

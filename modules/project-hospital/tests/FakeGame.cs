@@ -30,6 +30,7 @@ namespace Lopital
     {
         public static DayTime sm_instance;
         public DayTimePersistentData m_persistentData = new();
+        public float RealTimeSecondsToIngameTimeHours(float seconds) => seconds;
         public void MultiUpdate(int multiplier, float seconds) { }
     }
 }
@@ -49,3 +50,7 @@ public sealed class PlayerProfile
     public bool IsCampaignLevelUnlocked(GameDBCampaignLevel level) => false;
 }
 namespace HappyCheats.ProjectHospital { internal static class Plugin { internal const string Version = "offline-test"; } }
+
+public class DatabaseEntry { public string _DatabaseIDSurrogate { get; set; } }
+public sealed class GameDBTweakableFloat : DatabaseEntry { public float Value { get; set; } }
+namespace Lopital { public sealed class BehaviorPatient { public void UpdateWaitingTimeModifiers() { } public void UpdateStateWaitingSitting(float seconds) { } public void UpdateStateWaitingInPharmacy(bool idle) { } } }

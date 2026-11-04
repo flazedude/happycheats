@@ -10,16 +10,17 @@ namespace HappyCheats.ProjectHospital
     internal sealed class GameBindings
     {
         internal const int MoneyTarget = 999999999;
-        internal const int StaffLimit = 1000;
         private const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
         private readonly FieldInfo hospitalInstance, hospitalState, hospitalDepartments, budget, balance, dailyStatistics;
         private readonly FieldInfo departmentData, departmentStatistics, reputation;
         private readonly FieldInfo editorInstance, editorInitialized, editorLoaded, editorUnloading;
         private readonly FieldInfo profileInstance, dayInstance, dayData, dayHours, dayNumber;
         private readonly MethodInfo countEmployees, campaignCategory;
+        internal int PatienceMultiplier = 1;
+        internal readonly MethodInfo TweakableValue, WaitingSitting, WaitingPharmacy, WaitingModifiers, WaitHoursConversion;
         private readonly Dictionary<object, float> naturalPrestige = new Dictionary<object, float>();
         internal object ActiveState;
-        internal bool FreezeTime, MaxStaff, UnlockCampaigns, MaxPrestige;
+        internal bool FreezeTime, UnlimitedWorkers, UnlockCampaigns, MaxPrestige;
         internal readonly MethodInfo DayUpdate, StaffLimitCheck, CampaignCheck, StatisticsUpdate;
 
         internal GameBindings(Assembly assembly)
@@ -52,6 +53,12 @@ namespace HappyCheats.ProjectHospital
             StaffLimitCheck = Method(hospital, "ReachedCharacterLimit", typeof(bool));
             CampaignCheck = Method(profile, "IsCampaignLevelUnlocked", typeof(bool), assembly.GetType("GameDBCampaignLevel", true));
             campaignCategory = Method(assembly.GetType("GameDBCampaignLevel", true), "get_LevelCategory", assembly.GetType("LevelCategory", true));
+            var tweakable = assembly.GetType("GameDBTweakableFloat", true);
+            TweakableValue = Method(tweakable, "get_Value", typeof(float));
+            WaitingSitting = Method(assembly.GetType("Lopital.BehaviorPatient", true), "UpdateStateWaitingSitting", typeof(void), typeof(float));
+            WaitingPharmacy = Method(assembly.GetType("Lopital.BehaviorPatient", true), "UpdateStateWaitingInPharmacy", typeof(void), typeof(bool));
+            WaitingModifiers = Method(assembly.GetType("Lopital.BehaviorPatient", true), "UpdateWaitingTimeModifiers", typeof(void));
+            WaitHoursConversion = Method(day, "RealTimeSecondsToIngameTimeHours", typeof(float), typeof(float));
             StatisticsUpdate = Method(hospital, "UpdateCurrentStatistics", typeof(void));
         }
 
@@ -77,9 +84,25 @@ namespace HappyCheats.ProjectHospital
             return "Hospital balance is at least 999,999,999.";
         }
 
-        internal bool StaffLimitReached(object hospital)
+        internal void SetPatience(int multiplier)
         {
-            return (int)countEmployees.Invoke(hospital, null) >= StaffLimit;
+            RequireHospital();
+            if (multiplier < 1 || multiplier > 100) throw new ArgumentOutOfRangeException("multiplier");
+            PatienceMultiplier = multiplier;
+        }
+
+        internal float ScalePatienceThreshold(string id, float original)
+        {
+            if (PatienceMultiplier == 1 || !IsCurrentHospitalActive) return original;
+            if (id != "TWEAKABLE_PATIENT_MAX_WAIT_TIME_HOURS" && id != "TWEAKABLE_PATIENT_LEAVE_TIME_HOURS" &&
+                id != "TWEAKABLE_PHARMACY_WARNING_WAIT" && id != "TWEAKABLE_PHARMACY_MAX_WAIT") return original;
+            var scaled = original * PatienceMultiplier;
+            return original > 0f && !float.IsNaN(scaled) && !float.IsInfinity(scaled) ? scaled : original;
+        }
+
+        internal float ScaleWaitElapsed(float hours)
+        {
+            return IsCurrentHospitalActive && PatienceMultiplier > 1 ? hours / PatienceMultiplier : hours;
         }
 
         internal bool IsCampaign(object level)
@@ -145,30 +168,32 @@ namespace HappyCheats.ProjectHospital
         internal void DisableAll()
         {
             RestorePrestige();
-            FreezeTime = MaxStaff = UnlockCampaigns = MaxPrestige = false;
+            FreezeTime = UnlimitedWorkers = UnlockCampaigns = MaxPrestige = false;
+            PatienceMultiplier = 1;
         }
 
         internal Dictionary<string, bool> ToggleValues()
         {
-            return new Dictionary<string, bool> { { "freeze_time", FreezeTime }, { "max_staff", MaxStaff }, { "unlock_campaigns", UnlockCampaigns }, { "max_prestige", MaxPrestige } };
+            return new Dictionary<string, bool> { { "freeze_time", FreezeTime }, { "unlimited_workers", UnlimitedWorkers }, { "unlock_campaigns", UnlockCampaigns }, { "max_prestige", MaxPrestige } };
         }
 
         internal Dictionary<string, string> ReadValues()
         {
             var loaded = IsCurrentHospitalActive;
             var result = new Dictionary<string, string> { { "hospital_loaded", loaded ? "true" : "false" } };
-            foreach (var action in new[] { "max_money", "freeze_time", "max_staff", "max_prestige" })
+            foreach (var action in new[] { "max_money", "freeze_time", "unlimited_workers", "max_prestige", "patient_patience" })
             {
                 result["available_" + action] = loaded ? "True" : "False";
                 if (!loaded) result["reason_" + action] = "Load a hospital before using this action.";
             }
             result["available_unlock_campaigns"] = ProfileReady ? "True" : "False";
             if (!ProfileReady) result["reason_unlock_campaigns"] = "Wait for the game profile to load.";
+            result["patient_patience"] = PatienceMultiplier.ToString(CultureInfo.InvariantCulture);
             if (!loaded) return result;
             var time = dayData.GetValue(dayInstance.GetValue(null));
             result["hospital_money"] = ((int)balance.GetValue(budget.GetValue(ActiveState))).ToString(CultureInfo.InvariantCulture);
             result["hospital_staff"] = ((int)countEmployees.Invoke(hospitalInstance.GetValue(null), null)).ToString(CultureInfo.InvariantCulture);
-            result["hospital_staff_limit"] = MaxStaff ? StaffLimit.ToString(CultureInfo.InvariantCulture) : "Game setting";
+            result["hospital_staff_limit"] = UnlimitedWorkers ? "Unlimited" : "Game setting";
             result["hospital_prestige"] = ((float)reputation.GetValue(dailyStatistics.GetValue(ActiveState)) * 100f).ToString("0.#", CultureInfo.InvariantCulture) + "%";
             result["hospital_day"] = ((int)dayNumber.GetValue(time)).ToString(CultureInfo.InvariantCulture);
             var minutes = (int)Math.Floor((double)dayHours.GetValue(time) * 60) % (24 * 60);
@@ -202,8 +227,18 @@ namespace HappyCheats.ProjectHospital
         }
         internal static void StaffPostfix(object __instance, ref bool __result)
         {
-            try { if (__result && Bindings != null && Bindings.MaxStaff && Bindings.IsActiveHospital(__instance)) __result = Bindings.StaffLimitReached(__instance); }
-            catch (Exception exception) { if (Bindings != null) Bindings.MaxStaff = false; Report(exception); }
+            try { if (__result && Bindings != null && Bindings.UnlimitedWorkers && Bindings.IsActiveHospital(__instance)) __result = false; }
+            catch (Exception exception) { if (Bindings != null) Bindings.UnlimitedWorkers = false; Report(exception); }
+        }
+        internal static float ScalePatienceThreshold(float original, string id)
+        {
+            try { return Bindings == null ? original : Bindings.ScalePatienceThreshold(id, original); }
+            catch (Exception exception) { if (Bindings != null) Bindings.PatienceMultiplier = 1; Report(exception); return original; }
+        }
+        internal static float ScaleWaitElapsed(float hours)
+        {
+            try { return Bindings == null ? hours : Bindings.ScaleWaitElapsed(hours); }
+            catch (Exception exception) { if (Bindings != null) Bindings.PatienceMultiplier = 1; Report(exception); return hours; }
         }
         internal static bool CampaignPrefix(object __0, ref bool __result)
         {

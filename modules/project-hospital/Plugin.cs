@@ -15,7 +15,7 @@ namespace HappyCheats.ProjectHospital
     [BepInProcess("ProjectHospital.exe")]
     public sealed class Plugin : BaseUnityPlugin
     {
-        public const string Version = "0.1.1";
+        public const string Version = "0.1.2";
         public const string SupportedAssemblySha256 = "1120d899fb74d16f31115c5c27325edbd1154b68e9419e6b7ea03cc3d43b6f24";
         private string session = Guid.NewGuid().ToString("N");
         private readonly HashSet<string> handled = new HashSet<string>(StringComparer.Ordinal);
@@ -51,6 +51,10 @@ namespace HappyCheats.ProjectHospital
                 Patch(bindings.StaffLimitCheck, "StaffPostfix", true);
                 Patch(bindings.CampaignCheck, "CampaignPrefix", false);
                 Patch(bindings.StatisticsUpdate, "StatisticsPostfix", true);
+                var thresholds = new HarmonyMethod(typeof(PatienceHooks).GetMethod("WaitingThresholdsTranspiler", BindingFlags.NonPublic | BindingFlags.Static));
+                harmony.Patch(bindings.WaitingSitting, transpiler: thresholds);
+                harmony.Patch(bindings.WaitingPharmacy, transpiler: thresholds);
+                harmony.Patch(bindings.WaitingModifiers, transpiler: new HarmonyMethod(typeof(PatienceHooks).GetMethod("WaitingModifiersTranspiler", BindingFlags.NonPublic | BindingFlags.Static)));
                 bindingsValid = true;
                 message = "Trainer ready. Load a hospital for hospital actions; campaigns can be unlocked at the menu.";
                 Logger.LogInfo(message);
@@ -121,7 +125,7 @@ namespace HappyCheats.ProjectHospital
 
         private void PollCommands()
         {
-            CommandQueue.Poll(commandsPath, responsesPath, session, handled, command => ExecuteAction(command.action, command.enabled), (id, success, result) =>
+            CommandQueue.Poll(commandsPath, responsesPath, session, handled, command => ExecuteAction(command.action, command.enabled, command.value), (id, success, result) =>
             {
                 lastCommand = id;
                 message = result;
@@ -129,10 +133,11 @@ namespace HappyCheats.ProjectHospital
             });
         }
 
-        private string ExecuteAction(string action, bool? enabled)
+        private string ExecuteAction(string action, bool? enabled, int? value = null)
         {
             if (action == "disable_all") { if (bindings != null) bindings.DisableAll(); return "All continuous cheats are off."; }
             if (!bindingsValid || bindings == null) throw new InvalidOperationException("Trainer bindings are unavailable.");
+            if (action == "patient_patience") { if (!value.HasValue) throw new IOException("Choose a patience multiplier."); bindings.SetPatience(value.Value); return "Patient patience: " + value.Value + "x. Closing hours and medical risks still apply."; }
             if (action == "max_money") return bindings.MaxMoney();
             if (!Protocol.Toggles.Contains(action) || !enabled.HasValue) throw new IOException("Unknown action or missing toggle state.");
             if (action == "unlock_campaigns")
@@ -143,9 +148,9 @@ namespace HappyCheats.ProjectHospital
             }
             if (enabled.Value) bindings.RequireHospital();
             if (action == "freeze_time") bindings.FreezeTime = enabled.Value;
-            if (action == "max_staff") bindings.MaxStaff = enabled.Value;
+            if (action == "unlimited_workers") bindings.UnlimitedWorkers = enabled.Value;
             if (action == "max_prestige") bindings.SetPrestige(enabled.Value);
-            return action == "max_staff" ? (enabled.Value ? "Staff hiring limit increased to 1,000." : "Normal staff hiring limit restored; existing employees are kept.")
+            return action == "unlimited_workers" ? (enabled.Value ? "Staff hiring cap removed." : "Normal staff hiring limit restored; existing employees are kept.")
                 : action == "freeze_time" ? (enabled.Value ? "Time of day frozen; hospital simulation continues." : "Time of day resumed.")
                 : enabled.Value ? "Hospital and department prestige held at maximum." : "Natural prestige restored.";
         }
@@ -156,7 +161,7 @@ namespace HappyCheats.ProjectHospital
             string action = null;
             if (Input.GetKeyDown(KeyCode.F1)) action = "max_money";
             else if (Input.GetKeyDown(KeyCode.F2)) action = "freeze_time";
-            else if (Input.GetKeyDown(KeyCode.F3)) action = "max_staff";
+            else if (Input.GetKeyDown(KeyCode.F3)) action = "unlimited_workers";
             else if (Input.GetKeyDown(KeyCode.F4)) action = "unlock_campaigns";
             else if (Input.GetKeyDown(KeyCode.F5)) action = "max_prestige";
             else if (Input.GetKeyDown(KeyCode.F10)) action = "disable_all";

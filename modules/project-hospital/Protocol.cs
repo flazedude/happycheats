@@ -13,6 +13,7 @@ namespace HappyCheats.ProjectHospital
         public string request_id { get; set; }
         public string action { get; set; }
         public bool? enabled { get; set; }
+        public int? value { get; set; }
         public long created_utc { get; set; }
     }
     internal sealed class TrainerStatus
@@ -34,8 +35,8 @@ namespace HappyCheats.ProjectHospital
     }
     internal static class Protocol
     {
-        internal static readonly HashSet<string> Toggles = new HashSet<string>(new[] { "freeze_time", "max_staff", "unlock_campaigns", "max_prestige" }, StringComparer.Ordinal);
-        internal static readonly HashSet<string> Actions = new HashSet<string>(new[] { "max_money", "freeze_time", "max_staff", "unlock_campaigns", "max_prestige", "disable_all" }, StringComparer.Ordinal);
+        internal static readonly HashSet<string> Toggles = new HashSet<string>(new[] { "freeze_time", "unlimited_workers", "unlock_campaigns", "max_prestige" }, StringComparer.Ordinal);
+        internal static readonly HashSet<string> Actions = new HashSet<string>(new[] { "max_money", "freeze_time", "unlimited_workers", "unlock_campaigns", "max_prestige", "patient_patience", "disable_all" }, StringComparer.Ordinal);
         internal static bool IsGuid(string value)
         {
             if (value == null || (value.Length != 32 && value.Length != 36)) return false;
@@ -50,6 +51,11 @@ namespace HappyCheats.ProjectHospital
             if (!string.Equals(Path.GetFileNameWithoutExtension(filename), command.request_id, StringComparison.Ordinal)) throw new IOException("Command filename and request_id differ.");
             if (!string.Equals(command.session_id, session, StringComparison.Ordinal)) throw new IOException("Command belongs to another game session.");
             if (command.created_utc < now - 30 || command.created_utc > now + 5) throw new IOException("Command has expired or is dated in the future.");
+            if (command.action == "patient_patience")
+            {
+                if (!command.value.HasValue || command.value.Value < 1 || command.value.Value > 100) throw new IOException("Choose a whole patience multiplier from 1 to 100.");
+            }
+            else if (command.value.HasValue) throw new IOException("This control does not accept a value.");
             if (!Actions.Contains(command.action ?? "")) throw new IOException("Unknown trainer action.");
             if (Toggles.Contains(command.action) && !command.enabled.HasValue) throw new IOException("Toggle commands require enabled=true or false.");
             if (!Toggles.Contains(command.action) && command.enabled.HasValue) throw new IOException("One-shot actions do not accept a toggle state.");

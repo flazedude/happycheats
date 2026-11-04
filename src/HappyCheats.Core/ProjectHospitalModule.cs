@@ -3,25 +3,26 @@ using static HappyCheats.Core.ModuleIO;
 
 namespace HappyCheats.Core;
 
-public sealed class ProjectHospitalModule(string baseDirectory) : IGameModule
+public sealed class ProjectHospitalModule(string baseDirectory) : IGameModule, IFeatureValueModule
 {
     public IReadOnlyList<string> GameExecutables { get; } = [Executable];
     public const string Executable = "ProjectHospital.exe";
     public const string GameAssembly = "ProjectHospital_Data/Managed/Assembly-CSharp.dll";
     public const string SupportedAssemblyHash = "1120D899FB74D16F31115C5C27325EDBD1154B68E9419E6B7EA03CC3D43B6F24";
     public const string SupportedSteamBuild = "21161440";
-    public const string TrainerVersion = "0.1.1";
+    public const string TrainerVersion = "0.1.2";
     public const string IpcRoot = "BepInEx/HappyCheats/project-hospital/";
     private readonly string package = Path.Combine(baseDirectory, "payload", "project-hospital");
     private readonly SemaphoreSlim commandLock = new(1, 1);
 
     public GameDefinition Definition { get; } = new("project-hospital", "Project Hospital", "HOSPITAL MANAGEMENT", "868360", "PH",
-        "Manage hospital funds, time, the staff hiring limit, campaigns and prestige. Experimental Steam module; gameplay validation is pending.", new FeatureDefinition[] {
+        "Manage hospital funds, time, unlimited workers, patient patience, campaigns and prestige. Experimental Steam module; gameplay validation is pending.", new FeatureDefinition[] {
             new("max_money", "Max Money", "Raise hospital funds to at least 999,999,999 once. The game may save the resulting balance.", "F1", false, "Hospital"),
             new("freeze_time", "Freeze Time of Day", "Hold the time of day while hospital activity continues. Turn off to resume the clock.", "F2", true, "Time"),
-            new("max_staff", "Max Staff", "Raise the staff hiring limit to 1,000 while enabled. Existing staff remain after disabling; normal hiring limits return.", "F3", true, "Hospital"),
+            new("unlimited_workers", "Unlimited workers / 无限员工", "Remove the staff hiring cap while enabled; disabling restores normal hiring rules and keeps hired staff. / 开启后取消员工招聘人数上限；关闭后恢复正常规则，保留已雇用员工。", "F3", true, "Hospital"),
             new("unlock_campaigns", "Unlock All Campaigns", "Make installed campaigns selectable while enabled, without changing campaign completion. DLC ownership requirements still apply.", "F4", true, "Progression"),
-            new("max_prestige", "Max Prestige", "Keep hospital and department prestige at the game's maximum while enabled. Turn off to restore naturally calculated prestige.", "F5", true, "Hospital") });
+            new("max_prestige", "Max Prestige", "Keep hospital and department prestige at the game's maximum while enabled. Turn off to restore naturally calculated prestige.", "F5", true, "Hospital"),
+            new("patient_patience", "Patient patience / 病人耐心", "Set waiting tolerance from 1× (normal) to 100× for long waits, long visits, pharmacy waits and wait-related satisfaction. Closing hours and medical risks still apply. / 设置候诊、就诊时长、药房等待及等待满意度的耐心倍率，1倍为正常，最高100倍；关门和医疗风险仍然生效。", "", false, "Hospital", ChoiceValueKey: "patient_patience", Number: new FeatureNumber(1, 100, 10, Unit: "×")) });
 
     private static bool Compatible(string directory) => string.Equals(Hash(SafePath(directory, GameAssembly)), SupportedAssemblyHash, StringComparison.OrdinalIgnoreCase);
 
@@ -104,13 +105,17 @@ public sealed class ProjectHospitalModule(string baseDirectory) : IGameModule
             Bools(Object(json, "enabled")), Strings(Object(json, "values")), Text(json, "last_command"));
     }
 
-    internal static object CreateCommand(TrainerStatus requested, TrainerStatus fresh, string requestId, string featureId, bool? enabled, long createdUtc)
+    internal static object CreateCommand(TrainerStatus requested, TrainerStatus fresh, string requestId, string featureId, bool? enabled, long createdUtc, decimal? value = null)
     {
         if (!fresh.Connected || string.IsNullOrEmpty(fresh.SessionId) || requested.SessionId != fresh.SessionId)
             throw new InvalidOperationException("Game session changed. Reconnect before trying again.");
-        if (featureId is not ("max_money" or "freeze_time" or "max_staff" or "unlock_campaigns" or "max_prestige" or "disable_all"))
+        if (featureId is not ("max_money" or "freeze_time" or "unlimited_workers" or "unlock_campaigns" or "max_prestige" or "patient_patience" or "disable_all"))
             throw new ArgumentException("Unknown trainer control.");
-        var toggle = featureId is "freeze_time" or "max_staff" or "unlock_campaigns" or "max_prestige";
+        if (featureId == "patient_patience") {
+            if (value is null || value < 1 || value > 100 || decimal.Truncate(value.Value) != value)
+                throw new ArgumentOutOfRangeException(nameof(value), "Choose a whole patience multiplier from 1 to 100.");
+        } else if (value is not null) throw new ArgumentException("This control does not accept a value.");
+        var toggle = featureId is "freeze_time" or "unlimited_workers" or "unlock_campaigns" or "max_prestige";
         if (toggle && enabled is null) throw new ArgumentException("Choose whether to enable or disable this control.");
         if (!toggle && enabled is not null) throw new ArgumentException("This action does not accept a toggle state.");
         if (!fresh.Ready && featureId != "disable_all" && !(toggle && enabled == false))
@@ -118,7 +123,7 @@ public sealed class ProjectHospitalModule(string baseDirectory) : IGameModule
         if (featureId != "disable_all" && !(toggle && enabled == false) &&
             (!fresh.Values.TryGetValue("available_" + featureId, out var available) || !bool.TryParse(available, out var allowed) || !allowed))
             throw new InvalidOperationException(fresh.Values.GetValueOrDefault("reason_" + featureId, "Unavailable in this scene"));
-        return new { schema_version = 1, session_id = fresh.SessionId, request_id = requestId, action = featureId, enabled, created_utc = createdUtc };
+        return new { schema_version = 1, session_id = fresh.SessionId, request_id = requestId, action = featureId, enabled, value = (int?)value, created_utc = createdUtc };
     }
 
     internal static void AcceptResponse(JsonElement response, string sessionId, string requestId)
@@ -128,7 +133,13 @@ public sealed class ProjectHospitalModule(string baseDirectory) : IGameModule
         if (!Bool(response, "success")) throw new InvalidOperationException(Text(response, "message", "The game rejected this control."));
     }
 
-    public async Task SendAsync(GameInstallation installation, TrainerStatus status, string featureId, bool? enabled = null)
+    public Task SendAsync(GameInstallation installation, TrainerStatus status, string featureId, bool? enabled = null) =>
+        SendCommandAsync(installation, status, featureId, enabled);
+
+    public Task SetValueAsync(GameInstallation installation, TrainerStatus status, string featureId, decimal value) =>
+        SendCommandAsync(installation, status, featureId, null, value);
+
+    private async Task SendCommandAsync(GameInstallation installation, TrainerStatus status, string featureId, bool? enabled, decimal? value = null)
     {
         if (!await commandLock.WaitAsync(0)) throw new InvalidOperationException("Waiting for the previous game command.");
         string? commandPath = null;
@@ -136,7 +147,7 @@ public sealed class ProjectHospitalModule(string baseDirectory) : IGameModule
             var fresh = await ReadStatusAsync(installation);
             if (!fresh.Connected) throw new IOException(fresh.Message);
             var id = Guid.NewGuid().ToString("N");
-            var command = CreateCommand(status, fresh, id, featureId, enabled, DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+            var command = CreateCommand(status, fresh, id, featureId, enabled, DateTimeOffset.UtcNow.ToUnixTimeSeconds(), value);
             commandPath = SafePath(installation.Directory, IpcRoot + "commands/" + id + ".json");
             var responsePath = SafePath(installation.Directory, IpcRoot + "responses/" + id + ".json");
             WriteJson(commandPath, command);

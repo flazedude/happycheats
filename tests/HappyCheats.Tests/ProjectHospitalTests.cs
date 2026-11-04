@@ -8,7 +8,7 @@ namespace HappyCheats.Tests;
 internal static class ProjectHospitalTests
 {
     private static int passed, failed;
-    private static readonly string[] Actions = { "max_money", "freeze_time", "max_staff", "unlock_campaigns", "max_prestige" };
+    private static readonly string[] Actions = { "max_money", "freeze_time", "unlimited_workers", "unlock_campaigns", "max_prestige" };
 
     public static int RunAll()
     {
@@ -26,19 +26,20 @@ internal static class ProjectHospitalTests
             File.WriteAllText(log, "[Message] Chainloader started");
             Check(ProjectHospitalModule.StartupDiagnostic(f.Game, started).Contains("has not published a heartbeat"));
         });
-        Run("Project Hospital catalog has all five requested controls and staff hiring limit", () => {
+        Run("Project Hospital catalog has unlimited workers and numeric patience using existing contracts", () => {
             var module = ModuleCatalog.Create().Single(module => module.Definition.Id == "project-hospital");
             Check(module.Definition.AppId == "868360" && module is ProjectHospitalModule);
-            Check(module.Definition.Features.Select(feature => feature.Id).SequenceEqual(Actions));
-            Check(module.Definition.Features.Select(feature => feature.Name).SequenceEqual(new[] { "Max Money", "Freeze Time of Day", "Max Staff", "Unlock All Campaigns", "Max Prestige" }));
-            Check(!module.Definition.Features[0].IsToggle && module.Definition.Features.Skip(1).All(feature => feature.IsToggle));
-            Check(module.Definition.Features[2].Description.Contains("hiring limit to 1,000"));
-            Check(module.Definition.Features.Select(feature => feature.Hotkey).SequenceEqual(new[] { "F1", "F2", "F3", "F4", "F5" }));
+            Check(module.Definition.Features.Select(feature => feature.Id).SequenceEqual(Actions.Append("patient_patience")));
+            Check(module is IFeatureValueModule && module.Definition.Features[2].Name.Contains("Unlimited workers"));
+            Check(module.Definition.Features[5].Number is { Minimum: 1, Maximum: 100, DefaultValue: 10 });
+            Check(!module.Definition.Features[0].IsToggle && module.Definition.Features.Skip(1).Take(4).All(feature => feature.IsToggle));
+            Check(module.Definition.Features[2].Description.Contains("Remove the staff hiring cap"));
+            Check(module.Definition.Features.Select(feature => feature.Hotkey).SequenceEqual(new[] { "F1", "F2", "F3", "F4", "F5", "" }));
         });
         Run("Project Hospital heartbeat binds the schema version process and inspected assembly", () => {
             var good = ProjectHospitalModule.ParseStatus(Json(State()), 42);
             Check(good.Connected && good.Ready && good.SessionId == "session-a" && good.Enabled["freeze_time"]);
-            Check(good.Values["hospital_staff_limit"] == "1000");
+            Check(good.Values["hospital_staff_limit"] == "Unlimited");
             foreach (var key in new[] { "schema_version", "version", "process_id", "assembly_sha256", "session_id" }) {
                 var state = State(); state.Remove(key);
                 Check(!ProjectHospitalModule.ParseStatus(Json(state), 42).Connected);
@@ -82,6 +83,21 @@ internal static class ProjectHospitalTests
             state["values"] = new JsonObject(); status = ProjectHospitalModule.ParseStatus(Json(state), 42);
             Reject(() => ProjectHospitalModule.CreateCommand(status, status, "r", "max_money", null, 0));
             ProjectHospitalModule.CreateCommand(status, status with { Ready = false }, "r", "disable_all", null, 0);
+        });
+        Run("Project Hospital numeric patience validates values sessions and availability", () => {
+            var state = State(); state["values"]!["available_patient_patience"] = true;
+            var status = ProjectHospitalModule.ParseStatus(Json(state), 42);
+            foreach (var value in new[] { 1m, 10.0m, 100m }) {
+                var command = JsonSerializer.SerializeToElement(ProjectHospitalModule.CreateCommand(status, status, "r", "patient_patience", null, 123, value));
+                Check(command.GetProperty("value").GetInt32() == value);
+            }
+            foreach (var value in new decimal?[] { null, 0, 101, 1.5m })
+                Reject(() => ProjectHospitalModule.CreateCommand(status, status, "r", "patient_patience", null, 0, value));
+            Reject(() => ProjectHospitalModule.CreateCommand(status, status, "r", "max_money", null, 0, 10));
+            Reject(() => ProjectHospitalModule.CreateCommand(status, status with { SessionId = "changed" }, "r", "patient_patience", null, 0, 10));
+            Reject(() => ProjectHospitalModule.CreateCommand(status, status with { Ready = false }, "r", "patient_patience", null, 0, 10));
+            state["values"]!["available_patient_patience"] = false;
+            Reject(() => ProjectHospitalModule.CreateCommand(status, ProjectHospitalModule.ParseStatus(Json(state), 42), "r", "patient_patience", null, 0, 10));
         });
         Run("Project Hospital acknowledgements require matching identities and success", () => {
             var response = new JsonObject { ["schema_version"] = 1, ["session_id"] = "session-a", ["request_id"] = "request-a", ["success"] = true };
@@ -159,7 +175,7 @@ internal static class ProjectHospitalTests
 
     private static JsonObject State()
     {
-        var values = new JsonObject { ["hospital_staff_limit"] = "1000" };
+        var values = new JsonObject { ["hospital_staff_limit"] = "Unlimited" };
         foreach (var action in Actions) values["available_" + action] = true;
         return new JsonObject { ["schema_version"] = 1, ["version"] = ProjectHospitalModule.TrainerVersion,
             ["process_id"] = 42, ["assembly_sha256"] = ProjectHospitalModule.SupportedAssemblyHash,

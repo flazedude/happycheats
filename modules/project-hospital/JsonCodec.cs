@@ -102,6 +102,7 @@ namespace HappyCheats.ProjectHospital
                 switch (pair.Key)
                 {
                     case "schema_version": command.schema_version = checked((int)Integer(pair.Value)); break;
+                    case "value": command.value = pair.Value == null ? (int?)null : checked((int)Integer(pair.Value)); break;
                     case "created_utc": command.created_utc = Integer(pair.Value); break;
                     case "session_id": command.session_id = Text(pair.Value); break;
                     case "request_id": command.request_id = Text(pair.Value); break;
