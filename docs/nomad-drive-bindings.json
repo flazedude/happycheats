@@ -1,0 +1,42 @@
+{
+  "steam_build": "26391437",
+  "assembly_sha256": "6957F9A1180D811CA2AE1BB44748157D794FED5BEFD845290FD15E41FB54FFAF",
+  "mvid": "555ef2c2-3faa-4b7d-82e8-d6e7774996d7",
+  "static_contract_valid": true,
+  "live_tested": false,
+  "errors": [],
+  "bindings": {
+    "NomadDrive.Features.Player.PlayerStatsManager": [
+      "NomadDrive.Features.Player.PlayerStat NomadDrive.Features.Player.PlayerStatsManager::get_Nutrition()",
+      "NomadDrive.Features.Player.PlayerStat NomadDrive.Features.Player.PlayerStatsManager::get_Hydration()",
+      "NomadDrive.Features.Player.PlayerStat NomadDrive.Features.Player.PlayerStatsManager::get_Energy()",
+      "NomadDrive.Features.Player.PlayerStat NomadDrive.Features.Player.PlayerStatsManager::get_Health()",
+      "NomadDrive.Features.Player.PlayerStat NomadDrive.Features.Player.PlayerStatsManager::get_Poison()",
+      "System.Boolean NomadDrive.Features.Player.PlayerStatsManager::get_IsInitialized()",
+      "System.Boolean NomadDrive.Features.Player.PlayerStatsManager::get_IsDead()",
+      "System.Boolean NomadDrive.Features.Player.PlayerStatsManager::ApplyMedicine(System.Single,System.Single)",
+      "System.Void NomadDrive.Features.Player.PlayerStatsManager::HealDamage(System.Single)"
+    ],
+    "NomadDrive.Features.Player.PlayerStat": [
+      "System.Single NomadDrive.Features.Player.PlayerStat::get_CurrentValue()",
+      "System.Single NomadDrive.Features.Player.PlayerStat::get_MaxValue()",
+      "System.Void NomadDrive.Features.Player.PlayerStat::SetMax()"
+    ],
+    "NomadDrive.Features.Vehicle.VehicleManager": [
+      "System.Boolean NomadDrive.Features.Vehicle.VehicleManager::get_IsInitialized()",
+      "NomadDrive.Features.LiquidTransferSystem.ILiquidContainer NomadDrive.Features.Vehicle.VehicleManager::get_FuelContainer()"
+    ],
+    "NomadDrive.Features.LiquidTransferSystem.LiquidContainerComponent": [
+      "NomadDrive.Features.LiquidTransferSystem.LiquidType NomadDrive.Features.LiquidTransferSystem.LiquidContainerComponent::get_CurrentLiquidType()",
+      "System.Single NomadDrive.Features.LiquidTransferSystem.LiquidContainerComponent::get_Capacity()",
+      "System.Void NomadDrive.Features.LiquidTransferSystem.LiquidContainerComponent::SetAmount(System.Single)"
+    ],
+    "NomadDrive.Features.Vehicle.Modules.VehicleEngineModule": [
+      "NomadDrive.Features.Vehicle.Parts.Engine.Engine NomadDrive.Features.Vehicle.Modules.VehicleEngineModule::get_InstalledEngine()"
+    ],
+    "NomadDrive.Features.Attachables.ConditionComponent": [
+      "System.Single NomadDrive.Features.Attachables.ConditionComponent::get_MaxCondition()",
+      "System.Void NomadDrive.Features.Attachables.ConditionComponent::ServerSetCondition(System.Single)"
+    ]
+  }
+}

@@ -1,6 +1,6 @@
 # HappyCheats
 
-A Windows trainer library with 18 games, English / 中文, and one shared in-game menu. Livin' the Cream is added through the independent cheat updater; the current standalone EXE bundles the original 17 games.
+A Windows trainer library with 19 supported games (17 bundled plus the independent Livin' the Cream and Nomad Drive packages), English / 中文, and one shared in-game menu.
 
 **[Download HappyCheats.exe](https://github.com/flazedude/happycheats/releases/latest/download/HappyCheats.exe)** · [Latest release](https://github.com/flazedude/happycheats/releases/latest) · [Changelog](CHANGELOG.md) · [中文说明](README.zh-CN.md)
 
@@ -49,6 +49,7 @@ Compatibility and available controls depend on the game build. Some trainers are
 | [Laundry Store Simulator](modules/laundry/README.md) | [Onimusha: Way of the Sword](docs/onimusha.md) | [Phantom Blade Zero](docs/phantom-blade.md) |
 | [Project Hospital](docs/project-hospital.md) | [Red Dead Redemption 2 · Story Mode](docs/rdr2.md) | [Stardew Valley](docs/stardew.md) |
 | [The Blood of Dawnwalker](docs/dawnwalker.md) | [The Witcher 3: Wild Hunt — Remastered](docs/witcher-3.md) | [Livin' the Cream: Ice Cream Simulator](docs/livin-cream.md) |
+| [Nomad Drive · independent add-on](docs/nomad-drive.md) | | |
 
 Use the supported single-player/offline modes described in each guide. Progression and resource changes may be saved by the game; turning a cheat off does not undo earlier changes.
 

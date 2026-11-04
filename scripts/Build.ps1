@@ -30,6 +30,7 @@ if (!$SkipPayloads) {
     & (Join-Path $PSScriptRoot 'Build-LivinCream.ps1')
     if ($ChineseParentsGameDirectory) { & (Join-Path $PSScriptRoot 'Build-ChineseParents.ps1') -GameDirectory $ChineseParentsGameDirectory }
     else { & (Join-Path $PSScriptRoot 'Build-ChineseParents.ps1') }
+    & (Join-Path $PSScriptRoot 'Build-NomadDrive.ps1')
     & (Join-Path $PSScriptRoot 'Build-Onimusha.ps1')
     & (Join-Path $PSScriptRoot 'Build-Laundry.ps1')
     & (Join-Path $PSScriptRoot 'Build-Astroneer.ps1')
@@ -78,7 +79,7 @@ if ($ReleaseSourceCommit) {
         (& git -C $hcRoot status --porcelain --untracked-files=all)) { throw 'Release source changed during the build. Commit and review it before publishing.' }
     [ordered]@{ version=$Version; commit=$ReleaseSourceCommit } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $hcStaging 'release-source.json') -Encoding utf8NoBOM
 }
-foreach ($hcGame in @('livin-cream','chinese-parents','onimusha','laundry','astroneer','stardew','dawnwalker','crimson-desert','black-myth-wukong','phantom-blade-zero','red-dead-redemption-2','gta-v-enhanced','project-hospital','hotel-architect','civilization-vi','civilization-vii','witcher-3','elden-ring')) {
+foreach ($hcGame in @('livin-cream','nomad-drive','chinese-parents','onimusha','laundry','astroneer','stardew','dawnwalker','crimson-desert','black-myth-wukong','phantom-blade-zero','red-dead-redemption-2','gta-v-enhanced','project-hospital','hotel-architect','civilization-vi','civilization-vii','witcher-3','elden-ring')) {
     $hcPayload = Join-Path $hcRoot ('payload\' + $hcGame)
     if (!(Test-Path -LiteralPath $hcPayload)) { throw "Missing payload: $hcGame" }
     New-Item -ItemType Directory -Force -Path (Join-Path $hcStaging 'payload') | Out-Null
