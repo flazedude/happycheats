@@ -15,8 +15,8 @@ try {
     if (digest != "39e6cea79d18fadabcc400754b24e77c01321be729a712a89f9304cd7e5af1eb")
         throw new IOException("This is not the established HappyCheats public key.");
     var clientVersion = args[1];
-    if (ReleaseVersion.Parse(clientVersion).CompareTo(ReleaseVersion.Parse("0.3.65")) < 0)
-        throw new IOException("Install HappyCheats 0.3.65 or newer once before adding independent games.");
+    if (ReleaseVersion.Parse(clientVersion).CompareTo(ReleaseVersion.Parse("0.3.69")) < 0)
+        throw new IOException("Install HappyCheats 0.3.69 or newer once before adding independent games.");
     void RequireClosed() {
         using var client = Process.GetProcessesByName("HappyCheats").FirstOrDefault();
         if (client != null) throw new IOException("Close HappyCheats before adding Builder Simulator, then run this helper again.");

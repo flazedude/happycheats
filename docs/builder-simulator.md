@@ -13,15 +13,15 @@ Independent package **1.0.0** supports the inspected Steam Windows build **26240
 | F5 | Super walk speed / 超级行走速度 | Toggle 2×, 3× or 5× movement; default 3×. |
 | F6 | Super jump / 超级跳跃 | Toggle 2×, 3× or 5× jump height; default 3×. |
 | F7 | Game speed / 游戏速度 | Toggle 0.5×, 1.5×, 2× or 3× simulation time; default 2×. Preserve a zero-time pause and restore trainer-owned time changes on Off. |
-| F12 | Disable all / 全部关闭 | Stop continuous effects and cancel pending toggle restoration. |
+| Client / menu | Disable all / 全部关闭 | Stop continuous effects and cancel pending toggle restoration. |
 
-Multipliers are selected in the client or shared in-game menu; selecting one does not turn its effect on. Toggle requests survive site loads and player/equipment/profile replacement, then restore through the normal action path after readiness checks. Confirmed effects clear during loading; pending requests are separate status values. Explicit Off and Disable all cancel pending requests. Skill upgrades never replay automatically. A new game process starts with all effects off.
+Multipliers are selected in the client or shared in-game menu; selecting one does not turn its effect on. The existing shared client keeps toggle requests through site loads and player/equipment/profile replacement, then restore through the normal action path after readiness checks. Confirmed effects clear during loading; the shared client displays pending requests separately. Explicit Off and Disable all cancel pending requests. Skill upgrades never replay automatically. The payload clears confirmed effects on every context boundary and waits for fresh module commands. A new client process has no remembered requests.
 
 Use **Ctrl+Del**, or enable the common Xbox shortcuts setting and **hold Menu (☰) for 350 ms, then tap RB**, to toggle the shared menu. Mouse/keyboard operate its rows. Use windowed/borderless mode; exclusive fullscreen and physical-controller operation have not been validated.
 
 ## Installation
 
-For first-time addition to the unchanged official client, close HappyCheats and supported games, then double-click `scripts/Install-BuilderSimulator.cmd` (or run `scripts/Add-BuilderSimulator.ps1` with PowerShell 7). It finds an existing official unpacked client (0.3.65 or newer), verifies the established trust identity, obtains the signed game package, and installs its trainer through that downloaded module. Reopen the same HappyCheats EXE and choose Builder Simulator. The helper does not launch or close games and does not edit saves. An unpacked client folder can be specified with `-ClientDirectory`.
+For first-time addition to the unchanged official client, close HappyCheats and supported games, then double-click `scripts/Install-BuilderSimulator.cmd` (or run `scripts/Add-BuilderSimulator.ps1` with PowerShell 7). It finds an existing official unpacked client (0.3.69 or newer), verifies the established trust identity, obtains the signed game package, and installs its trainer through that downloaded module. Reopen the same HappyCheats EXE and choose Builder Simulator. The helper does not launch or close games and does not edit saves. An unpacked client folder can be specified with `-ClientDirectory`.
 
 Once added, **Library → Update** downloads, verifies, loads and installs later compatible game packages in one operation. Use **Install / update** for ordinary current-package installation/repair. Existing unrelated or modified loader/plugin files are preserved; a conflict produces an error rather than an overwrite. Removal deletes only the verified owned trainer plugin and retains the shared BepInEx loader.
 

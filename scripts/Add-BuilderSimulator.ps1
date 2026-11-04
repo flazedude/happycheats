@@ -11,13 +11,13 @@ if (!$ClientDirectory) {
             $bsExe=Join-Path $_.DirectoryName 'HappyCheats.exe'
             if(Test-Path -LiteralPath $bsExe) {
                 $bsVersion=(Get-Item -LiteralPath $bsExe).VersionInfo.ProductVersion.Split('+')[0]
-                if($bsVersion -match '^\d+\.\d+\.\d+$' -and [Version]$bsVersion -ge [Version]'0.3.65') {
+                if($bsVersion -match '^\d+\.\d+\.\d+$' -and [Version]$bsVersion -ge [Version]'0.3.69') {
                     [pscustomobject]@{Directory=$_.DirectoryName;Version=[Version]$bsVersion;Modified=$_.LastWriteTimeUtc}
                 }
             }
         } | Sort-Object -Property Version,Modified -Descending)
     }
-    if(!$bsCandidates.Count){throw 'No compatible extracted HappyCheats client was found. Start HappyCheats 0.3.65 or newer once, close it, then retry; or pass -ClientDirectory with its unpacked folder.'}
+    if(!$bsCandidates.Count){throw 'No compatible extracted HappyCheats client was found. Start HappyCheats 0.3.69 or newer once, close it, then retry; or pass -ClientDirectory with its unpacked folder.'}
     $ClientDirectory=$bsCandidates[0].Directory
 }
 $bsClient=Join-Path $ClientDirectory 'HappyCheats.exe'

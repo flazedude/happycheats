@@ -11,12 +11,11 @@ using UnityEngine;
 
 namespace HappyCheats.BuilderSimulator
 {
-    // Requests survive a load; confirmed effects belong to one inspected live context.
+    // The shared 0.3.69+ client owns requests. Confirmed effects belong to one inspected live context.
     internal sealed class Runtime
     {
         internal static Runtime Current;
         internal static readonly string[] ToggleIds = { "unlimited_money", "materials_never_decrease", "mixes_never_decrease", "super_walk_speed", "super_jump", "game_speed" };
-        internal readonly Dictionary<string, bool> Requested = ToggleIds.ToDictionary(x => x, _ => false);
         internal readonly Dictionary<string, bool> Active = ToggleIds.ToDictionary(x => x, _ => false);
         internal readonly Dictionary<string, string> Choices = new Dictionary<string, string> {
             { "super_walk_speed", "3" }, { "super_jump", "3" }, { "game_speed", "2" }
@@ -28,7 +27,6 @@ namespace HappyCheats.BuilderSimulator
         private bool ready;
         private bool ownsTime;
         private float originalTime, appliedTime;
-        internal string RestorationError { get; private set; }
         internal bool Ready => ready && SameContext();
 
         private static bool TryContext(out EquipmentData eq, out FirstPersonController controller, out GameSceneManager manager, out object playerProfile)
@@ -55,12 +53,8 @@ namespace HappyCheats.BuilderSimulator
             foreach (var id in ToggleIds) Active[id] = false;
             equipment = nextReady ? eq : null; player = nextReady ? controller : null;
             scene = nextReady ? manager : null; profile = nextReady ? nextProfile : null; ready = nextReady;
-            RestorationError = null;
-            // The same action path handles explicit clicks and one restoration attempt per new context.
-            if (nextReady) foreach (var id in ToggleIds.Where(id => Requested[id]).ToArray()) {
-                try { Execute(id, true, null); }
-                catch (Exception error) { RestorationError = "Could not restore " + id + ": " + error.Message; }
-            }
+            // Clear confirmation on a boundary. HappyCheats restores intent through fresh,
+            // integrity-checked module commands; the payload must never restore itself.
             return true;
         }
 
@@ -73,8 +67,7 @@ namespace HappyCheats.BuilderSimulator
         {
             if (action == "disable_all") {
                 RestoreTime();
-                foreach (var id in ToggleIds) { Requested[id] = false; Active[id] = false; }
-                RestorationError = null;
+                foreach (var id in ToggleIds) Active[id] = false;
                 if (Ready) GameEvents.UIEvents.PublishOnMoneyUpdate();
                 return "All continuous cheats and pending restorations are off. Skill levels already earned remain.";
             }
@@ -86,16 +79,16 @@ namespace HappyCheats.BuilderSimulator
                 TickTime();
                 return action.Replace('_', ' ') + " multiplier: " + choice;
             }
-            if (Requested.ContainsKey(action)) {
+            if (Active.ContainsKey(action)) {
                 if (!enabled.HasValue) throw new ArgumentException("A toggle requires an explicit state.");
                 if (!enabled.Value) {
-                    Requested[action] = Active[action] = false;
+                    Active[action] = false;
                     if (action == "game_speed") RestoreTime();
                     if (action == "unlimited_money" && Ready) GameEvents.UIEvents.PublishOnMoneyUpdate();
                     return action.Replace('_', ' ') + " off; pending restoration cancelled.";
                 }
                 if (!Ready) throw new InvalidOperationException("Load a construction site before enabling cheats.");
-                Requested[action] = Active[action] = true;
+                Active[action] = true;
                 if (action == "unlimited_money") GameEvents.UIEvents.PublishOnMoneyUpdate();
                 TickTime();
                 return action.Replace('_', ' ') + " on.";
@@ -141,7 +134,6 @@ namespace HappyCheats.BuilderSimulator
         internal Dictionary<string, string> Values()
         {
             var result = Choices.ToDictionary(pair => "selected_" + pair.Key, pair => pair.Value);
-            foreach (var id in ToggleIds) result["pending_" + id] = (Requested[id] && !Enabled(id)).ToString().ToLowerInvariant();
             if (Ready) result["money"] = equipment.PlayerCash.ToString(CultureInfo.InvariantCulture);
             return result;
         }

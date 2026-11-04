@@ -49,14 +49,15 @@ runtime.Execute("max_skill_level", null, null); Check(skills["test"].currentLeve
 GameSceneManager.Instance.IsLoadingSaveData = true;
 Check(!runtime.Enabled("materials_never_decrease") && MaterialsPatch.Prefix(equipment), "operation-time loading gate before next heartbeat");
 Check(runtime.Refresh() && !runtime.Ready && Time.timeScale == 1, "load clears active effects and time ownership");
-Check(runtime.Requested["super_walk_speed"] && !runtime.Active["super_walk_speed"] && runtime.Values()["pending_super_walk_speed"] == "true", "requested vs confirmed pending state");
+Check(!runtime.Active["super_walk_speed"], "confirmation cleared; pending intent belongs to the shared client");
 runtime.Execute("super_jump", false, null); Reject(() => runtime.Execute("max_skill_level", null, null));
 ScenesCommunicator.GetGameData.equipmentData = new(); FirstPersonController.Instance = new();
 GameSceneManager.Instance = new();
-Check(runtime.Refresh() && runtime.Enabled("super_walk_speed") && !runtime.Enabled("super_jump"), "new site restores requested controls and honors waiting Off");
+Check(runtime.Refresh() && !runtime.Enabled("super_walk_speed") && !runtime.Enabled("super_jump"), "new site cannot restore itself before a fresh module command");
+runtime.Execute("super_walk_speed", true, null); Check(runtime.Enabled("super_walk_speed"), "fresh command restores the inspected new context");
 Check(skills["test"].Calls == 2, "one-shot not replayed on load");
 runtime.Execute("disable_all", null, null);
-Check(runtime.Requested.Values.All(on => !on) && runtime.Active.Values.All(on => !on) && Time.timeScale == 1, "disable all cancels restoration and restores time");
+Check(runtime.Active.Values.All(on => !on) && Time.timeScale == 1, "disable all cancels restoration and restores time");
 GameSceneManager.Instance.IsLoadingSaveData = true; runtime.Refresh(); runtime.Execute("disable_all", null, null);
 GameSceneManager.Instance.IsLoadingSaveData = false; runtime.Refresh(); Check(!runtime.Active.Values.Any(on => on), "Disable all during loading");
 skills = ScenesCommunicator.GetGameData.PlayerProfile.upgradesData.skillsData;
@@ -101,8 +102,8 @@ try {
     runtime.Execute("super_jump", true, null); GameSceneManager.Instance.IsLoadingSaveData = true; runtime.Refresh();
     id = Guid.NewGuid().ToString("N"); command = new TrainerCommand { schema_version = 1, request_id = id, session_id = session, action = "super_jump", enabled = false, created_utc = Protocol.Now() };
     Protocol.WriteAtomic(Path.Combine(commands, id + ".json"), command); Call("PollCommands", null, false);
-    Check(!runtime.Requested["super_jump"], "mailbox Off cancels pending restore while loading");
+    Check(!runtime.Active["super_jump"], "mailbox Off accepted while loading");
     Input.Pressed = KeyCode.F1; Call("PollHotkeys", null, false);
-    Check(!runtime.Requested["unlimited_money"] && plugin.Logger.Errors.Count > 0, "unready hotkey produces actionable local error");
+    Check(!runtime.Active["unlimited_money"] && plugin.Logger.Errors.Count > 0, "unready hotkey produces actionable local error");
 } finally { Directory.Delete(root, true); }
 Console.WriteLine($"PASS Builder Simulator: {checks} synthetic runtime, patch, lifecycle, time ownership and IPC checks. No game started; Harmony application and gameplay remain untested.");

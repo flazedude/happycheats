@@ -94,7 +94,6 @@ namespace HappyCheats.BuilderSimulator
                     lastCommand = null;
                     message = bindings.Ready ? "Construction site loaded. Trainer ready."
                         : "Waiting for a loaded construction site. Requested toggles are pending restoration.";
-                    if (bindings.RestorationError != null) { message = bindings.RestorationError; Logger.LogError(message); }
                     Publish(null, bindings.Ready);
                 }
                 var ready = bindings != null && bindings.Ready;
@@ -176,11 +175,10 @@ namespace HappyCheats.BuilderSimulator
             else if (Input.GetKeyDown(KeyCode.F5)) action = "super_walk_speed";
             else if (Input.GetKeyDown(KeyCode.F6)) action = "super_jump";
             else if (Input.GetKeyDown(KeyCode.F7)) action = "game_speed";
-            else if (Input.GetKeyDown(KeyCode.F12)) action = "disable_all";
             if (action == null) return;
             try {
                 message = ExecuteAction(player, ready, action,
-                    bindings != null && bindings.Requested.ContainsKey(action) ? (bool?)!bindings.Requested[action] : null);
+                    bindings != null && bindings.Active.ContainsKey(action) ? (bool?)!bindings.Active[action] : null);
             } catch (Exception error) { message = Explain(error); Logger.LogWarning(message); }
             Publish(player, ready);
         }
