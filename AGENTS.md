@@ -1,5 +1,9 @@
 # HappyCheats project instructions
 
+## New trainers in the signed catalog (9 November 2026)
+
+Library Update must offer signed catalog trainers absent from the client's Library, with an Add trainer action. Do not filter those entries out because their module or game installation is unknown. Download/verify on explicit click, load the module through the existing store, discover the game and use the normal closed-game installer. Keep newly downloaded trainers visible in Library and retryable when their folder is missing, the game is running or setup fails. Preserve signature, compatibility, ownership, busy-operation and shared-menu checks. Compatible future additions must not require another client release or an external first-add script. Known current/older trainers remain omitted from ordinary updates.
+
 ## Keep requested controls through loading (3 November 2026)
 
 Keep requested toggle states through loads, player/session replacement and location changes for every trainer. Restore them through the existing module command path only after the new session is connected, ready and the feature is available. Explicit Off and Disable all cancel restoration, including while waiting for gameplay. Do not replay one-shot actions such as XP, currency grants or manual teleport. Preserve operation-time ownership/integrity checks, clickable controls and explicit memory Connect actions. Show pending restoration separately from confirmed active effects and report/log failed restoration without an unbounded retry loop. This supersedes older automatic toggle-reset expectations; a new client process still starts with no remembered requests.

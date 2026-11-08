@@ -12,7 +12,8 @@ public sealed class FutureGameModule(string directory) : IGameModule, IFeatureCh
     private readonly Dictionary<string, string> values = new();
     public Task<GameInstallation> DiscoverAsync(string? path = null)
     {
-        var root = path ?? directory;
+        var discovered = Path.GetFullPath(Path.Combine(directory, "../../../../..", "game"));
+        var root = path ?? (Directory.Exists(discovered) ? discovered : directory);
         return Task.FromResult(new GameInstallation(root, "synthetic", !File.Exists(Path.Combine(root, "simulate-missing")),
             File.Exists(Path.Combine(root, "installed-trainer.txt")), File.Exists(Path.Combine(root, "simulate-running")), true, "Synthetic fixture"));
     }

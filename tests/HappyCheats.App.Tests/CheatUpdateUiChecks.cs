@@ -24,6 +24,7 @@ internal static class CheatUpdateUiChecks
         Check(update.IsEnabled && Grid.GetColumn(update)==3 && update.ActualHeight>=44,"Library update button is missing, disabled or not beside Sort");
         CheckWarnings(main, update, Check, artifacts);
         CheckFiltering(main, Check);
+        CheckNewTrainers(main, Check);
         using var fixture=new CheatFixture();
         var gate=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var http=new HttpClient(new Handler(fixture,gate.Task));
@@ -83,7 +84,7 @@ internal static class CheatUpdateUiChecks
             repair=window.InstallAsync(window.Rows.Single()); Pump(()=>repair.IsCompleted);
             Check(window.Error.Length==0 && window.Rows.Count==0,"Update retry did not finish installation or clear the row");
             var recheck=window.CheckAsync(); Pump(()=>recheck.IsCompleted);
-            Check((window.Status.Contains("No trainer updates") || window.Status.Contains("暂无修改器更新")) && window.Rows.Count == 0, "current game wrongly claimed a newer trainer");
+            Check((window.Status.Contains("No new trainers") || window.Status.Contains("暂无新修改器")) && window.Rows.Count == 0, "current game wrongly claimed a newer trainer");
             var module=fixture.Store.Load([],new Dictionary<string,string>(),version,e=>throw new Exception(e)).Single();
             var game=new GameItem(module); var features=module.Definition.Features.Select(x=>new FeatureItem(x)).ToArray();
             var overlay=new GameOverlay(_=>Task.CompletedTask,_=>Task.CompletedTask,()=>{});
@@ -244,7 +245,7 @@ internal static class CheatUpdateUiChecks
             Directory.CreateDirectory(directory);
             File.WriteAllText(executable, "synthetic executable");
             games.Clear(); window.FocusGame(null);
-            check(window.Rows.Count == 0, "catalog-only game appeared as an update");
+            check(window.Rows.Count == 1 && window.Rows.Single().ActionLabel == Localization.Choose("Add trainer", "添加修改器"), "catalog-only game could not be added");
             games.Add(game); game.DownloadedCheatVersion = null;
             task = fixture.Install(); Pump(() => task.IsCompleted); task.GetAwaiter().GetResult(); window.FocusGame(null);
             check(window.Rows.Count == 0, "latest downloaded package appeared as a new update");
@@ -256,10 +257,62 @@ internal static class CheatUpdateUiChecks
             {
                 main.SetLanguage(language, false);
                 task = window.CheckAsync(); Pump(() => task.IsCompleted);
-                check(window.Rows.Count == 0 && window.Status.Contains(language == "en" ? "No trainer updates" : "暂无修改器更新"), "localized empty state is missing");
+                check(window.Rows.Count == 0 && window.Status.Contains(language == "en" ? "No new trainers" : "暂无新修改器"), "localized empty state is missing");
             }
         }
         finally { window.Close(); SynchronizationContext.SetSynchronizationContext(context); }
+    }
+
+    private static void CheckNewTrainers(MainWindow main, Action<bool,string> check)
+    {
+        var context=SynchronizationContext.Current;
+        SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(main.Dispatcher));
+        try
+        {
+            foreach(var scenario in new[]{"success","simulate-missing","simulate-running","simulate-install-error"})
+            {
+                using var fixture=new CheatFixture();
+                using var http=new HttpClient(new Handler(fixture,Task.CompletedTask));
+                var root=Path.Combine(fixture.Root,"game");Directory.CreateDirectory(root);File.WriteAllText(Path.Combine(root,"FutureGame.exe"),"fixture");
+                if(scenario!="success")File.WriteAllText(Path.Combine(root,scenario),"");
+                check(main.Games.All(x=>x.Id!="future-game"),"new trainer test began with a Library placeholder");
+                var unrelated=main.Games.First().Module;
+                CheatUpdateWindow Create()=>new(fixture.Configuration,fixture.Store,new Dictionary<string,string>(),()=>main.Games,null,false,
+                    (release,download)=>main.ApplyCheatUpdateAsync(fixture.Store,release,download),CancellationToken.None,http);
+                var window=Create();
+                try
+                {
+                    var task=window.CheckAsync();Pump(()=>task.IsCompleted);
+                    check(window.Rows.Count==1 && window.Error.Length==0,"unknown signed trainer was filtered out");
+                    var row=window.Rows.Single();
+                    check(row.InstalledVersion==null && row.ActionLabel==Localization.Choose("Add trainer","添加修改器"),"new trainer is mislabeled as an update");
+                    foreach(var language in new[]{"en","zh"}) {
+                        main.SetLanguage(language,false);window.RefreshLanguage();
+                        check(window.Rows.Single().ActionLabel==(language=="en"?"Add trainer":"添加修改器"),"new trainer action is not localized");
+                    }
+                    window.FocusGame("future-game");check(window.WindowTitle.Contains("Future Game"),"new trainer lacks its catalog title");
+                    task=window.InstallAsync(row);Pump(()=>task.IsCompleted);
+                    check(main.Games.Count(x=>x.Id=="future-game")==1,"new trainer was not added exactly once");
+                    check(ReferenceEquals(main.Games.First().Module,unrelated),"adding a trainer changed an unrelated module");
+                    if(scenario!="success")
+                    {
+                        check(window.Error.Length>0 && window.Rows.Single().PendingSetup && !File.Exists(Path.Combine(root,"installed-trainer.txt")),"failed new trainer setup was hidden or reported complete");
+                        window.Close();window=Create();task=window.CheckAsync();Pump(()=>task.IsCompleted);
+                        check(window.Rows.Single().PendingSetup,"unfinished new trainer disappeared when reopening updates");
+                        File.Delete(Path.Combine(root,scenario));
+                        task=window.InstallAsync(window.Rows.Single());Pump(()=>task.IsCompleted);
+                    }
+                    check(window.Error.Length==0 && window.Rows.Count==0 && File.ReadAllText(Path.Combine(root,"installed-trainer.txt"))=="synthetic payload",$"new trainer did not finish installation ({scenario}; rows={window.Rows.Count}; path={main.Games.Single(x=>x.Id=="future-game").Installation?.Directory}): "+window.Error);
+                    check(main.Games.Single(x=>x.Id=="future-game").LoadedCheatVersion=="1.0.0","added module was not active in Library");
+                }
+                finally
+                {
+                    window.Close();var added=main.Games.SingleOrDefault(x=>x.Id=="future-game");
+                    if(added!=null){HappyCheats.Core.Cheats.CheatStore.ReleaseModule(added.Module);main.Games.Remove(added);}
+                }
+            }
+        }
+        finally{SynchronizationContext.SetSynchronizationContext(context);}
     }
 
     private static IEnumerable<DependencyObject> Descendants(DependencyObject parent)

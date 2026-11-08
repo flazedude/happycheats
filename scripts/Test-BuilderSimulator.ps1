@@ -1,6 +1,6 @@
 #requires -Version 7.0
 [CmdletBinding()]
-param([string]$GameDirectory='F:\Games\steamapps\steamapps\common\Builder Simulator', [string]$IndependentGameId)
+param([string]$GameDirectory='F:\Games\steamapps\steamapps\common\Builder Simulator', [string]$IndependentGameId, [switch]$PayloadUnchanged)
 $ErrorActionPreference='Stop'
 $bsRoot=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $bsPayload=Join-Path $bsRoot 'payload/builder-simulator'
@@ -11,7 +11,9 @@ foreach ($bsFile in $bsManifest.files) {
 }
 if (Get-ChildItem -LiteralPath $bsPayload -Recurse -File | Where-Object Name -In @('Assembly-CSharp.dll','UnityEngine.dll','Mirror.dll','Newtonsoft.Json.dll')) { throw 'Game assemblies must never be distributed.' }
 $bsAssembly=Join-Path $GameDirectory 'Builder Simulator_Data/Managed/Assembly-CSharp.dll'
-if ($IndependentGameId -and $IndependentGameId -cne 'builder-simulator') {
+if ($PayloadUnchanged -and $IndependentGameId -cne 'builder-simulator') {
+    Write-Host 'Unchanged Builder Simulator payload: verifying its published package and fixtures; local installed-game compatibility remains a runtime check.'
+} elseif ($IndependentGameId -and $IndependentGameId -cne 'builder-simulator') {
     Write-Host "Independent $IndependentGameId release: Builder Simulator payload/fixture checks retained; its unrelated installed-build inspection is out of scope."
 } elseif (Test-Path -LiteralPath $bsAssembly) {
     & dotnet run --project (Join-Path $bsRoot 'tools/InspectBuilderSimulator') -c Release -- $bsAssembly

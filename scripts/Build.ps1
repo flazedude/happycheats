@@ -8,7 +8,7 @@ param(
     [string]$ChineseParentsGameDirectory,
     [string]$StardewGameDirectory,
     [string]$ProjectHospitalGameDirectory,
-    [string]$Version = '0.3.69',
+    [string]$Version = '0.3.70',
     [string]$UpdateFeedUrl,
     [string]$UpdateFallbackFeedUrl,
     [string[]]$UpdateFeedUrls = @(),
@@ -54,7 +54,7 @@ if (!$SkipPayloads) {
 }
 & (Join-Path $PSScriptRoot 'Prepare-SmapiBundle.ps1') -ValidateOnly
 if (!$SkipTests) {
-    & (Join-Path $PSScriptRoot 'Test.ps1')
+    & (Join-Path $PSScriptRoot 'Test.ps1') -PayloadsUnchanged:$SkipPayloads
 }
 $hcDist = Join-Path $hcRoot 'dist\HappyCheats'
 $hcStaging = [IO.Path]::GetFullPath((Join-Path $hcRoot ('artifacts\package-stage\' + [Guid]::NewGuid().ToString('N') + '\HappyCheats')))

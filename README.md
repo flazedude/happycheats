@@ -1,22 +1,22 @@
 # HappyCheats
 
-A Windows trainer library with 20 supported games (17 bundled plus independent Livin' the Cream, Nomad Drive and Survival Log packages), English / 中文, and one shared in-game menu.
+A Windows trainer library with 21 bundled games, English / 中文, and one shared in-game menu. Add future trainers through the signed Library catalog.
 
 **[Download HappyCheats.exe](https://github.com/flazedude/happycheats/releases/latest/download/HappyCheats.exe)** · [Latest release](https://github.com/flazedude/happycheats/releases/latest) · [Changelog](CHANGELOG.md) · [中文说明](README.zh-CN.md)
 
-## Latest version · 0.3.69
+## Latest version · 0.3.70
 
-Requested toggles now survive loading and location/session changes across the trainer library. The client restores them only after the new session validates; Off and Disable all cancel restoration. Dawnwalker also renews retired health/stamina locks and F4 now continuously refills blood and stamina. Validation is offline/synthetic with read-only evidence of the previous failure; the new effects still need gameplay verification.
+Library Update now discovers trainers absent from the client. Click **Add trainer** to verify, load and install one without a separate setup script. Missing game folders and interrupted setup remain retryable. This complete client includes Livin' the Cream 1.0.1 and all 21 current games. Validation is offline/synthetic; gameplay remains unverified.
 
-[Full release notes](docs/releases/0.3.69.en.txt)
+[Full release notes](docs/releases/0.3.70.en.txt)
 
-**Independent cheat update: [Livin' the Cream 1.0.1](docs/livin-cream.md)** — supports IL2CPP Steam build 26511230, retains all six controls and adds explicit Connect trainer. Close the game and use Library Update, then launch normally, load your shop and connect. First-time setup on client 0.3.69 uses the guide's signed-package helper. Client EXE/version unchanged. Validation is offline/static/synthetic; gameplay remains unverified.
+**[Livin' the Cream 1.0.1](docs/livin-cream.md)** is included in client 0.3.70. It supports IL2CPP Steam build 26511230 with all six controls. Install its trainer, launch normally, load your shop and click Connect trainer. Validation is offline/static/synthetic; gameplay remains unverified.
 
 ![HappyCheats library and Stardew Valley trainer controls in the English dark theme](docs/images/happycheats-library.png)
 
 *Client screenshot; no game is running.*
 
-Survival Log is available as independent package **1.0.0** for Steam build **26294912**. Run `scripts/Add-SurvivalLog.ps1` once with HappyCheats and games closed, then use **Library → Update** for later updates. The 0.3.69 starter EXE is unchanged; use the signed game package to add it. [Controls and validation limits](docs/survival-log.md)
+Survival Log package **1.0.0** for Steam build **26294912** is included in this complete client. Use **Library → Update** for later game packages. [Controls and validation limits](docs/survival-log.md)
 
 ## Get started
 

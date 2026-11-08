@@ -1,0 +1,9 @@
+HappyCheats 0.3.70 — Add new trainers from Library Update
+
+Library Update now offers signed catalog trainers that did not exist in this client's Library. Click Add trainer to download, verify, load and install the new module in one operation. Future compatible games no longer need a client rebuild or an external first-add script.
+
+Keep downloaded new trainers visible in Library when the game folder is missing, the game is running or installation fails. Finish update retries setup, including after reopening the update window. Existing current/older trainers stay omitted from ordinary updates. English/Chinese labels, modeless progress, clickable controls, compatibility errors and shared menu/controller paths remain supported.
+
+Both complete distributions include all 21 current games and their tracked payload versions, including Livin' the Cream 1.0.1 for IL2CPP Steam build 26511230. Its connection remains explicit after launching normally and loading a shop. Existing per-game package versions are unchanged.
+
+Validated with signed synthetic trainers absent from Library, first-install and retry scenarios, package integrity, updater selection, shared UI/menu/controller and toggle-continuity regressions, plus complete package/standalone checks. Validation is offline/static/synthetic; no game was launched or save modified. Gameplay and physical-controller operation are unverified.

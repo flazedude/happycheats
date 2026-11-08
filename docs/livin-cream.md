@@ -4,6 +4,8 @@ Independent cheat **1.0.1** supports Steam app **4621810**, inspected build **26
 
 ## Update and connect
 
+HappyCheats **0.3.70** bundles this trainer and supports **Add trainer** for future catalog games absent from Library. Upgrade the client once through **Client Updates**, or use the latest complete EXE. The first-install helper below is only needed by older clients whose update list hides unknown games.
+
 Close the game, open **Update** beside Library Sort, and update Livin' the Cream. The operation downloads, verifies and installs the package. Launch normally, load your shop, then click **Connect trainer / 连接修改器**. Each new game process requires explicit connection. Discovery never injects a DLL. Keep HappyCheats open while using continuous effects.
 
 Client 0.3.69 hides absent games in its update list. For first installation, close HappyCheats and the game and run `scripts/Install-LivinCream.cmd` from this checkout (PowerShell 7 and .NET 8 SDK required). `scripts/Install-LivinCream.ps1 -InspectOnly` checks prerequisites without writes; `-ClientDirectory` and `-GameDirectory` select folders. The helper uses the signed catalog, package store and module installer. Reopen your existing client afterward. Later versions use normal Library Update. No helper starts/closes games or replaces the client EXE.

@@ -89,6 +89,7 @@ public partial class MainWindow
         _busy = true; _controlEpoch++; _pollTimer.Stop(); _controllerTimer.Stop(); _gameOverlay?.Hide();
         RefreshBindings();
         IGameModule? replacement = null;
+        GameInstallation? discovered = null;
         var previous = Games.SingleOrDefault(g => g.Id == release.Id);
         var transferred = false;
         try
@@ -104,6 +105,7 @@ public partial class MainWindow
             replacement = await Task.Run(() => store.LoadInstalled(release, UpdateLauncher.CurrentVersion), _updateLifetime.Token);
             var installation = await replacement.DiscoverAsync(path);
             if (!installation.IsInstalled && path != null) installation = await replacement.DiscoverAsync();
+            discovered = installation;
             if (!installation.IsInstalled)
             {
                 if (previous == null)
@@ -151,6 +153,18 @@ public partial class MainWindow
                     $"《{release.Name}》修改器 {release.Version} 已更新并安装。准备就绪，请从游戏库启动游戏。");
             SetMessage(message);
             return message;
+        }
+        catch (Exception error)
+        {
+            // A newly downloaded trainer must remain discoverable when game setup needs a retry.
+            if (!transferred && previous == null && replacement != null)
+            {
+                Games.Add(new GameItem(replacement) { Installation = discovered,
+                    LoadedCheatVersion = release.Version, Status = TrainerStatus.Offline(error.Message) });
+                transferred = true;
+                CollectionViewSource.GetDefaultView(Games).Refresh();
+            }
+            throw;
         }
         finally
         {

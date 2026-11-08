@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$IndependentGameId)
+param([string]$IndependentGameId, [switch]$PayloadsUnchanged)
 $ErrorActionPreference = 'Stop'
 $hcRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 if ($IndependentGameId -and $IndependentGameId -cnotin (Get-Content (Join-Path $hcRoot 'modules/cheat-versions.json') -Raw | ConvertFrom-Json).PSObject.Properties.Name) { throw 'Unknown independent game test scope.' }
@@ -26,7 +26,7 @@ foreach ($hcTest in @('modules/builder-simulator/tests','modules/nomad-drive/tes
 if ($LASTEXITCODE -ne 0) { throw 'WPF modeless-update regression suite failed.' }
 & (Join-Path $PSScriptRoot 'Test-LivinCream.ps1')
 & (Join-Path $PSScriptRoot 'Test-SurvivalLog.ps1')
-& (Join-Path $PSScriptRoot 'Test-BuilderSimulator.ps1') -IndependentGameId $IndependentGameId
+& (Join-Path $PSScriptRoot 'Test-BuilderSimulator.ps1') -IndependentGameId $IndependentGameId -PayloadUnchanged:$PayloadsUnchanged
 & (Join-Path $PSScriptRoot 'Test-NomadDrive.ps1')
 & (Join-Path $PSScriptRoot 'Test-Astroneer.ps1')
 & (Join-Path $PSScriptRoot 'Test-Dawnwalker.ps1')

@@ -2,7 +2,17 @@
 
 **[Download the latest release / 下载最新版本](https://github.com/flazedude/happycheats/releases/latest)** · [Home](README.md) · [中文首页](README.zh-CN.md)
 
-## Latest · 0.3.69
+## Latest · 0.3.70
+
+- Library Update offers Add trainer for signed catalog games missing from this client's Library.
+- New modules download, verify, load and install in one operation. Missing folders, running games and failed setup remain retryable.
+- Complete distributions include all 21 games, including Livin' the Cream 1.0.1; independent package versions stay unchanged.
+
+游戏库更新支持添加原先不存在的新修改器，保留目录缺失、游戏运行中和安装失败时的重试。完整包包含 21 款游戏及甜蜜冰淇淋 1.0.1。离线/合成验证，实际游戏效果尚未验证。
+
+[English](docs/releases/0.3.70.en.txt) · [中文](docs/releases/0.3.70.zh.txt)
+
+## 0.3.69
 
 - Requested toggles survive loading/session changes across all trainer modules; pending requests are distinct from confirmed effects.
 - Off and Disable all cancel restoration; one-shot actions are never replayed. Failures are reported and logged without endless retries.

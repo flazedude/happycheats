@@ -31,8 +31,8 @@ public partial class CheatUpdateWindow : Window, INotifyPropertyChanged
     public string WindowTitle => Localization.Choose("Cheat updates", "修改器更新")
         + (_gameId == null ? "" : " · " + _names.GetValueOrDefault(_gameId, _gameId));
     public string FocusReason => _focusReason;
-    public string Introduction => Localization.Choose("Close the game, then click Update. HappyCheats downloads, repairs and installs its trainer for you. When it finishes, launch the game and play.",
-        "关闭游戏后点击“更新”。HappyCheats 会自动下载、修复并安装修改器。完成后即可启动游戏游玩。");
+    public string Introduction => Localization.Choose("Add new trainers from the signed catalog, or update trainers for installed games. Close the affected game first. HappyCheats downloads, verifies and installs the trainer, then adds it to Library.",
+        "从签名目录添加新修改器，或更新已安装游戏的修改器。请先关闭相关游戏。HappyCheats 会下载、验证并安装修改器，再将其加入游戏库。");
     public string CheckLabel => _gameId == null ? Localization.Choose("Check for updates", "检查更新")
         : Localization.Choose("Check this game", "检查此游戏更新");
     public string Status => _status;
@@ -66,13 +66,20 @@ public partial class CheatUpdateWindow : Window, INotifyPropertyChanged
         var games = _games().ToDictionary(x => x.Id);
         foreach (var release in (_check?.Catalog.Games ?? []).OrderBy(x => _names.GetValueOrDefault(x.Id, x.Name), StringComparer.CurrentCultureIgnoreCase))
         {
-            if ((_gameId != null && release.Id != _gameId) || !games.TryGetValue(release.Id, out var game) || !GameIsInstalled(game)) continue;
+            if (_gameId != null && release.Id != _gameId) continue;
+            games.TryGetValue(release.Id, out var game);
+            var missingFromLibrary = game == null;
+            var pendingAddition = !_bundled.ContainsKey(release.Id) && installed.ContainsKey(release.Id)
+                && (game == null || !GameIsInstalled(game) || game.Installation?.TrainerInstalled != true);
+            if (game != null && !GameIsInstalled(game) && !pendingAddition && !_unfinished.Contains(release.Id + "/" + release.Version)) continue;
+            var name = game?.Name ?? release.Name;
+            _names[release.Id] = name;
             var current = installed.GetValueOrDefault(release.Id);
-            if (current == null || TrainerVersionWarning.Newer(game.LoadedCheatVersion, current)) current = game.LoadedCheatVersion;
+            if (game != null && (current == null || TrainerVersionWarning.Newer(game.LoadedCheatVersion, current))) current = game.LoadedCheatVersion;
             // A downloaded receipt alone does not mean setup in the game finished.
-            var pending = (_unfinished.Contains(release.Id + "/" + release.Version) || game.NeedsCheatReload)
+            var pending = (_unfinished.Contains(release.Id + "/" + release.Version) || game?.NeedsCheatReload == true || pendingAddition || missingFromLibrary && current != null)
                 && (current == null || ReleaseVersion.Parse(release.Version).CompareTo(ReleaseVersion.Parse(current)) >= 0);
-            var row = new CheatUpdateRow(release.Id, game.Name, current, release, pending);
+            var row = new CheatUpdateRow(release.Id, name, current, release, pending, missingFromLibrary);
             if (row.IsUpdate || pending) Rows.Add(row);
         }
     }
@@ -88,9 +95,9 @@ public partial class CheatUpdateWindow : Window, INotifyPropertyChanged
         _check = _checkForUpdates != null ? await _checkForUpdates() : await _client!.CheckAsync(_store!.Root, _lifetime);
         Populate();
         var count = Rows.Count;
-        _status = count == 0 ? Localization.Choose("No trainer updates for games installed on this PC. For trainer setup or repair, use Install / update on the game's Library page.",
-                "本机已安装的游戏暂无修改器更新。如需安装或修复修改器，请在该游戏的游戏库页面点击“安装 / 更新”。")
-            : Localization.Choose($"{count} game updates available. Choose a game below.", $"有 {count} 款游戏的修改器可更新。请在下方选择游戏。");
+        _status = count == 0 ? Localization.Choose("No new trainers or trainer updates available. For trainer setup or repair, use Install / update on the game's Library page.",
+                "暂无新修改器或修改器更新。如需安装或修复，请在该游戏的游戏库页面点击“安装 / 更新”。")
+            : Localization.Choose($"{count} trainers available to add, update or finish installing. Choose a game below.", $"有 {count} 款修改器可添加、更新或继续安装。请在下方选择游戏。");
     });
 
     private void RequireConfigured()
@@ -108,7 +115,8 @@ public partial class CheatUpdateWindow : Window, INotifyPropertyChanged
             Populate();
             row = Rows.SingleOrDefault(x => x.Id == row.Id) ?? throw new IOException(Localization.Choose("No trainer update is available for this installed game. Check again or use its Library setup action.", "此已安装游戏暂无修改器更新，请重新检查或使用游戏库中的安装操作。"));
         }
-        if (!_games().Any(game => game.Id == row.Id && GameIsInstalled(game)))
+        var existing = _games().SingleOrDefault(game => game.Id == row.Id);
+        if (existing != null && !GameIsInstalled(existing) && !row.PendingSetup)
             throw new IOException(Localization.Choose("Game installation not found. Use Find in Steam or Browse folder in Library, then check for updates again.", "未找到游戏安装目录。请在游戏库中点击“在 Steam 中查找”或“浏览目录”，然后重新检查更新。"));
         if (row.Release == null) throw new IOException(Localization.Choose("No trainer package is published for this game yet. Use Install / update in its Library page.", "此游戏尚未发布独立修改器包，请在游戏页面点击“安装 / 更新”。"));
         if (row.InstalledVersion != null && ReleaseVersion.Parse(row.InstalledVersion).CompareTo(ReleaseVersion.Parse(row.Release.Version)) > 0)
@@ -160,7 +168,7 @@ public partial class CheatUpdateWindow : Window, INotifyPropertyChanged
     internal event Action? PackageInstalled;
 }
 
-public sealed record CheatUpdateRow(string Id, string Name, string? InstalledVersion, CheatRelease? Release, bool PendingSetup = false)
+public sealed record CheatUpdateRow(string Id, string Name, string? InstalledVersion, CheatRelease? Release, bool PendingSetup = false, bool NewTrainer = false)
 {
     public bool IsUpdate => Release != null && (InstalledVersion == null || ReleaseVersion.Parse(Release.Version).CompareTo(ReleaseVersion.Parse(InstalledVersion)) > 0);
     public string Versions => Localization.Choose($"Current: {InstalledVersion ?? "Not installed"}   ·   Available: {Release?.Version ?? "Check for updates"}",
@@ -169,6 +177,7 @@ public sealed record CheatUpdateRow(string Id, string Name, string? InstalledVer
     public string Notes => Release == null ? "" : Localization.Choose(Release.NotesEnglish, string.IsNullOrWhiteSpace(Release.NotesChinese) ? Release.NotesEnglish : Release.NotesChinese);
     public string ActionLabel => Release != null && (Release.ContractVersion != 1 || ReleaseVersion.Parse(Release.MinimumClientVersion).CompareTo(ReleaseVersion.Parse(UpdateLauncher.CurrentVersion)) > 0)
         ? Localization.Choose("Client needed", "需更新客户端") : PendingSetup && !IsUpdate ? Localization.Choose("Finish update", "完成更新")
+        : NewTrainer || InstalledVersion == null ? Localization.Choose("Add trainer", "添加修改器")
         : Localization.Choose(IsUpdate ? "Update" : "Install", IsUpdate ? "更新" : "安装");
     public string AccessibleAction => Name + " · " + ActionLabel;
 }
