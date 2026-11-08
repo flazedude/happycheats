@@ -64,7 +64,7 @@ try {
     if (!(Test-Path -LiteralPath $hcStageMetadata)) {
         if ($hcExisting -or (Test-Path -LiteralPath $hcStage)) { throw 'This cheat version is reserved or has interrupted artifacts. Restore its complete original stage or select a higher version.' }
         if (!$SkipPayloads) { & (Join-Path $PSScriptRoot ("Build-$($hcBuilders[$GameId]).ps1")) }
-        & (Join-Path $PSScriptRoot 'Test.ps1')
+        & (Join-Path $PSScriptRoot 'Test.ps1') -IndependentGameId $GameId
         $null=Assert-HcReleaseSource -Root $hcRoot -Repository $hcRepository -ExpectedCommit $hcSource
         & dotnet run --project $hcTool -c Release -- pack --root $hcRoot --game $GameId --version $Version --source $hcSource --minimum-client $MinimumClientVersion --notes-en ([IO.Path]::GetFullPath($NotesEnglish)) --notes-zh ([IO.Path]::GetFullPath($NotesChinese)) --output $hcStage
         if ($LASTEXITCODE -ne 0) { throw 'Cheat package preparation failed.' }
