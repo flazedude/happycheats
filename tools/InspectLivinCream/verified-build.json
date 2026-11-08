@@ -1,0 +1,291 @@
+{
+  "steam_app_id": "4621810",
+  "steam_build": "26511230",
+  "game_assembly_sha256": "c6081c74041250a89bf8cb943b5e482af8a05a15853dc727193ffd6fcf51f168",
+  "metadata_sha256": "f19c0af79b93122307211e81d2f2c2deaeb09f908670643f687f83773062d137",
+  "metadata_version": 39,
+  "inspection_tool": "Cpp2IL 2022.1.0-pre-release.21",
+  "inspection_tool_sha256": "663fb432433b4371fd1ee0ebc321a8fff2a9aac5ac4230c843f9e03ddee4e04c",
+  "bindings": [
+    {
+      "type": "GameInput",
+      "method": "Tick",
+      "parameters": [],
+      "result": "System.Void",
+      "rva": 7079456,
+      "prefix": "4883ec58803d37b1de03007513488d0d3c3fb603e84724dd"
+    },
+    {
+      "type": "Customer",
+      "method": "StartPatienceDuration",
+      "parameters": [
+        "System.Single"
+      ],
+      "result": "System.Void",
+      "rva": 9657664,
+      "prefix": "48895c2408574883ec304883b99001000000488bf90f2974"
+    },
+    {
+      "type": "SoftServeStock",
+      "method": "DecreaseStock",
+      "parameters": [
+        "System.Single"
+      ],
+      "result": "System.Void",
+      "rva": 7040560,
+      "prefix": "f30f104124f30f5cc10f57c90f2fc87710f30f10494c0f2f"
+    },
+    {
+      "type": "ShopSaveManager",
+      "method": "MarkRestorePending",
+      "parameters": [],
+      "result": "System.Void",
+      "rva": 7561456,
+      "prefix": "4883ec28803de059d703007513488d0d24a4ad03e877c9d5"
+    },
+    {
+      "type": "ShopSaveManager",
+      "method": "get_RestoreComplete",
+      "parameters": [],
+      "result": "System.Boolean",
+      "rva": 7587136,
+      "prefix": "4883ec28803d8ef5d603007513488d0dd43fad03e82765d5"
+    },
+    {
+      "type": "Player",
+      "method": "GetCurrentShop",
+      "parameters": [],
+      "result": "Shop",
+      "rva": 5826544,
+      "prefix": "488b4128c3cccccccccccccccccccccc8b4130c3cccccccc"
+    },
+    {
+      "type": "makif.GlobalData",
+      "method": "get_Database",
+      "parameters": [],
+      "result": "makif.DatabaseSystem.Database",
+      "rva": 9014032,
+      "prefix": "4883ec2833c9e8355400004885c07409488b40184883c428"
+    },
+    {
+      "type": "makif.MoneyKit.Money",
+      "method": "SetMoney",
+      "parameters": [
+        "System.Single",
+        "System.String",
+        "System.Boolean"
+      ],
+      "result": "System.Void",
+      "rva": 9056640,
+      "prefix": "40534883ec40803d1d93c00300410fb6d80f297424300f28"
+    },
+    {
+      "type": "makif.MoneyKit.Money",
+      "method": "GetMoney",
+      "parameters": [],
+      "result": "System.Single",
+      "rva": 9056464,
+      "prefix": "4883ec2833c9e875aeffff4885c0741c488b40184885c074"
+    },
+    {
+      "type": "LevelManager",
+      "method": "AddXP",
+      "parameters": [
+        "System.Single"
+      ],
+      "result": "System.Void",
+      "rva": 7088432,
+      "prefix": "40574883ec40803d698ede0300488bf90f297424300f28f1"
+    },
+    {
+      "type": "LevelManager",
+      "method": "GetCurrentXP",
+      "parameters": [],
+      "result": "System.Single",
+      "rva": 7089296,
+      "prefix": "4883ec2833c9e8755e1d004885c07413488b40384885c074"
+    },
+    {
+      "type": "LevelManager",
+      "method": "GetCurrentLevel",
+      "parameters": [],
+      "result": "System.Int32",
+      "rva": 7089248,
+      "prefix": "4883ec2833c9e8a55e1d004885c07411488b40384885c074"
+    },
+    {
+      "type": "LevelManager",
+      "method": "GetXPRequiredForLevel",
+      "parameters": [
+        "System.Int32"
+      ],
+      "result": "System.Single",
+      "rva": 7089520,
+      "prefix": "4883ec28488b49204885c9740c4533c04883c428e9278c08"
+    },
+    {
+      "type": "SkillTreeManager",
+      "method": "EarnSkillPoint",
+      "parameters": [
+        "System.Int32"
+      ],
+      "result": "System.Void",
+      "rva": 7998128,
+      "prefix": "40534883ec20488bd9488b49384885c9744f4533c0e8e652"
+    },
+    {
+      "type": "SkillTreeManager",
+      "method": "GetAvailablePoints",
+      "parameters": [],
+      "result": "System.Int32",
+      "rva": 7998960,
+      "prefix": "4883ec28488b41384885c074088b40144883c428c3e8161f"
+    },
+    {
+      "type": "PlayStyleRules",
+      "method": "get_Current",
+      "parameters": [],
+      "result": "PlayStyle",
+      "rva": 7397824,
+      "prefix": "40534883ec20803dfbd6d903007513488d0d6242b603e8a5"
+    },
+    {
+      "type": "Shop",
+      "method": "OnPlayStyleChanged",
+      "parameters": [
+        "PlayStyle"
+      ],
+      "result": "System.Void",
+      "rva": 7763616,
+      "prefix": "40574883ec30803d7945d40300488bf9752b488d0ddff1ae"
+    },
+    {
+      "type": "SoftServeStock",
+      "method": "GetStockAmount",
+      "parameters": [],
+      "result": "System.Single",
+      "rva": 5825024,
+      "prefix": "f30f104124c3ccccccccccccccccccccf30f114928c3cccc"
+    },
+    {
+      "type": "SoftServeStock",
+      "method": "get_MaxStock",
+      "parameters": [],
+      "result": "System.Single",
+      "rva": 5727120,
+      "prefix": "f30f10414cc3cccccccccccccccccccc488bc44889580848"
+    },
+    {
+      "type": "SoftServeStock",
+      "method": "RestoreStock",
+      "parameters": [
+        "System.Single"
+      ],
+      "result": "System.Void",
+      "rva": 7041200,
+      "prefix": "0f57c00f2fc17719f30f10414c0f2fc876120f28c833d2f3"
+    },
+    {
+      "type": "Customer",
+      "method": "StopPatience",
+      "parameters": [],
+      "result": "System.Void",
+      "rva": 9657872,
+      "prefix": "40534883ec204883b99001000000488bd9742d488b919001"
+    },
+    {
+      "type": "Customer",
+      "method": "get_HasActiveOrder",
+      "parameters": [],
+      "result": "System.Boolean",
+      "rva": 9663920,
+      "prefix": "0fb6818a010000c3cccccccccccccccc40534883ec20803d"
+    },
+    {
+      "type": "OrderUI",
+      "method": "HidePatience",
+      "parameters": [],
+      "result": "System.Void",
+      "rva": 8628208,
+      "prefix": "40534883ec20803de319c70300488bd97513488d0d2fd2a1"
+    },
+    {
+      "type": "UnityEngine.Object",
+      "method": "FindObjectsByType",
+      "parameters": [
+        "System.Type",
+        "UnityEngine.FindObjectsSortMode"
+      ],
+      "result": "UnityEngine.Object[]",
+      "rva": 50512464,
+      "prefix": "48895c2408574883ec20803d4f264901008bda488bf97513"
+    },
+    {
+      "type": "UnityEngine.Object",
+      "method": "GetInstanceID",
+      "parameters": [],
+      "result": "System.Int32",
+      "rva": 50513360,
+      "prefix": "40534883ec20803db422490100488bd97513488d0d4f5e24"
+    },
+    {
+      "type": "UnityEngine.Behaviour",
+      "method": "get_isActiveAndEnabled",
+      "parameters": [],
+      "result": "System.Boolean",
+      "rva": 50388464,
+      "prefix": "40534883ec20803d27074b0100488bd97513488d0de72725"
+    },
+    {
+      "type": "UnityEngine.Component",
+      "method": "get_gameObject",
+      "parameters": [],
+      "result": "UnityEngine.GameObject",
+      "rva": 50396112,
+      "prefix": "40534883ec20803d6be94a0100488bd9751f488d0d1f1325"
+    },
+    {
+      "type": "UnityEngine.GameObject",
+      "method": "get_scene",
+      "parameters": [],
+      "result": "UnityEngine.SceneManagement.Scene",
+      "rva": 50423280,
+      "prefix": "40534883ec20803d01804a0100488bd97513488d0dcfae24"
+    }
+  ],
+  "fields": [
+    {
+      "type": "Shop",
+      "field": "currentCustomers"
+    },
+    {
+      "type": "Shop",
+      "field": "orderUI"
+    },
+    {
+      "type": "SkillTreeManager",
+      "field": "DB"
+    },
+    {
+      "type": "makif.DatabaseSystem.Database",
+      "field": "InventoryDatabase"
+    },
+    {
+      "type": "makif.DatabaseSystem.Database",
+      "field": "ProgressDatabase"
+    },
+    {
+      "type": "makif.DatabaseSystem.Database",
+      "field": "SkillPointDatabase"
+    },
+    {
+      "type": "makif.DatabaseSystem.SkillPointDatabase",
+      "field": "SkillPoint"
+    },
+    {
+      "type": "makif.DatabaseSystem.SkillPointDatabase",
+      "field": "TotalEarned"
+    }
+  ],
+  "live_tested": false
+}

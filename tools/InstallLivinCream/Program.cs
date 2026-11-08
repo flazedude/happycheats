@@ -16,7 +16,8 @@ try {
     var trust = CheatFeedConfiguration.FromClient(configuration) ?? throw new IOException("Custom update settings are preserved. Select an official configured client for this setup.");
     if (trust.Channel != "stable") throw new IOException("Select a stable official client for this setup.");
     var game = ModuleIO.FindSteam("4621810", LivinCreamModule.Executable, Option("--game"));
-    if (!string.Equals(LivinCreamModule.SupportedAssemblyHash, ModuleIO.Hash(ModuleIO.SafePath(game.Directory, LivinCreamModule.AssemblyPath)), StringComparison.OrdinalIgnoreCase))
+    if (!string.Equals(LivinCreamModule.SupportedAssemblyHash, ModuleIO.Hash(ModuleIO.SafePath(game.Directory, LivinCreamModule.AssemblyPath)), StringComparison.OrdinalIgnoreCase)
+        || !string.Equals(LivinCreamModule.SupportedMetadataHash, ModuleIO.Hash(ModuleIO.SafePath(game.Directory, LivinCreamModule.MetadataPath)), StringComparison.OrdinalIgnoreCase))
         throw new IOException("Unsupported Livin' the Cream build. Check its trainer release before installing.");
     void RequireClosed() {
         if (ModuleIO.Processes(game.Directory, LivinCreamModule.Executable).Length != 0) throw new IOException("Close Livin' the Cream, then run setup again. No game was closed automatically.");
@@ -44,7 +45,7 @@ try {
         await module.InstallAsync(installation, new Progress<string>(Console.WriteLine));
         installation = await module.DiscoverAsync(game.Directory);
         if (!installation.TrainerInstalled || !installation.Compatible) throw new IOException("Trainer installation did not verify. Retry this setup to finish.");
-        Console.WriteLine($"Installed and verified Livin' the Cream {release.Version}. Reopen your existing HappyCheats EXE and select the new Library game. No game was launched or saves changed.");
+        Console.WriteLine($"Installed and verified Livin' the Cream {release.Version}. Reopen your existing HappyCheats EXE, select the Library game, launch normally and load your shop, then click Connect trainer. No game was launched or saves changed.");
     } finally { CheatStore.ReleaseModule(module); }
     return 0;
 } catch (Exception error) { Console.Error.WriteLine("Livin' the Cream setup: " + error.Message); return 1; }

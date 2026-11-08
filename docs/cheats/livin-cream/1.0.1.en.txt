@@ -1,0 +1,11 @@
+Livin' the Cream cheat 1.0.1 — Steam build 26511230
+
+Support the game's switch from Mono to IL2CPP metadata 39. Replace the old loader with a native trainer and explicit Connect trainer after launching normally and loading a shop.
+
+Retain money, shop XP, skill points, unlimited customer patience, unlimited existing soft-serve stock and refill of nonempty reservoirs. Use native game methods and game-thread dispatch, exact assembly/metadata hashes, checked hook identities, expiring commands and context sessions. Requested toggles restore through the shared client; one-shot grants never replay.
+
+Migrate unchanged receipt-owned old plugin/bootstrap files into a recovery folder. Modified or shared foreign mod files stop migration with an actionable error. Update/Install remains retryable.
+
+Requires HappyCheats 0.3.69+. Client EXE/version unchanged. Close the game to update, then launch normally, load your shop and click Connect trainer. Ctrl+Del and Menu held 350 ms + RB open the shared menu.
+
+Validated with metadata/prologue inspection, disposable-host DLL startup, runtime fixtures, explicit connection/session tests, installer migration/rollback and shared regressions. No game was launched or save changed. Gameplay and physical-controller behavior remain unverified.

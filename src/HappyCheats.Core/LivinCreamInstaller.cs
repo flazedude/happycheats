@@ -1,150 +1,207 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using static HappyCheats.Core.ModuleIO;
 
 namespace HappyCheats.Core;
 
-/// <summary>Install only verified payloads; preserve foreign files and roll back failed updates.</summary>
+/// <summary>Installs only the owned Livin' the Cream DLL and its notices, with checksum validation and rollback.</summary>
 public static class LivinCreamInstaller
 {
+    public const string TrainerRoot = "HappyCheatsLivinCream/";
+    public const string DllPath = TrainerRoot + "HappyCheats.LivinCream.dll";
+    public const string NoticePath = TrainerRoot + "ThirdPartyNotices.txt";
+    public const string ReceiptPath = "happycheats-livin-cream-native-install.json";
+    public static readonly IReadOnlyList<string> RequiredFiles = Array.AsReadOnly(new[] { DllPath, NoticePath });
     public sealed record Entry(string Path, string Sha256);
-    public sealed record Receipt(string Module, List<Entry> Files);
+    public sealed record Receipt(int SchemaVersion, string Module, List<Entry> Files);
+    private sealed record Change(string Path, byte[]? Before, string? AfterHash);
     private static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true };
-    public const string ReceiptPath = "happycheats-livin-cream-install.json";
-    public const string Plugin = "BepInEx/plugins/HappyCheats.LivinCream/HappyCheats.LivinCream.dll";
-    internal static readonly string[] RequiredFiles = {
-        "winhttp.dll", "doorstop_config.ini", ".doorstop_version", "BepInEx/core/0Harmony.dll",
-        "BepInEx/core/0Harmony20.dll", "BepInEx/core/BepInEx.dll", "BepInEx/core/BepInEx.Harmony.dll",
-        "BepInEx/core/BepInEx.Preloader.dll", "BepInEx/core/HarmonyXInterop.dll", "BepInEx/core/Mono.Cecil.dll",
-        "BepInEx/core/Mono.Cecil.Mdb.dll", "BepInEx/core/Mono.Cecil.Pdb.dll", "BepInEx/core/Mono.Cecil.Rocks.dll",
-        "BepInEx/core/MonoMod.RuntimeDetour.dll", "BepInEx/core/MonoMod.Utils.dll", Plugin
-    };
+
+    private static List<Entry> Validate(IEnumerable<Entry> entries)
+    {
+        var result = new List<Entry>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in entries)
+        {
+            var path = entry.Path?.Replace('\\', '/');
+            if (path == null || !RequiredFiles.Contains(path, StringComparer.Ordinal) || !seen.Add(path)
+                || entry.Sha256 == null || !Regex.IsMatch(entry.Sha256, "^[A-Fa-f0-9]{64}$", RegexOptions.CultureInvariant))
+                throw new IOException("Invalid Livin' the Cream package or ownership record.");
+            result.Add(new Entry(path, entry.Sha256));
+        }
+        return result;
+    }
+
     public static IReadOnlyList<Entry> ReadPackage(string package)
     {
         var json = ReadJson(SafePath(package, "package.json"));
-        if (Text(json, "schema_version") != "1" || Text(json, "game_id") != "livin-cream" || Text(json, "steam_app_id") != "4621810" ||
-            Text(json, "version") != LivinCreamModule.TrainerVersion ||
-            !string.Equals(Text(json, "game_assembly_sha256"), LivinCreamModule.SupportedAssemblyHash, StringComparison.OrdinalIgnoreCase) ||
-            Text(Object(json, "loader"), "architecture") != "win-x64")
-            throw new IOException("The Livin' the Cream package does not match the supported game build.");
+        if (Text(json, "schemaVersion") != "1" || Text(json, "game") != "livin-cream" || Text(json, "version") != LivinCreamModule.TrainerVersion)
+            throw new IOException("Unsupported Livin' the Cream package identity.");
         var array = Object(json, "files");
-        if (array.ValueKind != JsonValueKind.Array) throw new IOException("Invalid Livin' the Cream package manifest.");
-        var files = array.EnumerateArray().Select(p => new Entry(Text(p, "path"), Text(p, "sha256"))).ToList();
-        Validate(files);
-        foreach (var required in RequiredFiles)
-            if (!files.Any(f => f.Path.Replace('\\', '/') == required)) throw new IOException("The Livin' the Cream package is missing a required runtime file: " + required);
-        foreach (var file in files) if (!string.Equals(Hash(SafePath(package, file.Path)), file.Sha256, StringComparison.OrdinalIgnoreCase)) throw new IOException("Payload checksum failed: " + file.Path);
-        return files;
-    }
-    public static bool Installed(string root) => RequiredFiles.All(path => File.Exists(SafePath(root, path)));
-    private static void Validate(IEnumerable<Entry> files)
-    {
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var f in files)
+        if (array.ValueKind != JsonValueKind.Array) throw new IOException("Missing Livin' the Cream package files.");
+        var entries = Validate(array.EnumerateArray().Select(file => new Entry(Text(file, "path"), Text(file, "sha256"))));
+        if (entries.Count != RequiredFiles.Count || RequiredFiles.Any(path => entries.All(entry => entry.Path != path)))
+            throw new IOException("The Livin' the Cream package is missing a required runtime file.");
+        foreach (var entry in entries)
         {
-            var p = f.Path?.Replace('\\', '/');
-            if (p == null || !RequiredFiles.Contains(p, StringComparer.Ordinal) || !seen.Add(p) || f.Sha256 == null ||
-                !System.Text.RegularExpressions.Regex.IsMatch(f.Sha256, "^[0-9a-fA-F]{64}$")) throw new IOException("Invalid trainer package or ownership record.");
+            var path = SafePath(package, entry.Path);
+            if (!File.Exists(path) || new FileInfo(path).Length == 0 || !Matches(path, entry.Sha256))
+                throw new IOException("Livin' the Cream payload checksum failed: " + entry.Path);
         }
+        return entries;
     }
-    private static Receipt? ReadReceipt(string root)
+
+    public static bool Installed(string directory) => RequiredFiles.All(path => File.Exists(SafePath(directory, path)));
+    public static bool MatchesPackage(string package, string directory) =>
+        ReadPackage(package).All(entry => Matches(SafePath(directory, entry.Path), entry.Sha256));
+
+    private static bool Matches(string path, string hash) => File.Exists(path) && string.Equals(Hash(path), hash, StringComparison.OrdinalIgnoreCase);
+
+    private static Receipt? ReadReceipt(string directory)
     {
-        var path = SafePath(root, ReceiptPath);
+        var path = SafePath(directory, ReceiptPath);
         if (!File.Exists(path)) return null;
-        var receipt = JsonSerializer.Deserialize<Receipt>(File.ReadAllText(path), Json);
-        if (receipt == null || receipt.Module != "livin-cream" || receipt.Files == null) throw new IOException("Invalid trainer ownership receipt.");
-        Validate(receipt.Files); return receipt;
+        var receipt = JsonSerializer.Deserialize<Receipt>(ReadJson(path).GetRawText(), Json);
+        if (receipt?.SchemaVersion != 1 || receipt.Module != "livin-cream" || receipt.Files == null)
+            throw new IOException("Invalid Livin' the Cream ownership receipt.");
+        return receipt with { Files = Validate(receipt.Files) };
     }
-    public static void Install(string package, string root, Action checkGameClosed, IProgress<string>? progress = null)
+
+    public static void Install(string package, string directory, Action checkGameClosed, IProgress<string>? progress = null)
     {
         checkGameClosed();
-        var payload = ReadPackage(package);
-        var previous = ReadReceipt(root);
-        var owned = previous?.Files.ToDictionary(f => f.Path.Replace('\\', '/'), StringComparer.OrdinalIgnoreCase) ?? new();
-        var writes = new List<Entry>();
-        var nextOwned = previous?.Files.ToList() ?? new List<Entry>();
-        foreach (var file in payload)
+        var entries = ReadPackage(package);
+        var receipt = ReadReceipt(directory);
+        var owned = receipt?.Files.ToDictionary(entry => entry.Path, StringComparer.OrdinalIgnoreCase) ?? new();
+        var next = receipt?.Files.ToList() ?? new List<Entry>();
+        var plans = new List<(Entry Entry, string Target, byte[]? Before)>();
+        foreach (var entry in entries)
         {
-            var target = SafePath(root, file.Path);
-            if (Directory.Exists(target)) throw new IOException("A trainer file path is a directory: " + target);
-            var exists = File.Exists(target);
-            if (exists && string.Equals(Hash(target), file.Sha256, StringComparison.OrdinalIgnoreCase)) continue;
-            if (exists && (!owned.TryGetValue(file.Path.Replace('\\', '/'), out var old) || !string.Equals(Hash(target), old.Sha256, StringComparison.OrdinalIgnoreCase))) throw new IOException("Preserved an existing or modified mod file: " + file.Path);
-            writes.Add(file); nextOwned.RemoveAll(f => f.Path.Replace('\\', '/').Equals(file.Path.Replace('\\', '/'), StringComparison.OrdinalIgnoreCase)); nextOwned.Add(file);
+            var target = SafePath(directory, entry.Path);
+            if (Directory.Exists(target)) throw new IOException("A Livin' the Cream trainer file path is a directory.");
+            if (Matches(target, entry.Sha256)) continue; // Identical foreign files remain unowned.
+            if (File.Exists(target) && (!owned.TryGetValue(entry.Path, out var prior) || !Matches(target, prior.Sha256)))
+                throw new IOException("Preserved an existing or modified Livin' the Cream trainer file: " + entry.Path);
+            plans.Add((entry, target, File.Exists(target) ? File.ReadAllBytes(target) : null));
+            next.RemoveAll(prior => prior.Path.Equals(entry.Path, StringComparison.OrdinalIgnoreCase));
+            next.Add(entry);
         }
-        var backups = new Dictionary<string, byte[]?>();
-        var applied = new Dictionary<string, string>();
-        var receiptPath = SafePath(root, ReceiptPath);
+        using var legacy = LivinCreamLegacyMigration.Begin(directory, checkGameClosed);
+        var changes = new List<Change>();
         try
         {
-            checkGameClosed();
-            // Publish the native bootstrap last so a launch cannot see a partial loader tree.
-            foreach (var file in writes.OrderBy(f => f.Path.Equals("winhttp.dll", StringComparison.OrdinalIgnoreCase) ? 1 : 0))
+            foreach (var plan in plans.OrderBy(plan => plan.Entry.Path == DllPath ? 1 : 0))
             {
-                var target = SafePath(root, file.Path);
-                backups[target] = File.Exists(target) ? File.ReadAllBytes(target) : null;
-                if (backups[target] != null && (!owned.TryGetValue(file.Path.Replace('\\', '/'), out var old) || !string.Equals(Hash(target), old.Sha256, StringComparison.OrdinalIgnoreCase))) throw new IOException("A mod file changed during installation.");
-                progress?.Report("Installing " + Path.GetFileName(file.Path));
-                Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-                var stage = SafePath(root, file.Path + ".happycheats-stage");
-                if (File.Exists(stage) || Directory.Exists(stage)) throw new IOException("A previous installation staging file needs inspection: " + stage);
-                try {
-                    File.Copy(SafePath(package, file.Path), stage);
-                    if (!string.Equals(Hash(stage), file.Sha256, StringComparison.OrdinalIgnoreCase)) throw new IOException("Payload changed during installation.");
-                    checkGameClosed();
-                    var original = backups[target];
-                    if (original == null) File.Move(stage, target); // Never overwrite a file created by another installer.
-                    else {
-                        var expected = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(original));
-                        if (!File.Exists(target) || !string.Equals(Hash(target), expected, StringComparison.OrdinalIgnoreCase)) throw new IOException("A mod file changed before installation commit.");
-                        File.Replace(stage, target, null);
-                    }
-                    applied[target] = file.Sha256;
-                } finally { if (File.Exists(stage)) File.Delete(stage); }
+                checkGameClosed();
+                var source = SafePath(package, plan.Entry.Path);
+                var bytes = File.ReadAllBytes(source);
+                if (!string.Equals(HashBytes(bytes), plan.Entry.Sha256, StringComparison.OrdinalIgnoreCase))
+                    throw new IOException("Livin' the Cream payload changed during installation.");
+                Replace(plan.Target, bytes, plan.Before, checkGameClosed, changes);
+                progress?.Report("Installing " + Path.GetFileName(plan.Target));
             }
-            checkGameClosed();
-            backups[receiptPath] = File.Exists(receiptPath) ? File.ReadAllBytes(receiptPath) : null;
-            WriteJson(receiptPath, new Receipt("livin-cream", nextOwned));
-            applied[receiptPath] = Hash(receiptPath);
+            var receiptPath = SafePath(directory, ReceiptPath);
+            var original = File.Exists(receiptPath) ? File.ReadAllBytes(receiptPath) : null;
+            Replace(receiptPath, JsonSerializer.SerializeToUtf8Bytes(new Receipt(1, "livin-cream", next)), original, checkGameClosed, changes);
         }
-        catch (Exception failure)
-        {
-            var errors = new List<Exception> { failure };
-            foreach (var item in applied.Reverse()) {
-                try {
-                    var original = backups[item.Key];
-                    if (!File.Exists(item.Key) || !string.Equals(Hash(item.Key), item.Value, StringComparison.OrdinalIgnoreCase)) {
-                        if (original != null) {
-                            var recovery = SafePath(root, "happycheats-recovery/" + Guid.NewGuid().ToString("N") + "/" + Path.GetFileName(item.Key));
-                            Directory.CreateDirectory(Path.GetDirectoryName(recovery)!); File.WriteAllBytes(recovery, original);
-                            errors.Add(new IOException("A changed file was preserved; its previous version was saved to " + recovery));
-                        }
-                        continue;
-                    }
-                    if (original == null) File.Delete(item.Key); else File.WriteAllBytes(item.Key, original);
-                } catch (Exception rollbackFailure) { errors.Add(rollbackFailure); }
-            }
-            if (errors.Count > 1) throw new AggregateException("Installation failed; some files need recovery. " + string.Join(" ", errors.Select(e => e.Message)), errors);
-            throw;
-        }
-        progress?.Report("Livin' the Cream trainer installed. Launch the game to connect.");
+        catch (Exception failure) { Rollback(directory, changes, failure); throw; }
+        legacy.Complete();
+        progress?.Report("Livin' the Cream trainer installed. Start the game, then choose Connect trainer. Gameplay validation is pending.");
     }
-    public static void Remove(string root, Action checkGameClosed, IProgress<string>? progress = null)
+
+    public static void Remove(string directory, Action checkGameClosed, IProgress<string>? progress = null)
     {
-        checkGameClosed(); var receipt = ReadReceipt(root) ?? throw new IOException("No HappyCheats ownership receipt was found. Existing files were preserved.");
-        // BepInEx may now serve other mods. Remove only our plugin and keep the shared loader.
-        var plugin = receipt.Files.Where(f => f.Path.Replace('\\', '/').StartsWith("BepInEx/plugins/HappyCheats.LivinCream/", StringComparison.Ordinal)).ToList();
-        foreach (var f in plugin) {
-            var target = SafePath(root, f.Path);
-            if (File.Exists(target) && !string.Equals(Hash(target), f.Sha256, StringComparison.OrdinalIgnoreCase)) throw new IOException("The trainer plugin was modified and has been preserved.");
-        }
         checkGameClosed();
-        foreach (var f in plugin) {
-            checkGameClosed();
-            var target = SafePath(root, f.Path);
-            if (File.Exists(target) && !string.Equals(Hash(target), f.Sha256, StringComparison.OrdinalIgnoreCase)) throw new IOException("The trainer plugin was modified and has been preserved.");
-            File.Delete(target); receipt.Files.Remove(f);
+        var receipt = ReadReceipt(directory) ?? throw new IOException("No Livin' the Cream ownership receipt was found. Existing files were preserved.");
+        var next = receipt.Files.ToList();
+        var preserved = new List<string>();
+        var changes = new List<Change>();
+        var removedOwnedDll = false;
+        try
+        {
+            foreach (var entry in receipt.Files)
+            {
+                var target = SafePath(directory, entry.Path);
+                if (!File.Exists(target)) { next.Remove(entry); continue; }
+                if (!Matches(target, entry.Sha256)) { preserved.Add(entry.Path); continue; }
+                checkGameClosed();
+                if (!Matches(target, entry.Sha256)) { preserved.Add(entry.Path); continue; }
+                var before = File.ReadAllBytes(target);
+                if (!string.Equals(HashBytes(before), entry.Sha256, StringComparison.OrdinalIgnoreCase)) { preserved.Add(entry.Path); continue; }
+                File.Delete(target);
+                changes.Add(new Change(target, before, null));
+                next.Remove(entry);
+                removedOwnedDll |= entry.Path == DllPath;
+            }
+            // Generated mailbox files are ours only when removing our unchanged DLL.
+            if (removedOwnedDll)
+                foreach (var name in new[] { "status.json", "command.json", "lease.txt" })
+                {
+                    var path = SafePath(directory, TrainerRoot + name);
+                    if (!File.Exists(path)) continue;
+                    checkGameClosed();
+                    byte[] before;
+                    using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+                    {
+                        var buffer = new byte[65537];
+                        var count = stream.ReadAtLeast(buffer, buffer.Length, throwOnEndOfStream: false);
+                        if (count > 65536) throw new IOException("Unexpected Livin' the Cream mailbox size; preserved for inspection.");
+                        before = buffer[..count];
+                    }
+                    File.Delete(path);
+                    changes.Add(new Change(path, before, null));
+                }
+            var receiptPath = SafePath(directory, ReceiptPath);
+            var original = File.ReadAllBytes(receiptPath);
+            Replace(receiptPath, JsonSerializer.SerializeToUtf8Bytes(new Receipt(1, "livin-cream", next)), original, checkGameClosed, changes);
         }
-        WriteJson(SafePath(root, ReceiptPath), receipt);
-        progress?.Report("Trainer removed. The shared BepInEx loader is preserved for other mods.");
+        catch (Exception failure) { Rollback(directory, changes, failure); throw; }
+        progress?.Report(preserved.Count > 0 ? "Modified Livin' the Cream files were preserved: " + string.Join(", ", preserved)
+            : "Livin' the Cream trainer removed. Unowned files were preserved.");
+    }
+
+    private static string HashBytes(byte[] bytes) => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes));
+
+    private static void Replace(string path, byte[] bytes, byte[]? before, Action checkGameClosed, List<Change> changes)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            File.WriteAllBytes(temporary, bytes);
+            checkGameClosed();
+            if (before == null ? File.Exists(path) || Directory.Exists(path) : !Matches(path, HashBytes(before)))
+                throw new IOException("A Livin' the Cream file changed before installation commit; it was preserved.");
+            File.Move(temporary, path, before != null);
+            changes.Add(new Change(path, before, HashBytes(bytes)));
+        }
+        finally { if (File.Exists(temporary)) File.Delete(temporary); }
+    }
+
+    private static void Rollback(string directory, List<Change> changes, Exception failure)
+    {
+        var errors = new List<Exception> { failure };
+        foreach (var change in changes.AsEnumerable().Reverse())
+        {
+            try
+            {
+                var unchanged = change.AfterHash == null ? !File.Exists(change.Path) && !Directory.Exists(change.Path) : Matches(change.Path, change.AfterHash);
+                if (!unchanged)
+                {
+                    if (change.Before != null)
+                    {
+                        var recovery = SafePath(directory, "happycheats-recovery/" + Guid.NewGuid().ToString("N") + "/" + Path.GetFileName(change.Path));
+                        Directory.CreateDirectory(Path.GetDirectoryName(recovery)!);
+                        File.WriteAllBytes(recovery, change.Before);
+                        errors.Add(new IOException("A changed file was preserved. Its previous version was saved to " + recovery));
+                    }
+                    continue;
+                }
+                if (change.Before == null) File.Delete(change.Path);
+                else File.WriteAllBytes(change.Path, change.Before);
+            }
+            catch (Exception error) { errors.Add(error); }
+        }
+        if (errors.Count > 1) throw new AggregateException("Livin' the Cream operation failed; review recovery details.", errors);
     }
 }

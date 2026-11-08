@@ -1,38 +1,44 @@
 # Livin' the Cream: Ice Cream Simulator
 
-Independent cheat package **1.0.0** supports Steam app **4621810**, inspected build **26415994**, on the already-released HappyCheats **0.3.69+** client. The minimum client requirement provides shared toggle restoration through loading; older clients receive an actionable compatibility error. It adds the game through the signed cheat catalog without publishing or rebuilding a client EXE.
+Independent cheat **1.0.1** supports Steam app **4621810**, inspected build **26511230**, with HappyCheats **0.3.69+**. The game changed from Mono to **IL2CPP (metadata 39)**. This update replaces the managed loader with a native trainer; the client EXE and version stay unchanged. Package 1.0.0 remains an immutable historical release for Mono build 26415994.
 
-Client **0.3.69** hides games absent from its Library in the update list. To add this game without changing that client EXE, close HappyCheats and the game, then run `scripts/Install-LivinCream.cmd` from this source checkout (PowerShell 7 and .NET 8 SDK required). Alternatively run `scripts/Install-LivinCream.ps1` in PowerShell 7; `-InspectOnly` checks prerequisites without writes, and `-ClientDirectory` / `-GameDirectory` select nondefault folders. The helper checks all three trusted catalogs, selects and verifies the exact signed package through the existing updater/store, loads that module and uses its owned game-file installer. It preserves custom update configurations and other games, and never replaces a client EXE or starts/closes a game. If only an older client has been run, use the existing official 0.3.69+ standalone EXE once and close it before setup.
+## Update and connect
 
-Reopen your existing HappyCheats 0.3.69+ EXE to see the new Library game. Select it, launch normally and load a shop. Subsequent published versions use **Update** beside Library Sort and the game's normal **Update** action. Keep HappyCheats open to use its controls.
+Close the game, open **Update** beside Library Sort, and update Livin' the Cream. The operation downloads, verifies and installs the package. Launch normally, load your shop, then click **Connect trainer / 连接修改器**. Each new game process requires explicit connection. Discovery never injects a DLL. Keep HappyCheats open while using continuous effects.
+
+Client 0.3.69 hides absent games in its update list. For first installation, close HappyCheats and the game and run `scripts/Install-LivinCream.cmd` from this checkout (PowerShell 7 and .NET 8 SDK required). `scripts/Install-LivinCream.ps1 -InspectOnly` checks prerequisites without writes; `-ClientDirectory` and `-GameDirectory` select folders. The helper uses the signed catalog, package store and module installer. Reopen your existing client afterward. Later versions use normal Library Update. No helper starts/closes games or replaces the client EXE.
+
+## Controls
 
 | Control | Behavior |
 | --- | --- |
-| Money | Set once to a whole number from 0 to 100,000,000 using the native money setter and UI notification. |
-| Add shop XP | Grant 1–10,000 once using `LevelManager.AddXP`, retaining normal level-up notifications and rewards. |
-| Add skill points | Grant 1–1,000 once using `SkillTreeManager.EarnSkillPoint`, retaining notifications and earned-point accounting. |
-| Unlimited customer patience | Override the native patience rule for the loaded shop. Refresh its current customer's timer/UI. Off restores the native rule and starts a new full normal timer when the current play style uses patience. Does not change Classic/Cozy mode. |
-| Unlimited soft-serve stock | Prevent consumption of existing soft-serve reservoir contents. Fill machines normally first. Does not create flavors, scoop pans, cones, toppings or other supplies. |
-| Refill soft-serve stock | Refill nonempty soft-serve reservoirs once using `RestoreStock`, preserving their flavors and updating liquid visuals. Empty reservoirs stay empty. |
+| Connect trainer | Verify the exact native assembly, metadata, installed trainer and process before explicit connection. |
+| Money | Set once to a whole number from 0 to 100,000,000 using the game's setter. |
+| Add shop XP | Grant 1–10,000 once through LevelManager.AddXP, preserving normal level-up rewards. |
+| Add skill points | Grant 1–1,000 once through SkillTreeManager.EarnSkillPoint, preserving earned-point accounting. |
+| Unlimited customer patience | Stop the front customer's timer and hide its patience UI. Off refreshes native play-style rules and starts a full normal timer where applicable. Classic/Cozy mode stays unchanged. |
+| Unlimited soft-serve stock | Prevent consumption of existing reservoir contents in the current shop scene. Fill machines normally first. Does not create flavors or other supplies. |
+| Refill soft-serve stock | Refill nonempty reservoirs once through RestoreStock, preserving flavors and updating visuals. Empty reservoirs remain empty. |
 
-Money and progression grants change the loaded game state and may be retained by the game's normal saves. Turning off a toggle does not undo prior consumption prevention, refill, money or progression grants. The trainer does not invoke saving, edit save files, unlock purchases in bulk or run a separate renderer.
+Grants and refill change loaded state and may persist through normal saves. Turning a toggle off does not undo prior grants/refill. The trainer never invokes saving or edits save files.
 
-The game uses the existing shared **Ctrl+Del** menu and, with Xbox shortcuts enabled, **hold Menu (☰) for 350 ms then tap RB**. Menu controls use mouse/keyboard. Use windowed or borderless mode. No game-specific controller profile or native HUD is installed. Feature metadata includes English/Chinese labels because older clients cannot contain translations for this new game.
+Use the shared **Ctrl+Del** menu or, with Xbox shortcuts enabled, **hold Menu (☰) for 350 ms then tap RB**. Mouse/keyboard operate controls. Use windowed or borderless play. No separate renderer or game-specific controller profile is installed.
 
-The runtime requires a single active player, their shop, one level manager and one skill manager after `ShopSaveManager.RestoreComplete`. Restore-pending, replacement player/shop/managers or replacement database/progress identities rotate the command session and clear confirmed runtime effects. The shared client retains requested toggles and restores them only through new, ready-session commands; one-shot grants are never replayed. Explicit Off/Disable all cancels requests through the common client path. A new game process starts with effects off.
+## Migration and ownership
 
-Installation uses the existing pinned BepInEx **5.4.23.5 x64** dependency and a dedicated plugin. Exact game assembly SHA-256 is enforced at build, installation and runtime: `3756614fb3952a6bacf1e2e8d1994efd7eb451d7f27218a66b033e386e3cb98e`. Unsupported builds report an actionable error. Package hashes/ownership checks preserve foreign or modified mod files; removal leaves the shared loader and other mods in place. Private keys, extracted game code and game assemblies are not distributed in source or packages.
+For a receipt-owned 1.0.0 installation, unchanged old HappyCheats plugin and Mono bootstrap files move to `happycheats-recovery/livin-cream-mono-<id>/` before native installation. Recovery files and the old receipt remain available. Failure rolls moves back when safe. Shared BepInEx core files remain on disk but are no longer loaded by the removed Mono bootstrap.
 
-`tools/InspectLivinCream` reads assembly metadata/IL without executing the game. It checks the native money, XP/reward, skill, restore, patience/UI and reservoir methods against the pinned assembly. `tests/LivinCream.Checks` compiles the actual plugin/protocol source against synthetic engine/game fixtures to check mutations, readiness, load transitions, duplicate grants, expiry, overflow and restoration. Module/installer tests check package integrity, unsupported builds, metadata, ownership and offline error paths. The catalog-wide shared menu/controller suites include this game automatically and explicitly require its registration.
+Modified files, a bootstrap shared with other plugins/patchers, or an unowned Mono loader stop migration with an actionable error. Resolve those mods deliberately and retry the same update. The native trainer has its own ownership receipt; removal preserves modified and preexisting files.
 
-Validation is **offline/static/synthetic**. No game was launched, no saves were changed, and actual gameplay, Unity loader startup, exclusive fullscreen and physical controller behavior have not been validated. Native bindings are inspected; this is not a claim of live gameplay verification.
+## Compatibility and validation
 
-## 中文
+Exact SHA-256 identities are enforced at inspection, installation, connection and native startup:
 
-独立修改器 **1.0.0** 支持 Steam 游戏 **4621810**、已检查版本 **26415994**，需要已发布的 HappyCheats **0.3.69+** 以支持读取后的统一开关恢复，旧客户端会显示兼容性错误；不会重新编译或替换客户端 EXE。0.3.69 的更新列表会隐藏尚未加入修改器库的游戏。首次添加时请关闭 HappyCheats 和游戏，从源码目录运行 `scripts/Install-LivinCream.cmd`（需要 PowerShell 7 和 .NET 8 SDK），通过原有签名目录、下载验证、模块缓存和文件归属安装流程完成添加。重新打开现有 0.3.69+ EXE 即可看到该游戏；后续版本可使用修改器库排序旁的正常“更新”。不会自动启动或关闭游戏。
+- GameAssembly.dll: `c6081c74041250a89bf8cb943b5e482af8a05a15853dc727193ffd6fcf51f168`
+- global-metadata.dat: `f19c0af79b93122307211e81d2f2c2deaeb09f908670643f687f83773062d137`
 
-提供设置金钱、单次增加店铺经验、单次增加技能点、顾客无限耐心、软冰淇淋原料不消耗、单次补满非空软冰淇淋机器。经验和技能点使用游戏原有方法，保留正常奖励与通知；补充原料保留原有口味，空机器保持为空。无限耐心不修改游戏模式，关闭后按原模式恢复完整计时。金钱、经验、技能点及补料可能被游戏正常存档保留；关闭开关不会撤销此前的单次操作。
+The DLL verifies four hook prologues and runtime method identities before activation. Gameplay calls run from the existing game input tick on the game thread. Readiness requires a single active player, their shop, level/skill managers, restored database identities, a fresh game frame and an authorized client lease. Load transitions rotate the command session and clear confirmed effects. The shared client retains requested toggles and restores them through new ready-session commands. Off/Disable all cancels restoration. One-shot grants never replay; a new process requires Connect again.
 
-沿用统一的 Ctrl+Del 菜单，以及启用 Xbox 快捷键时“按住 Menu 350 毫秒，再点按 RB”的菜单开关。菜单内使用鼠标/键盘，支持窗口/无边框。读取或更换店铺时，统一客户端仅在新会话就绪后恢复用户请求的开关，不重放金钱或经验等单次操作；关闭开关或禁用全部会取消待恢复请求。
+Inspection checks the x64 PE, metadata version, 23 exported APIs and a reviewed record of 28 methods, eight fields and four distinct hook sites. Cpp2IL is local inspection tooling only; generated assemblies/code are ignored and never shipped. Native fixtures cover expiry, stale sessions, bounded progression, lease/context changes and actual prologue relocation. Module tests cover explicit connection, passive context renewal, no automatic injection, package integrity and legacy migration/rollback. Shared menu/controller and toggle-continuity regressions apply.
 
-已完成静态代码检查、真实绑定编译和合成回归测试。未启动游戏、未修改存档，未验证实际游戏效果、Unity 加载器启动或实体手柄。
+Validation is **offline/static/synthetic**. The packaged DLL is smoke-tested in an unsupported disposable host. Gameplay effects, in-game startup, physical-controller operation and exclusive fullscreen remain untested. No game was launched or save changed. Historical Mono source/fixtures remain for 1.0.0 reference and are no longer shipped by the native builder.

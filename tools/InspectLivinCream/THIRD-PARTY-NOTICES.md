@@ -1,7 +1,7 @@
-# Livin' the Cream loader notices
+# Livin' the Cream native trainer notices
 
-This payload includes the official BepInEx 5.4.23.5 Windows x64 distribution and its bundled HarmonyX, Harmony interop, Mono.Cecil, MonoMod and UnityDoorstop components. Corresponding license texts and the UnityDoorstop v4.5.0 source archive accompany the payload. The reused pinned loader preparation helper and `third-party-resources.json` record their official upstream resources and SHA-256 values.
+Package 1.0.1 uses the repository's pinned MinHook v1.3.4 (including reviewed x64 allocation fixes) and JSON for Modern C++ v3.12.0. Full license texts accompany the payload in ThirdPartyNotices.txt. No BepInEx loader or game-provided Newtonsoft.Json assembly is shipped.
 
-The trainer uses the installed game's Newtonsoft.Json assembly at runtime; it does not redistribute that game-provided assembly. The synthetic test harness has a separate NuGet test dependency which is not shipped.
+Read-only inspection uses official Cpp2IL 2022.1.0-pre-release.21, Windows asset SHA-256 `663fb432433b4371fd1ee0ebc321a8fff2a9aac5ac4230c843f9e03ddee4e04c`. It is not a shipped dependency. Mono.Cecil reads generated metadata in record mode. Generated assemblies, extracted game code, game binaries, art and saves are never distributed.
 
-Game and Unity assemblies are local compile-time references and read-only compatibility inspection inputs. No game assembly, extracted game code, art or save data is distributed in source or this payload.
+Historical package 1.0.0 used BepInEx 5.4.23.5 x64 and its bundled licensed dependencies. That immutable release retains its original notices and is not rebuilt.

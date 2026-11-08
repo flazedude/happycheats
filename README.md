@@ -10,7 +10,7 @@ Requested toggles now survive loading and location/session changes across the tr
 
 [Full release notes](docs/releases/0.3.69.en.txt)
 
-**New independent cheat: [Livin' the Cream 1.0.0](docs/livin-cream.md)** — money, shop XP, skill points, customer patience and soft-serve stock. Client 0.3.69 needs the one-time setup helper described in the guide to verify and add the signed package because its update list hides unknown games. Later updates use the Library Update action. The client EXE/version stays unchanged. Validation is offline/static/synthetic; gameplay and loader startup remain unverified.
+**Independent cheat update: [Livin' the Cream 1.0.1](docs/livin-cream.md)** — supports IL2CPP Steam build 26511230, retains all six controls and adds explicit Connect trainer. Close the game and use Library Update, then launch normally, load your shop and connect. First-time setup on client 0.3.69 uses the guide's signed-package helper. Client EXE/version unchanged. Validation is offline/static/synthetic; gameplay remains unverified.
 
 ![HappyCheats library and Stardew Valley trainer controls in the English dark theme](docs/images/happycheats-library.png)
 
