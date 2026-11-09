@@ -1,6 +1,6 @@
 # Survival Log / 生存日志
 
-Independent package **1.0.0**, native trainer **0.1.0**, Steam app **4164790**, inspected Steam build **26294912**. Requires HappyCheats **0.3.69** for the current shared toggle-restoration behavior. The existing EXE and client version stay unchanged.
+Independent package **1.0.1**, native trainer **0.1.1**, Steam app **4164790**, inspected Steam build **26454866**. Requires HappyCheats **0.3.69** for the current shared toggle-restoration behavior. The existing EXE and client version stay unchanged.
 
 For first installation, clients 0.3.68/0.3.69 hide new games absent from their Library. Close HappyCheats and supported games, then run `scripts/Add-SurvivalLog.ps1` in PowerShell 7 from this source checkout (.NET 8 is required). The helper locates a compatible extracted official client; `-ClientDirectory` can select an unpacked client explicitly. It pins the established public signing key, checks both LAN catalogs and GitHub, verifies the selected signed package through the existing cache API, and installs its trainer files while the game is closed. Reopen the **same EXE** to load Survival Log. Later updates use **Library → Update** beside Sort. No EXE is replaced.
 
@@ -46,8 +46,10 @@ Offline tests cover module metadata, exact process/session/heartbeat validation,
 
 ## 中文使用说明
 
-支持 Steam 生存日志版本 **26294912**，独立修改器包 **1.0.0**。0.3.68/0.3.69 会隐藏尚未加入库的新游戏；首次安装请关闭客户端及受支持游戏，在源代码目录用 PowerShell 7 运行 `scripts/Add-SurvivalLog.ps1`（需.NET 8）。助手查找兼容的官方已解包客户端，校验签名并安装游戏文件；也可用 `-ClientDirectory` 指定客户端目录。重新打开原EXE即可看到生存日志，之后使用修改器库排序旁的“更新”。自行启动游戏并载入角色后，点击“连接修改器”（F8）。安装及扫描不会自动启动游戏或注入。
+支持 Steam 生存日志版本 **26454866**，独立修改器包 **1.0.1**。0.3.68/0.3.69 会隐藏尚未加入库的新游戏；首次安装请关闭客户端及受支持游戏，在源代码目录用 PowerShell 7 运行 `scripts/Add-SurvivalLog.ps1`（需.NET 8）。助手查找兼容的官方已解包客户端，校验签名并安装游戏文件；也可用 `-ClientDirectory` 指定客户端目录。重新打开原EXE即可看到生存日志，之后使用修改器库排序旁的“更新”。自行启动游戏并载入角色后，点击“连接修改器”（F8）。安装及扫描不会自动启动游戏或注入。
 
 F1–F5 保持饱食度、士气、体力、健康、生命满值，效果在对应属性下次更新时生效。F6 冻结游戏时钟，计时活动也可能暂停；关闭后仅在仍持有该设置时恢复原值。F7 提高玩家负重上限，不改变背包格数。数值控件可一次设置金钱、增加生存点数，以及调整技能经验倍率。金钱、生存点和获得的经验可能被游戏保存，关闭功能不会撤销既有收益。
 
 加载或更换角色后由共享客户端重新发送已请求的开关；金钱与生存点不会重复发放。关闭功能和“全部禁用”会取消待恢复请求。经验倍率在加载或断连后恢复1倍。Ctrl+Del 或按住 Xbox Menu 350毫秒后轻按 RB 打开共享菜单，使用鼠标键盘操作。所有验证均为离线或模拟检查，尚未验证实际启动、游戏效果和实体手柄。
+
+Current independent compatibility review: [9 November 2026](compatibility-20261109.md).

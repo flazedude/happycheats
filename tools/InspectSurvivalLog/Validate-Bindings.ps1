@@ -10,3 +10,4 @@ foreach($slFile in @(
     if(!(Test-Path -LiteralPath $slPath) -or (Get-FileHash -LiteralPath $slPath -Algorithm SHA256).Hash -ine $slFile.Hash){throw "Unsupported Survival Log file: $($slFile.Path). Inspect the new build before publishing."}
 }
 Write-Host "PASS Survival Log Steam build $($slEvidence.steam_build): inspected native assembly and IL2CPP metadata hashes; no game launched."
+& (Join-Path $PSScriptRoot '../Assert-StaticBindingEvidence.ps1') -BinaryPath (Join-Path $GameDirectory 'GameAssembly.dll') -EvidencePath (Join-Path $PSScriptRoot 'verified-build.json')

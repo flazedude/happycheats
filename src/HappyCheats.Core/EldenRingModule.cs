@@ -10,7 +10,7 @@ public sealed class EldenRingModule(string baseDirectory) : IGameModule, IDispos
 {
     public void Deactivate() => Stop();
     public IReadOnlyList<string> GameExecutables { get; } = [Executable];
-    public const string TrainerVersion = "0.1.0";
+    public const string TrainerVersion = "0.1.1";
     public const string Executable = "Game/eldenring.exe";
     private readonly string package = Path.Combine(baseDirectory, "payload", "elden-ring");
     private readonly object gate = new();

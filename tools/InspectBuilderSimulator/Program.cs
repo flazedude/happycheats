@@ -4,7 +4,7 @@ using Mono.Cecil;
 
 var path = args.FirstOrDefault() ?? @"F:\Games\steamapps\steamapps\common\Builder Simulator\Builder Simulator_Data\Managed\Assembly-CSharp.dll";
 using var assembly = AssemblyDefinition.ReadAssembly(path);
-var expected = "364320218449C22DB4A6E851276F4236CDC51DC74FCBF8EBA4AFB7FDFC1556F0";
+var expected = "0786962D80AA8B6BFCE8561FCD1502C982B33F6856E59A5567864BB10DE7279D";
 var contracts = new (string Type, string Name, string Return, string[] Parameters)[] {
     ("Core.Data.EquipmentData", "get_PlayerCash", "System.Int32", []),
     ("Core.Data.EquipmentData", "set_PlayerCash", "System.Void", ["System.Int32"]),
@@ -32,6 +32,6 @@ foreach (var contract in contracts) {
 }
 var hash = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path)));
 if (hash != expected) errors.Add("Unreviewed assembly hash");
-Console.WriteLine(JsonSerializer.Serialize(new { steam_build = "26240179", assembly_sha256 = hash, mvid = assembly.MainModule.Mvid,
+Console.WriteLine(JsonSerializer.Serialize(new { steam_build = "26462579", assembly_sha256 = hash, mvid = assembly.MainModule.Mvid,
     static_contract_valid = errors.Count == 0, live_tested = false, errors, bindings }, new JsonSerializerOptions { WriteIndented = true }));
 return errors.Count == 0 ? 0 : 1;

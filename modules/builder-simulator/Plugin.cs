@@ -16,8 +16,8 @@ namespace HappyCheats.BuilderSimulator
     [BepInProcess("Builder Simulator.exe")]
     public sealed class Plugin : BaseUnityPlugin
     {
-        public const string Version = "1.0.0";
-        public const string SupportedAssemblySha256 = "364320218449c22db4a6e851276f4236cdc51dc74fcbf8eba4afb7fdfc1556f0";
+        public const string Version = "1.0.1";
+        public const string SupportedAssemblySha256 = "0786962d80aa8b6bfce8561fcd1502c982b33f6856e59a5567864bb10de7279d";
         private string session = Guid.NewGuid().ToString("N");
         private readonly HashSet<string> handled = new HashSet<string>(StringComparer.Ordinal);
         private readonly Dictionary<string, bool> emptyToggles = Runtime.ToggleIds.ToDictionary(x => x, _ => false);

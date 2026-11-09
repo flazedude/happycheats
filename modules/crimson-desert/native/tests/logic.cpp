@@ -12,7 +12,7 @@ int main() {
     // This fixture was extracted from the actual PE inspection report, not
     // constructed from the production constants. It would fail with the old
     // 0x173AA000 image-size guard even though negative-host smoke tests passed.
-    std::ifstream metadata(std::filesystem::path(__FILE__).parent_path()/"fixtures"/"pe3479-build.txt");
+    std::ifstream metadata(std::filesystem::path(__FILE__).parent_path()/"fixtures"/"pe3576-build.txt");
     assert(metadata);
     std::string provenance,digest;
     assert(std::getline(metadata,provenance) && std::getline(metadata,digest));
@@ -23,8 +23,9 @@ int main() {
     assert(crimson_build::CheckHeader(inspectedMachine,inspectedTimestamp,inspectedImageSize)==HeaderResult::Match);
     assert(crimson_build::CheckHeader(34404,1790086912,389722112)==HeaderResult::TimestampMismatch); // Pre-DLC executable cannot use these bindings.
     assert(crimson_build::CheckHeader(34404,1793296370,341544960)==HeaderResult::TimestampMismatch); // PE3424 cannot use the hotfix bindings.
-    assert(crimson_build::CheckHeader(34404,1793355216,338067456)==HeaderResult::TimestampMismatch); // Retired PE3446 must not use PE3479 addresses.
-    assert(crimson_build::CheckHeader(34404,1793455655,333967360)==HeaderResult::TimestampMismatch); // Retired PE3462 cannot use PE3479 bindings.
+    assert(crimson_build::CheckHeader(34404,1793355216,338067456)==HeaderResult::TimestampMismatch); // Retired PE3446 must not use PE3576 addresses.
+    assert(crimson_build::CheckHeader(34404,1793455655,333967360)==HeaderResult::TimestampMismatch); // Retired PE3462 cannot use PE3576 bindings.
+    assert(crimson_build::CheckHeader(34404,1793516520,336015360)==HeaderResult::TimestampMismatch); // Retired PE3479.
     assert(crimson_build::CheckHeader(inspectedMachine,inspectedTimestamp,0x173AA000)==HeaderResult::ImageSizeMismatch);
     assert(crimson_build::CheckHeader(inspectedMachine,inspectedTimestamp,inspectedImageSize+4096)==HeaderResult::ImageSizeMismatch);
     assert(crimson_build::CheckHeader(inspectedMachine,inspectedTimestamp+1,inspectedImageSize)==HeaderResult::TimestampMismatch);
@@ -32,7 +33,7 @@ int main() {
     assert(std::string(crimson_build::ErrorCode(HeaderResult::ImageSizeMismatch))=="pe_image_size_mismatch");
     assert(std::string(crimson_build::ErrorMessage(HeaderResult::ImageSizeMismatch)).find("image size")!=std::string::npos);
     // Preserve the September live capture as historical resolver evidence.
-    // These addresses do not describe PE3479 or establish DLC gameplay.
+    // These addresses do not describe PE3576 or establish DLC gameplay.
     constexpr std::uintptr_t HistoricalClientRootRva=0x6D69190;
     constexpr std::uintptr_t HistoricalClientOwnerVtableRva=0x5585C40;
     std::ifstream realms(std::filesystem::path(__FILE__).parent_path()/"fixtures"/"pe2976-realm-pointers.txt");
@@ -61,13 +62,13 @@ int main() {
     assert(!ResolveClientAnchor(imageBase+HistoricalClientRootRva,imageBase+HistoricalClientOwnerVtableRva,pointer,clientAnchor)); // Loading/unreadable client anchor.
     observedPointers[ownerField]=clientOwner;
     assert(ResolveClientAnchor(imageBase+HistoricalClientRootRva,imageBase+HistoricalClientOwnerVtableRva,pointer,clientAnchor));
-    // Independent synthetic memory exercises the PE3479 contract. The old
+    // Independent synthetic memory exercises the PE3576 contract. The old
     // capture above does not contain the newly required local-self evidence.
     constexpr std::uintptr_t testRoot=0x100000,testService=0x200000,testOwner=0x300000,testUser=0x400000;
-    constexpr std::uintptr_t inspectedNormalVtableRva=0x590C798;
-    // PE3479 RTTI and virtual-slot evidence identify the ChildOnly class observed
+    constexpr std::uintptr_t inspectedNormalVtableRva=0x5914848;
+    // PE3576 RTTI and virtual-slot evidence identify the ChildOnly class observed
     // in the historical PE3424 Kliff session; this is synthetic, not a new capture.
-    constexpr std::uintptr_t inspectedKliffVtableRva=0x590CCA0;
+    constexpr std::uintptr_t inspectedKliffVtableRva=0x5914D58;
     assert(ClientOwnerVtableRva==inspectedNormalVtableRva);
     assert(ClientChildOwnerVtableRva==inspectedKliffVtableRva);
     std::map<std::uintptr_t,std::uintptr_t> currentPointers{
@@ -132,7 +133,7 @@ int main() {
     assert(!Fill(0,0,current,norm));
     assert(!Fill(~0ULL,1,current,norm));
     assert(!Fill(1,MaxStat+1,current,norm));
-    assert(IsControlled(100,100,1)); assert(!IsControlled(100,100,9)); // Historical tag 9 is unproved for PE3479.
+    assert(IsControlled(100,100,1)); assert(!IsControlled(100,100,9)); // Historical tag 9 is unproved for PE3576.
     assert(!IsControlled(100,101,1)); assert(!IsControlled(100,100,3)); assert(!IsControlled(0,0,1));
     Identity original{100,200,300,400,500}, fresh=original;
     assert(SameIdentity(original,fresh)); fresh.stats=600; assert(!SameIdentity(original,fresh));

@@ -1,10 +1,10 @@
 # Livin' the Cream: Ice Cream Simulator
 
-Independent cheat **1.0.2** supports Steam app **4621810**, inspected build **26511230**, with HappyCheats **0.3.69+**. Controls dispatch directly without whole-shop readiness, availability or stale UI context vetoes. The game changed from Mono to **IL2CPP (metadata 39)**; package 1.0.1 introduced its native trainer. The client EXE/version stay unchanged for this update. Package 1.0.0 remains an immutable historical release for Mono build 26415994.
+Independent cheat **1.0.3** supports Steam app **4621810**, inspected build **26525450**, with HappyCheats **0.3.69+**. Controls dispatch directly without whole-shop readiness, availability or stale UI context vetoes. The game changed from Mono to **IL2CPP (metadata 39)**; package 1.0.1 introduced its native trainer. The client EXE/version stay unchanged for this update. Package 1.0.0 remains an immutable historical release for Mono build 26415994.
 
 ## Update and connect
 
-HappyCheats **0.3.70** bundles this trainer and supports **Add trainer** for future catalog games absent from Library. Upgrade the client once through **Client Updates**, or use the latest complete EXE. The first-install helper below is only needed by older clients whose update list hides unknown games.
+HappyCheats **0.3.70** bundles the initial native package 1.0.1 and supports **Add trainer** for future catalog games absent from Library. Package **1.0.3** is an independent Library Update download; the complete EXE is unchanged. The first-install helper below is only needed by older clients whose update list hides unknown games.
 
 Close the game, open **Update** beside Library Sort, and update Livin' the Cream. The operation downloads, verifies and installs the package. Launch normally, load your shop, then click **Connect trainer / 连接修改器**. Each new game process requires explicit connection. Discovery never injects a DLL. Keep HappyCheats open while using continuous effects.
 
@@ -36,11 +36,13 @@ Modified files, a bootstrap shared with other plugins/patchers, or an unowned Mo
 
 Exact SHA-256 identities are enforced at inspection, installation, connection and native startup:
 
-- GameAssembly.dll: `c6081c74041250a89bf8cb943b5e482af8a05a15853dc727193ffd6fcf51f168`
-- global-metadata.dat: `f19c0af79b93122307211e81d2f2c2deaeb09f908670643f687f83773062d137`
+- GameAssembly.dll: `b54273abaa7e95595f2284fb428ed5f741d03b936218694c6196761669049280`
+- global-metadata.dat: `3cc92f0868f5ac31409145f78affc18d06795c50c5226d30ec63dc25d5bf4fe0`
 
 The DLL verifies four hook prologues and runtime method identities before activation. Gameplay calls run from the existing game input tick on the game thread. Explicit clicks are not vetoed by Ready/available flags, frame age, shop restoration, all-manager presence, matching database identities or an earlier UI context-session ID. Money invokes the native setter directly; XP and skills resolve only their own manager, and refill finds loaded reservoirs. An absent target reports its operation-specific error. Patience and stock toggles persist through in-process loads; Off/Disable all clears them. A process-scoped client lease cleans up effects when the client disconnects. Process identity, numeric wire shape, command expiry and duplicate suppression remain; one-shot grants never replay, and a new process requires Connect again. Return to the game so queued main-thread actions can execute.
 
 Inspection checks the x64 PE, metadata version, 23 exported APIs and a reviewed record of 28 methods, eight fields and four distinct hook sites. Cpp2IL is local inspection tooling only; generated assemblies/code are ignored and never shipped. Native fixtures cover expiry, stale sessions, bounded progression, lease/context changes and actual prologue relocation. Module tests cover explicit connection, passive context renewal, no automatic injection, package integrity and legacy migration/rollback. Shared menu/controller and toggle-continuity regressions apply.
 
 Validation is **offline/static/synthetic**. The packaged DLL is smoke-tested in an unsupported disposable host. Gameplay effects, in-game startup, physical-controller operation and exclusive fullscreen remain untested. No game was launched or save changed. Historical Mono source/fixtures remain for 1.0.0 reference and are no longer shipped by the native builder.
+
+Current independent compatibility review: [9 November 2026](compatibility-20261109.md).

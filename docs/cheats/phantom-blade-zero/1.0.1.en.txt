@@ -1,0 +1,9 @@
+Phantom Blade Zero — independent cheat 1.0.1
+
+Supports inspected Steam build 26367565; trainer/profile 0.1.4. HappyCheats client version and EXE are unchanged.
+
+Updates the pinned executable and the unique GUObjectArray caller/displacement. Reviewed seven current native witness sites; object allocation and index-freeing bodies retain their normalized instructions. Retains the UE5.7.4 member-layout profile and reflected ownership checks. Current-build loader startup, the protected ProcessEvent path and all live member layouts remain unverified.
+
+Close this game, then use Library → Update. Installation and module verification complete in one operation. Connection remains explicit where the game already requires it.
+
+Validation is offline/static/synthetic. No game was launched or attached and no save was changed. Gameplay, physical-controller operation and exclusive fullscreen are unverified.

@@ -10,10 +10,10 @@ public sealed class PhantomBladeModule(string baseDirectory) : IGameModule, IFea
 {
     public IReadOnlyList<string> GameExecutables { get; } = [Executable];
     public const string Executable = "platform/steam/PBZ.exe";
-    public const string SupportedExecutableHash = "7B4FCD286A350780FAF0824D73AA150B21CBF1BCCDE883E6A96386CBE09973B4";
-    public const string SupportedSteamBuild = "26266538";
+    public const string SupportedExecutableHash = "4415933CE33476F14C837ABB61A1B60AF8B78CD81783896501913A7AAC69E423";
+    public const string SupportedSteamBuild = "26367565";
     public const string BridgeRoot = "platform/steam/ue4ss/Mods/HappyCheatsPhantomBlade/bridge/";
-    public const string TrainerVersion = "0.1.3";
+    public const string TrainerVersion = "0.1.4";
     private readonly string package = Path.Combine(baseDirectory, "payload", "phantom-blade-zero");
     private readonly SemaphoreSlim commandLock = new(1, 1);
     private readonly object inspectionLock = new();

@@ -2,6 +2,14 @@
 
 **[Download the latest release / 下载最新版本](https://github.com/flazedude/happycheats/releases/latest)** · [Home](README.md) · [中文首页](README.zh-CN.md)
 
+## Independent compatibility updates · 9 November 2026
+
+- Builder Simulator 1.0.1, Livin' the Cream 1.0.3, Survival Log 1.0.1, Elden Ring 1.0.1, Crimson Desert 1.0.3 and Phantom Blade Zero 1.0.1 target the inspected installed builds. HappyCheats 0.3.70 and its complete EXE are unchanged.
+- Wukong, Hotel Architect and Stardew Valley's installed-file warnings were repaired with existing payloads. GTA V Enhanced's changed packed executable remains unsupported pending verified binding evidence.
+- [Build identities, checks and limitations](docs/compatibility-20261109.md). Validation is offline/static/synthetic; no games were started or saves changed.
+
+六款游戏独立更新兼容性，客户端及完整EXE保持不变。另三款游戏通过现有安装器修复文件。GTA V增强版的新加壳程序仍待绑定证据验证。仅离线/静态/模拟检查，未启动游戏或更改存档。
+
 ## Latest · 0.3.70
 
 - Library Update offers Add trainer for signed catalog games missing from this client's Library.

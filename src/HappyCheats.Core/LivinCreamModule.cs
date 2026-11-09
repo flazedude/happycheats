@@ -13,10 +13,10 @@ public sealed class LivinCreamModule : IGameModule, IFeatureValueModule
     public const string AssemblyPath = "GameAssembly.dll";
     public const string MinimumClientVersion = "0.3.69";
     internal static bool SupportsAssembly(string hash) => string.Equals(hash, SupportedAssemblyHash, StringComparison.OrdinalIgnoreCase);
-    public const string SupportedAssemblyHash = "C6081C74041250A89BF8CB943B5E482AF8A05A15853DC727193FFD6FCF51F168";
+    public const string SupportedAssemblyHash = "B54273ABAA7E95595F2284FB428ED5F741D03B936218694C6196761669049280";
     public const string MetadataPath = "Livin' the Cream Ice Cream Simulator_Data/il2cpp_data/Metadata/global-metadata.dat";
-    public const string SupportedMetadataHash = "F19C0AF79B93122307211E81D2F2C2DEAEB09F908670643F687F83773062D137";
-    public const string TrainerVersion = "1.0.2";
+    public const string SupportedMetadataHash = "3CC92F0868F5AC31409145F78AFFC18D06795C50C5226D30EC63DC25D5BF4FE0";
+    public const string TrainerVersion = "1.0.3";
     public const string BridgeRoot = LivinCreamInstaller.TrainerRoot;
     private readonly string package;
     private readonly SemaphoreSlim commandLock = new(1, 1);
@@ -34,10 +34,10 @@ public sealed class LivinCreamModule : IGameModule, IFeatureValueModule
 
     internal static readonly string[] ToggleIds = { "lc_no_patience", "lc_unlimited_softserve" };
     internal static readonly string[] FeatureIds = ToggleIds.Concat(new[] { "lc_money", "lc_add_xp", "lc_add_skills", "lc_refill_softserve" }).ToArray();
-    public const string SupportedSteamBuild = "26511230";
+    public const string SupportedSteamBuild = "26525450";
     public LivinCreamModule(string baseDirectory) => package = Path.Combine(baseDirectory, "payload", "livin-cream");
     public GameDefinition Definition { get; } = new("livin-cream", "Livin' the Cream: Ice Cream Simulator", "甜蜜冰淇淋：冰淇淋店模拟器", "4621810", "🍦",
-        "Steam build 26511230 (IL2CPP). Install, launch normally, load your shop, then Connect trainer. / 安装后正常启动并读取店铺，再手动连接修改器。", [
+        "Steam build 26525450 (IL2CPP). Install, launch normally, load your shop, then Connect trainer. / 安装后正常启动并读取店铺，再手动连接修改器。", [
         new("lc_connect", "Connect trainer / 连接修改器", "After launching normally and loading your shop, connect explicitly to this IL2CPP build. / 正常启动并读取店铺后，手动连接。", "", false, "Connection / 连接"),
         new("lc_money", "Money / 金钱", "Set shop money once. Normal game saving may retain the result. / 单次设置店铺金钱。", "", false, "Shop / 店铺", ChoiceValueKey: "lc_money", Number: new(0, 100_000_000, 100_000)),
         new("lc_add_xp", "Add shop XP / 增加店铺经验", "Grant 1–10,000 XP once through normal level-up rewards. / 单次增加经验，保留正常升级奖励。", "", false, "Shop / 店铺", Number: new(1, 10_000, 1_000)),
@@ -80,7 +80,7 @@ public sealed class LivinCreamModule : IGameModule, IFeatureValueModule
                     "Livin' the Cream trainer package unavailable: " + error.Message);
             }
             return new GameInstallation(found.Directory, found.Build, true, installed, running, compatible,
-                !compatible ? "This Livin' the Cream native assembly or metadata needs a compatibility check. Supported Steam build: 26511230."
+                !compatible ? "This Livin' the Cream native assembly or metadata needs a compatibility check. Supported Steam build: 26525450."
                 : matching ? "Experimental trainer installed. Start the game, then choose Connect trainer."
                 : installed ? "Livin' the Cream trainer update required. Close the game before installing."
                 : "Ready to install the experimental Livin' the Cream trainer.");

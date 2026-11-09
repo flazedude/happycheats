@@ -2,6 +2,8 @@
 
 HappyCheats 0.3.37 adds an experimental offline resource trainer for Steam Elden Ring (App ID 1245620). Nightreign is a different game and is unsupported. Both the signed LAN update and the complete standalone EXE include the runtime and its compatibility profile.
 
+Independent package **1.0.1**, profile **0.1.1**, updates the worldwide target to **1.17.2 / file 2.7.2.0**. Download it through Library Update; the HappyCheats client version and complete EXE are unchanged.
+
 ## Controls
 
 | Control | Shortcut | Effect |
@@ -28,14 +30,16 @@ Use these controls only for offline play. There is no guarantee against account 
 
 ## Compatibility and validation
 
-The initial profile targets **App Ver. 1.17.1** (worldwide Windows executable version **2.7.1.0**). This comes from maintained modding-source layouts, not inspection of an installed game on this host. Other versions are rejected. The runtime checks process identity, executable metadata, memory signatures, pointers, resource ranges and the offline state. Missing or ambiguous evidence blocks controls. Updating the game can require a new trainer release. Source references and pinned revisions are included in the payload's `profile.json` and `ThirdPartyNotices.txt`.
+The current profile targets **App Ver. 1.17.2** (worldwide Windows executable version **2.7.2.0**). It was checked against maintained, pinned modding sources and the installed Steam build 25827938 on 9 November 2026. Other versions are rejected. The runtime checks process identity, executable metadata, memory signatures, pointers, resource ranges and the offline state. Missing or ambiguous evidence blocks controls. Updating the game can require a new trainer release. Source references and pinned revisions are included in the payload's `profile.json` and `ThirdPartyNotices.txt`.
 
-Validation covers isolated memory fixtures, session and command handling, anti-cheat/online rejection, Chinese and English UI, packaging and signed LAN downloads. Elden Ring is not installed in this host's registered Steam libraries. No game was started and no save was changed during development. Gameplay effects, game launch on the gaming PC and connectivity from a second PC remain unverified.
+Validation covers isolated memory fixtures, session and command handling, anti-cheat/online rejection, Chinese and English UI, packaging and signed LAN downloads. The installed executable and unique signature targets passed read-only checks on 9 November 2026. No game was started and no save was changed during development. Gameplay effects, game launch on the gaming PC and connectivity from a second PC remain unverified.
 
 ## 中文说明
 
-这是 Steam《艾尔登法环》的实验性离线资源补满功能，面向 **App Ver. 1.17.1（全球版 Windows 程序版本 2.7.1.0）**，不支持其他版本或《黑夜君临》。F1 定期补满生命，F2 补满专注值，F3 补满精力，F4 一次补满三种资源，F12 关闭持续功能。补满生命并非无敌，致命伤害仍可导致死亡。请保持 HappyCheats 的本游戏页面打开；死亡、角色变化、断开连接、切换页面或长时间停止轮询会清除开关。
+这是 Steam《艾尔登法环》的实验性离线资源补满功能，面向 **App Ver. 1.17.2（全球版 Windows 程序版本 2.7.2.0）**，不支持其他版本或《黑夜君临》。F1 定期补满生命，F2 补满专注值，F3 补满精力，F4 一次补满三种资源，F12 关闭持续功能。补满生命并非无敌，致命伤害仍可导致死亡。请保持 HappyCheats 的本游戏页面打开；死亡、角色变化、断开连接、切换页面或长时间停止轮询会清除开关。
 
 先关闭通过 Steam 正常启动的游戏，保持 Steam 运行，在 HappyCheats 中选择“离线启动”，载入离线单人角色后选择“连接修改器”。启动方式不替换游戏文件或反作弊组件。只有受支持版本、明确的离线状态及反作弊检查全部通过后才能写入。检测到 Easy Anti-Cheat、受保护启动器、联网或无缝联机时拒绝工作。
 
-仅限离线使用。安装流程不修改存档文件；游戏仍可能自动保存正常游玩产生的进度，因此不保证以后联网时不会受到处罚。本机未安装游戏，尚未验证真实游戏效果、另一台电脑上的启动或局域网连接。
+仅限离线使用。安装流程不修改存档文件；游戏仍可能自动保存正常游玩产生的进度，因此不保证以后联网时不会受到处罚。本机程序已通过只读静态检查，尚未验证真实游戏效果、另一台电脑上的启动或局域网连接。
+
+Current independent compatibility review: [9 November 2026](compatibility-20261109.md).

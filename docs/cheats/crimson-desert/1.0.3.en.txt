@@ -1,0 +1,9 @@
+Crimson Desert — independent cheat 1.0.3
+
+Supports inspected Steam build 26480954; trainer/profile 0.2.11. HappyCheats client version and EXE are unchanged.
+
+Supports executable PE3576 with updated hooks, map caller, player vtables, status registry and floating origin. Full normalized locomotion, outer movement and marker-sender bodies match uniquely. All 21 exact disk guards pass. Resource ownership, local-control, marker cancellation and bounded teleport behavior are retained.
+
+Close this game, then use Library → Update. Installation and module verification complete in one operation. Connection remains explicit where the game already requires it.
+
+Validation is offline/static/synthetic. No game was launched or attached and no save was changed. Gameplay, physical-controller operation and exclusive fullscreen are unverified.

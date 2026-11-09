@@ -139,9 +139,9 @@ int main() {
     componentAddress=component.address(); proxyAddress=proxy.address(); navAddress=nav.address();
     g_syncProxy=Sync; g_originalLoco=Loco; g_originalOuterMove=Outer;
 
-    // Exercise both statically remapped PE3479 classes in synthetic memory.
+    // Exercise both statically remapped PE3576 classes in synthetic memory.
     // ChildOnly was observed in Kliff's historical PE3424 session.
-    for(const uintptr_t vtableRva:{uintptr_t{0x590C798},uintptr_t{0x590CCA0}}) {
+    for(const uintptr_t vtableRva:{uintptr_t{0x5914848},uintptr_t{0x5914D58}}) {
         clientBody.owner.Put(0,g_game+vtableRva);
         Begin(server,client);
         assert(FeatureAvailable("crimson_speed") && FeatureAvailable("crimson_teleport") && FeatureAvailable("crimson_auto_teleport"));
@@ -159,12 +159,12 @@ int main() {
         assert(syncCalls==6 && g_warpObservation==WarpObservation::ObservedNearMarker);
     }
     // Continue the complete correction/cancellation suite with Kliff's class.
-    clientBody.owner.Put(0,g_game+uintptr_t{0x590CCA0});
+    clientBody.owner.Put(0,g_game+uintptr_t{0x5914D58});
     Begin(server,client);
     clientBody.owner.Put(0,g_game+uintptr_t{0x5ED9A20});
     assert(!FeatureAvailable("crimson_speed") && !FeatureAvailable("crimson_teleport"));
     RefreshWarpState(); assert(!g_warpPending.load());
-    clientBody.owner.Put(0,g_game+uintptr_t{0x590CCA0});
+    clientBody.owner.Put(0,g_game+uintptr_t{0x5914D58});
 
     Begin(server,client);
     g_outerReady=false; assert(!FeatureAvailable("crimson_teleport") && !FeatureAvailable("crimson_auto_teleport"));

@@ -1,0 +1,9 @@
+Livin’ the Cream: Ice Cream Simulator — independent cheat 1.0.3
+
+Supports inspected Steam build 26525450; trainer/profile 1.0.3. HappyCheats client version and EXE are unchanged.
+
+Re-inspected IL2CPP metadata 39, all 28 required methods, eight fields, 23 API exports and four distinct hook sites. Updated exact binary/metadata fingerprints and hook addresses. Retains direct operation dispatch and requested toggles through loading.
+
+Close this game, then use Library → Update. Installation and module verification complete in one operation. Connection remains explicit where the game already requires it.
+
+Validation is offline/static/synthetic. No game was launched or attached and no save was changed. Gameplay, physical-controller operation and exclusive fullscreen are unverified.

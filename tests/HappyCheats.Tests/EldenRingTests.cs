@@ -450,7 +450,7 @@ internal static class EldenRingTests
         Run("Elden Ring profile refuses another version and false gameplay verification claims", () =>
         {
             using var fixture = new Fixture();
-            foreach (var version in new[] { "2.7.1.1", "2.7.2.0", "2.7.1", "" })
+            foreach (var version in new[] { "2.7.2.1", "2.7.1.0", "2.7.3.0", "2.7.2", "" })
             {
                 fixture.CreatePackage(version);
                 FailsIo(() => EldenRingProfile.Load(fixture.Package));
@@ -466,9 +466,9 @@ internal static class EldenRingTests
             using var fixture = new Fixture();
             fixture.CreatePackage();
             var profile = EldenRingProfile.Load(fixture.Package);
-            fixture.VersionedExecutable(2, 7, 1, 0);
+            fixture.VersionedExecutable(2, 7, 2, 0);
             profile.VerifyExecutable(fixture.Executable);
-            foreach (var version in new[] { (2, 7, 1, 1), (2, 7, 2, 0), (2, 7, 0, 0), (1, 17, 1, 0) })
+            foreach (var version in new[] { (2, 7, 1, 1), (2, 7, 1, 0), (2, 7, 3, 0), (2, 7, 0, 0), (1, 17, 1, 0) })
             {
                 fixture.VersionedExecutable(version.Item1, version.Item2, version.Item3, version.Item4);
                 FailsIo(() => profile.VerifyExecutable(fixture.Executable));
@@ -595,17 +595,17 @@ internal static class EldenRingTests
             Directory.CreateDirectory(Path.GetDirectoryName(Executable)!);
             File.WriteAllText(Executable, "fixture, not executable");
         }
-        public void CreatePackage(string fileVersion = "2.7.1.0", bool gameplayVerified = false)
+        public void CreatePackage(string fileVersion = "2.7.2.0", bool gameplayVerified = false)
         {
             Directory.CreateDirectory(Package);
             ModuleIO.WriteJson(Path.Combine(Package, "profile.json"), new {
-                schemaVersion = 1, id = "elden-ring-ww-2.7.1.0-resources-v1", fileVersion,
-                gameVersion = "1.17.1", gameplayVerified
+                schemaVersion = 1, id = "elden-ring-ww-2.7.2.0-resources-v1", fileVersion,
+                gameVersion = "1.17.2", gameplayVerified
             });
             File.WriteAllText(Path.Combine(Package, "ThirdPartyNotices.txt"), "Fixture notices.");
             Manifest();
         }
-        public void Manifest(string[]? paths = null, string version = "0.1.0")
+        public void Manifest(string[]? paths = null, string version = "0.1.1")
         {
             paths ??= ["profile.json", "ThirdPartyNotices.txt"];
             ModuleIO.WriteJson(Path.Combine(Package, "package.json"), new {

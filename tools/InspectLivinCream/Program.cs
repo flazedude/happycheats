@@ -6,8 +6,8 @@ using Mono.Cecil;
 
 var game=args.FirstOrDefault() ?? @"G:\Games\SteamLib\steamapps\common\Livin' the Cream Ice Cream Simulator";
 string? Option(string key){var i=Array.IndexOf(args,key);return i>=0 && i+1<args.Length?args[i+1]:null;}
-const string assemblyHash="c6081c74041250a89bf8cb943b5e482af8a05a15853dc727193ffd6fcf51f168";
-const string metadataHash="f19c0af79b93122307211e81d2f2c2deaeb09f908670643f687f83773062d137";
+const string assemblyHash="b54273abaa7e95595f2284fb428ed5f741d03b936218694c6196761669049280";
+const string metadataHash="3cc92f0868f5ac31409145f78affc18d06795c50c5226d30ec63dc25d5bf4fe0";
 var binary=Path.Combine(game,"GameAssembly.dll");
 var metadata=Path.Combine(game,"Livin' the Cream Ice Cream Simulator_Data/il2cpp_data/Metadata/global-metadata.dat");
 string Hash(string p)=>Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(p))).ToLowerInvariant();
@@ -58,7 +58,7 @@ if(record!=null){
  }
  var fields=new[]{("Shop","currentCustomers"),("Shop","orderUI"),("SkillTreeManager","DB"),("makif.DatabaseSystem.Database","InventoryDatabase"),("makif.DatabaseSystem.Database","ProgressDatabase"),("makif.DatabaseSystem.Database","SkillPointDatabase"),("makif.DatabaseSystem.SkillPointDatabase","SkillPoint"),("makif.DatabaseSystem.SkillPointDatabase","TotalEarned")};
  foreach(var (type,name) in fields)Check(managed.MainModule.Types.Single(t=>t.FullName==type).Fields.Any(f=>f.Name==name),"missing field: "+type+"."+name);
- var evidence=new {steam_app_id="4621810",steam_build="26511230",game_assembly_sha256=assemblyHash,metadata_sha256=metadataHash,metadata_version=39,inspection_tool="Cpp2IL 2022.1.0-pre-release.21",inspection_tool_sha256="663fb432433b4371fd1ee0ebc321a8fff2a9aac5ac4230c843f9e03ddee4e04c",bindings,fields=fields.Select(f=>new{type=f.Item1,field=f.Item2}),live_tested=false};
+ var evidence=new {steam_app_id="4621810",steam_build="26525450",game_assembly_sha256=assemblyHash,metadata_sha256=metadataHash,metadata_version=39,inspection_tool="Cpp2IL 2022.1.0-pre-release.21",inspection_tool_sha256="663fb432433b4371fd1ee0ebc321a8fff2a9aac5ac4230c843f9e03ddee4e04c",bindings,fields=fields.Select(f=>new{type=f.Item1,field=f.Item2}),live_tested=false};
  Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(record))!);File.WriteAllText(record,JsonSerializer.Serialize(evidence,new JsonSerializerOptions{WriteIndented=true}));
  var header=Option("--header") ?? throw new ArgumentException("--header required when recording bindings");Check(!File.Exists(header),"do not overwrite a reviewed native header");
  var content=new StringBuilder("#pragma once\n#include <cstdint>\nnamespace bindings {\n");
@@ -73,5 +73,5 @@ if(record!=null){
  using var json=JsonDocument.Parse(File.ReadAllBytes(Path.Combine(root,"tools/InspectLivinCream/verified-build.json")));
  var data=json.RootElement;Check(data.GetProperty("game_assembly_sha256").GetString()==assemblyHash && data.GetProperty("metadata_sha256").GetString()==metadataHash,"evidence identity");
  foreach(var binding in data.GetProperty("bindings").EnumerateArray()){int rva=binding.GetProperty("rva").GetInt32();Check(Convert.ToHexString(Bytes(rva,24)).Equals(binding.GetProperty("prefix").GetString(),StringComparison.OrdinalIgnoreCase),"native prologue drift");}
- Console.WriteLine($"PASS Livin Cream build 26511230: IL2CPP v39, native/metadata hashes, {data.GetProperty("bindings").GetArrayLength()} method sites and {requiredExports.Length} runtime exports; no game launched.");
+ Console.WriteLine($"PASS Livin Cream build 26525450: IL2CPP v39, native/metadata hashes, {data.GetProperty("bindings").GetArrayLength()} method sites and {requiredExports.Length} runtime exports; no game launched.");
 }

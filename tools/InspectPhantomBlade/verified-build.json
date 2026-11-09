@@ -1,0 +1,44 @@
+{
+  "steam_app_id": "4115450",
+  "steam_build": "26367565",
+  "executable_sha256": "4415933ce33476f14c837abb61a1b60af8b78cd81783896501913a7aac69e423",
+  "engine_version": "5.7.4",
+  "live_tested": false,
+  "bindings": [
+    {
+      "name": "object_array_caller",
+      "rva": 23378166,
+      "prefix": "488d0d53d37d0c4889442428448bce8b442460488bd789442420e86b170000"
+    },
+    {
+      "name": "allocate_object",
+      "rva": 23384192,
+      "prefix": "48895c241048896c241848897424205741544155415641574883ec40488bf9458bf14883c130418b"
+    },
+    {
+      "name": "delete_listener",
+      "rva": 23382784,
+      "prefix": "48895c240848896c24104889742418574883ec40488d99b8000000488bf1488bcb488beaff150ed300098b86b00000004c8d86b4000000413b007511b908080000488d96a800"
+    },
+    {
+      "name": "serial_number",
+      "rva": 23383984,
+      "prefix": "40574883ec203b51207d1c4c8b4118448bca0fb7c249c1e910488d14404b8b04c8488d3cd0eb0233"
+    },
+    {
+      "name": "free_object_index",
+      "rva": 23413152,
+      "prefix": "48895c240848896c2410488974241848897c242041564883ec308b720c4533f6488bea488bf93b71"
+    },
+    {
+      "name": "find_function",
+      "rva": 22224144,
+      "prefix": "48895424105553415441564157488bec4883ec604c8b79404533e44c8965304c8bf14585c00f84b00300004439a13802000075094d85ff0f849e03000048897c2450488db928020000488bcf4c896c2448ff1581801209488b5d384d8daed80100008bcb4c896dc048895d48e8ff16f1ff448b4d4c4403c8"
+    },
+    {
+      "name": "get_world",
+      "rva": 61589184,
+      "prefix": "40534883ec208b4108488bd9a810756e488b41204885c074658b40080fbae00f725c488b41208b48"
+    }
+  ]
+}

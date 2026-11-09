@@ -1,5 +1,7 @@
 # Phantom Blade Zero
 
+Current independent package **1.0.1** / trainer **0.1.4** targets Steam **26367565**. Its exact caller is `0x164B8F6`, object array `0xDE28C50`, allocation `0x164D080`, SHA-256 `4415933ce33476f14c837abb61a1b60af8b78cd81783896501913a7aac69e423`. See the [current static review](compatibility-20261109.md). Earlier build numbers, addresses and live observations below are retained historical evidence, not current-build gameplay validation.
+
 Experimental trainer 0.1.3 for the inspected Steam build **26266538**, AppID **4115450**, executable version **CL-301524_JKS-17219** (Unreal Engine 5.7.4). The module pins the actual `platform/steam/PBZ.exe` SHA-256; the small `steam/PBZ.exe` is a launcher and is not a menu or trainer target. Different executable hashes require a compatibility review.
 
 ## Controls

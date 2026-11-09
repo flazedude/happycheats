@@ -7,7 +7,7 @@ $ErrorActionPreference = 'Stop'
 $bsRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $bsGame = [IO.Path]::GetFullPath($GameDirectory)
 $bsAssembly = Join-Path $bsGame 'Builder Simulator_Data\Managed\Assembly-CSharp.dll'
-$bsExpectedGameHash = '364320218449c22db4a6e851276f4236cdc51dc74fcbf8eba4afb7fdfc1556f0'
+$bsExpectedGameHash = '0786962d80aa8b6bfce8561fcd1502c982b33f6856e59a5567864bb10de7279d'
 if (!(Test-Path -LiteralPath $bsAssembly)) { throw 'GameDirectory must contain Builder Simulator_Data/Managed/Assembly-CSharp.dll.' }
 if ((Get-FileHash -LiteralPath $bsAssembly -Algorithm SHA256).Hash.ToLowerInvariant() -ne $bsExpectedGameHash) { throw 'This Builder Simulator assembly has not been inspected. Review bindings before updating support.' }
 & dotnet run --project (Join-Path $bsRoot "tools/InspectBuilderSimulator") -c Release -- $bsAssembly
@@ -49,7 +49,7 @@ foreach ($bsDll in @('HappyCheats.BuilderSimulator.dll')) {
     $bsPaths += $bsRelative
 }
 [ordered]@{
-    schema_version = 1; game_id = 'builder-simulator'; steam_app_id = 1120320; version = '1.0.0'; build_id = '26240179'; game_assembly_sha256 = $bsExpectedGameHash
+    schema_version = 1; game_id = 'builder-simulator'; steam_app_id = 1120320; version = '1.0.1'; build_id = '26462579'; game_assembly_sha256 = $bsExpectedGameHash
     loader = Get-Content -LiteralPath (Join-Path $bsRoot '.tools\bepinex\5.4.23.5-x64\provenance.json') -Raw | ConvertFrom-Json
     files = @($bsPaths | ForEach-Object { [ordered]@{ path = $_.Replace('\', '/'); sha256 = (Get-FileHash -LiteralPath (Join-Path $bsOutput $_) -Algorithm SHA256).Hash.ToLowerInvariant() } })
 } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $bsOutput 'package.json') -Encoding utf8

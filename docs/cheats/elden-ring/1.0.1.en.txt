@@ -1,0 +1,9 @@
+Elden Ring — independent cheat 1.0.1
+
+Supports inspected Steam build 25827938; trainer/profile 0.1.1. HappyCheats client version and EXE are unchanged.
+
+Updates the experimental worldwide profile to App 1.17.2 / file 2.7.2.0. Cross-checked four manager addresses and the PlayerIns vtable against pinned primary sources and the installed image. Both unique RIP-relative signatures resolve to the expected current globals. Offline/EAC/session and resource ownership checks are retained.
+
+Close this game, then use Library → Update. Installation and module verification complete in one operation. Connection remains explicit where the game already requires it.
+
+Validation is offline/static/synthetic. No game was launched or attached and no save was changed. Gameplay, physical-controller operation and exclusive fullscreen are unverified.

@@ -1,6 +1,9 @@
 [CmdletBinding()]
-param()
+param([string]$GameDirectory)
 $ErrorActionPreference = 'Stop'
+if ($GameDirectory) {
+    & (Join-Path $PSScriptRoot '../tools/Assert-StaticBindingEvidence.ps1') -BinaryPath (Join-Path $GameDirectory 'platform/steam/PBZ.exe') -EvidencePath (Join-Path $PSScriptRoot '../tools/InspectPhantomBlade/verified-build.json')
+}
 $hcRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $hcArchive = Join-Path $hcRoot 'artifacts\astroneer\UE4SS_v3.0.1-1133-gb4cefa18.zip'
 $hcArchiveHash = '89B7EED47C37D6FF6EAA144A41311A75098279A3454777F4EDD2446CEA1EA7A8'
@@ -36,8 +39,8 @@ foreach ($hcScript in @('main','bindings','protocol')) {
 }
 [IO.File]::WriteAllText((Join-Path $hcMod 'bridge\README.txt'), "Session-bound HappyCheats mailbox. Commands expire after eight seconds; actions are dispatched once with no automatic retry.`n")
 Copy-Item -LiteralPath (Join-Path $hcExtract 'ue4ss\LICENSE') -Destination (Join-Path $hcPackage 'licenses\UE4SS-MIT.txt') -Force
-[ordered]@{dependency='UE4SS';version='3.0.1-1133-gb4cefa18';source_commit='2bfa839fe2945f9230204145646b5be4ae84fde8';unreal_dependency_commit='671c7aad5515f919cbcbbbf971944ce7ae227530';archive_url=$hcUrl;archive_sha256=$hcArchiveHash;binary_sha256=$hcLibraryHash;license='MIT';api_reference='https://docs.ue4ss.com/';loader_profile_reference='docs/phantom-blade-loader.md';game_bindings_reference='docs/phantom-blade-bindings.md; local native reflection registration and executable hash; trainer 0.1.2 readiness observed; trainer 0.1.3 health recovery and gameplay unverified'} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $hcPackage 'licenses\provenance.json') -Encoding utf8NoBOM
+[ordered]@{dependency='UE4SS';version='3.0.1-1133-gb4cefa18';source_commit='2bfa839fe2945f9230204145646b5be4ae84fde8';unreal_dependency_commit='671c7aad5515f919cbcbbbf971944ce7ae227530';archive_url=$hcUrl;archive_sha256=$hcArchiveHash;binary_sha256=$hcLibraryHash;license='MIT';api_reference='https://docs.ue4ss.com/';loader_profile_reference='docs/phantom-blade-loader.md';game_bindings_reference='docs/phantom-blade-bindings.md; local native reflection registration and executable hash; trainer 0.1.2 readiness observed; trainer 0.1.4 health recovery and gameplay unverified'} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $hcPackage 'licenses\provenance.json') -Encoding utf8NoBOM
 $hcRuntimeFiles = @('dwmapi.dll','ue4ss/UE4SS.dll','ue4ss/UE4SS-settings.ini','ue4ss/MemberVariableLayout.ini','ue4ss/UE4SS_Signatures/GUObjectArray.lua','ue4ss/Mods/mods.txt','ue4ss/Mods/HappyCheatsPhantomBlade/Scripts/main.lua','ue4ss/Mods/HappyCheatsPhantomBlade/Scripts/bindings.lua','ue4ss/Mods/HappyCheatsPhantomBlade/Scripts/protocol.lua','ue4ss/Mods/HappyCheatsPhantomBlade/bridge/README.txt')
 $hcFiles = @($hcRuntimeFiles | ForEach-Object { $hcPath = Join-Path $hcBinary $_; [ordered]@{path=[IO.Path]::GetRelativePath($hcPackage,$hcPath).Replace('\','/');sha256=(Get-FileHash -LiteralPath $hcPath -Algorithm SHA256).Hash} })
-[ordered]@{version='0.1.3';app_id='4115450';steam_build='26266538';executable_sha256='7B4FCD286A350780FAF0824D73AA150B21CBF1BCCDE883E6A96386CBE09973B4';files=$hcFiles} | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $hcPackage 'package.json') -Encoding utf8NoBOM
-Write-Host 'Built PhantomBlade 0.1.3 payload with pinned UE4SS and verified file hashes.'
+[ordered]@{version='0.1.4';app_id='4115450';steam_build='26367565';executable_sha256='4415933CE33476F14C837ABB61A1B60AF8B78CD81783896501913A7AAC69E423';files=$hcFiles} | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $hcPackage 'package.json') -Encoding utf8NoBOM
+Write-Host 'Built PhantomBlade 0.1.4 payload with pinned UE4SS and verified file hashes.'

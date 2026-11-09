@@ -1,6 +1,6 @@
 # Builder Simulator
 
-Independent package **1.0.0** supports the inspected Steam Windows build **26240179**, game **2.3.1**, app **1120320**, Unity Mono x64. The HappyCheats client and standalone EXE stay at their existing version. Unknown game assemblies are rejected with an update/install error.
+Independent package **1.0.1** supports the inspected Steam Windows build **26462579**, game **2.3.1**, app **1120320**, Unity Mono x64. The HappyCheats client and standalone EXE stay at their existing version. Unknown game assemblies are rejected with an update/install error.
 
 ## Controls
 
@@ -40,8 +40,10 @@ Read-only metadata and method inspection pins Assembly-CSharp SHA-256 `364320218
 
 ## 中文
 
-独立包 **1.0.0** 支持 Steam 构建 **26240179**（游戏 **2.3.1**）。首次请关闭客户端及支持的游戏，用 PowerShell 7 运行 `scripts/Add-BuilderSimulator.ps1`，完成签名验证和安装后重新打开原有 EXE。后续通过**修改器库 → 更新**一次完成下载、验证、加载和安装；客户端版本及EXE不变。
+独立包 **1.0.1** 支持 Steam 构建 **26462579**（游戏 **2.3.1**）。首次请关闭客户端及支持的游戏，用 PowerShell 7 运行 `scripts/Add-BuilderSimulator.ps1`，完成签名验证和安装后重新打开原有 EXE。后续通过**修改器库 → 更新**一次完成下载、验证、加载和安装；客户端版本及EXE不变。
 
 支持无限金钱、技能满级、材料不减、混合料不减、超级行走速度、超级跳跃和游戏速度。材料需要先拥有，手推车需要先装料；仍可手动清空。技能满级为一次性成长操作，不由“全部关闭”撤销，也不会在载入后自动重放。开关请求跨载入保留，等待新场景就绪后恢复；关闭或全部关闭可取消等待恢复。
 
 使用 Ctrl+Del 或按住 Menu 350 毫秒再点按 RB 打开统一菜单，使用鼠标键盘操作。已完成离线编译、静态绑定检查及合成回归；未启动游戏、未修改存档，尚未验证实际游戏效果、Unity内补丁加载或实体手柄。
+
+Current independent compatibility review: [9 November 2026](compatibility-20261109.md).

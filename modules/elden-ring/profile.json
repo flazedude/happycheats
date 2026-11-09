@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "id": "elden-ring-ww-2.7.1.0-resources-v1",
-  "gameVersion": "1.17.1",
-  "fileVersion": "2.7.1.0",
+  "id": "elden-ring-ww-2.7.2.0-resources-v1",
+  "gameVersion": "1.17.2",
+  "fileVersion": "2.7.2.0",
   "region": "worldwide",
   "gameplayVerified": false,
   "features": [
@@ -11,10 +11,10 @@
     "stamina-refill"
   ],
   "globals": {
-    "WorldChrMan": "0x3D69FF8",
-    "GameMan": "0x3D6D988",
-    "CSSessionManager": "0x3D7E540",
-    "GameDataMan": "0x3D61F98"
+    "WorldChrMan": "0x3D6D018",
+    "GameMan": "0x3D709A8",
+    "CSSessionManager": "0x3D81560",
+    "GameDataMan": "0x3D64FB8"
   },
   "guards": [
     "exact executable file version",
@@ -29,7 +29,7 @@
   "sources": [
     {
       "repository": "vswarte/fromsoftware-rs",
-      "commit": "59fbd3b3b7daaf14aca47c9f73530493dba6bc79"
+      "commit": "57023153d786c4b13fe95d9170e6dcd9d35093ea"
     },
     {
       "repository": "ThomasJClark/elden-x",
@@ -37,7 +37,7 @@
     },
     {
       "repository": "veeenu/eldenring-practice-tool",
-      "commit": "cc1a36c6138dba5d387dc7e33a00e0434635fc0b"
+      "commit": "cf2e638dfd3182abd12d0e85315914d039a76e58"
     },
     {
       "repository": "The-Grand-Archives/Elden-Ring-CT-TGA",

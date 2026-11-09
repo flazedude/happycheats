@@ -1,6 +1,6 @@
 # Crimson Desert (Steam)
 
-Native trainer **0.2.10**, independent package **1.0.2**, targets Steam app **3321460**, build **26361232**, executable **1.0.0.3479**. Compatibility is pinned to SHA-256 `DF531A585BF84CEB47779304CC8B3CAAF976AEA88424C32605885623CD4519C7`; older and unknown executables are rejected. Current hooks, protected stat fields, status metadata and Normal/ChildOnly player classes were inspected again. See [PE3479 evidence](crimson-desert-3479.md). Validation is static and synthetic only; no game was launched or attached and no save changed.
+Native trainer **0.2.11**, independent package **1.0.3**, targets Steam app **3321460**, build **26480954**, executable **1.0.0.3576**. Compatibility is pinned to SHA-256 `C94AD6C3EA54970A6D2DA7A2719753210A7728A91698ED3405DD9125470ED98F`; older and unknown executables are rejected. Current hooks, protected stat fields, status metadata and Normal/ChildOnly player classes were inspected again. See the [current binding review](compatibility-20261109.md); [PE3479 evidence](crimson-desert-3479.md) is historical. Validation is static and synthetic only; no game was launched or attached and no save changed.
 
 Close supported games and use **Update** beside Library Sort to update Crimson Desert. Client **0.3.67** completes the download, module loading and trainer installation automatically. On compatible clients **0.3.65–0.3.66**, use **Reload library**, then Crimson Desert **Install / update**. The client version and standalone EXE stay unchanged.
 

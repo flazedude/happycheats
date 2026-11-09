@@ -1,7 +1,7 @@
 {
-  "steam_build": "26240179",
-  "assembly_sha256": "364320218449C22DB4A6E851276F4236CDC51DC74FCBF8EBA4AFB7FDFC1556F0",
-  "mvid": "758cc852-7cf1-4fb5-a270-c2a3b9156fd6",
+  "steam_build": "26462579",
+  "assembly_sha256": "0786962D80AA8B6BFCE8561FCD1502C982B33F6856E59A5567864BB10DE7279D",
+  "mvid": "13d279bb-36d0-4b51-9a43-bd1d510ee149",
   "static_contract_valid": true,
   "live_tested": false,
   "errors": [],

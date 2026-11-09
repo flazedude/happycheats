@@ -1,8 +1,8 @@
 {
   "steam_app_id": "4621810",
-  "steam_build": "26511230",
-  "game_assembly_sha256": "c6081c74041250a89bf8cb943b5e482af8a05a15853dc727193ffd6fcf51f168",
-  "metadata_sha256": "f19c0af79b93122307211e81d2f2c2deaeb09f908670643f687f83773062d137",
+  "steam_build": "26525450",
+  "game_assembly_sha256": "b54273abaa7e95595f2284fb428ed5f741d03b936218694c6196761669049280",
+  "metadata_sha256": "3cc92f0868f5ac31409145f78affc18d06795c50c5226d30ec63dc25d5bf4fe0",
   "metadata_version": 39,
   "inspection_tool": "Cpp2IL 2022.1.0-pre-release.21",
   "inspection_tool_sha256": "663fb432433b4371fd1ee0ebc321a8fff2a9aac5ac4230c843f9e03ddee4e04c",
@@ -12,8 +12,8 @@
       "method": "Tick",
       "parameters": [],
       "result": "System.Void",
-      "rva": 7079456,
-      "prefix": "4883ec58803d37b1de03007513488d0d3c3fb603e84724dd"
+      "rva": 7082112,
+      "prefix": "4883ec58803dde50df03007513488d0dace0b603e8171ddd"
     },
     {
       "type": "Customer",
@@ -22,7 +22,7 @@
         "System.Single"
       ],
       "result": "System.Void",
-      "rva": 9657664,
+      "rva": 9687680,
       "prefix": "48895c2408574883ec304883b99001000000488bf90f2974"
     },
     {
@@ -32,7 +32,7 @@
         "System.Single"
       ],
       "result": "System.Void",
-      "rva": 7040560,
+      "rva": 7043216,
       "prefix": "f30f104124f30f5cc10f57c90f2fc87710f30f10494c0f2f"
     },
     {
@@ -40,16 +40,16 @@
       "method": "MarkRestorePending",
       "parameters": [],
       "result": "System.Void",
-      "rva": 7561456,
-      "prefix": "4883ec28803de059d703007513488d0d24a4ad03e877c9d5"
+      "rva": 7643440,
+      "prefix": "4883ec28803db9c3d603007513488d0d3c10ad03e8678cd4"
     },
     {
       "type": "ShopSaveManager",
       "method": "get_RestoreComplete",
       "parameters": [],
       "result": "System.Boolean",
-      "rva": 7587136,
-      "prefix": "4883ec28803d8ef5d603007513488d0dd43fad03e82765d5"
+      "rva": 7669200,
+      "prefix": "4883ec28803d175fd603007513488d0d9cabac03e8c727d4"
     },
     {
       "type": "Player",
@@ -64,8 +64,8 @@
       "method": "get_Database",
       "parameters": [],
       "result": "makif.DatabaseSystem.Database",
-      "rva": 9014032,
-      "prefix": "4883ec2833c9e8355400004885c07409488b40184883c428"
+      "rva": 8972480,
+      "prefix": "4883ec2833c9e855fcffff4885c07409488b40184883c428"
     },
     {
       "type": "makif.MoneyKit.Money",
@@ -76,16 +76,16 @@
         "System.Boolean"
       ],
       "result": "System.Void",
-      "rva": 9056640,
-      "prefix": "40534883ec40803d1d93c00300410fb6d80f297424300f28"
+      "rva": 8976640,
+      "prefix": "40534883ec40803de175c20300410fb6d80f297424300f28"
     },
     {
       "type": "makif.MoneyKit.Money",
       "method": "GetMoney",
       "parameters": [],
       "result": "System.Single",
-      "rva": 9056464,
-      "prefix": "4883ec2833c9e875aeffff4885c0741c488b40184885c074"
+      "rva": 8976464,
+      "prefix": "4883ec2833c9e8c5ecffff4885c0741c488b40184885c074"
     },
     {
       "type": "LevelManager",
@@ -94,24 +94,24 @@
         "System.Single"
       ],
       "result": "System.Void",
-      "rva": 7088432,
-      "prefix": "40574883ec40803d698ede0300488bf90f297424300f28f1"
+      "rva": 7091088,
+      "prefix": "40574883ec40803d102edf0300488bf90f297424300f28f1"
     },
     {
       "type": "LevelManager",
       "method": "GetCurrentXP",
       "parameters": [],
       "result": "System.Single",
-      "rva": 7089296,
-      "prefix": "4883ec2833c9e8755e1d004885c07413488b40384885c074"
+      "rva": 7091952,
+      "prefix": "4883ec2833c9e8c5b11c004885c07413488b40384885c074"
     },
     {
       "type": "LevelManager",
       "method": "GetCurrentLevel",
       "parameters": [],
       "result": "System.Int32",
-      "rva": 7089248,
-      "prefix": "4883ec2833c9e8a55e1d004885c07411488b40384885c074"
+      "rva": 7091904,
+      "prefix": "4883ec2833c9e8f5b11c004885c07411488b40384885c074"
     },
     {
       "type": "LevelManager",
@@ -120,8 +120,8 @@
         "System.Int32"
       ],
       "result": "System.Single",
-      "rva": 7089520,
-      "prefix": "4883ec28488b49204885c9740c4533c04883c428e9278c08"
+      "rva": 7092176,
+      "prefix": "4883ec28488b49204885c9740c4533c04883c428e9e7b507"
     },
     {
       "type": "SkillTreeManager",
@@ -130,24 +130,24 @@
         "System.Int32"
       ],
       "result": "System.Void",
-      "rva": 7998128,
-      "prefix": "40534883ec20488bd9488b49384885c9744f4533c0e8e652"
+      "rva": 8002336,
+      "prefix": "40534883ec20488bd9488b49384885c9744f4533c0e89651"
     },
     {
       "type": "SkillTreeManager",
       "method": "GetAvailablePoints",
       "parameters": [],
       "result": "System.Int32",
-      "rva": 7998960,
-      "prefix": "4883ec28488b41384885c074088b40144883c428c3e8161f"
+      "rva": 8003168,
+      "prefix": "4883ec28488b41384885c074088b40144883c428c3e8d611"
     },
     {
       "type": "PlayStyleRules",
       "method": "get_Current",
       "parameters": [],
       "result": "PlayStyle",
-      "rva": 7397824,
-      "prefix": "40534883ec20803dfbd6d903007513488d0d6242b603e8a5"
+      "rva": 7398416,
+      "prefix": "40534883ec20803db47eda03007513488d0d9aedb603e885"
     },
     {
       "type": "Shop",
@@ -156,8 +156,8 @@
         "PlayStyle"
       ],
       "result": "System.Void",
-      "rva": 7763616,
-      "prefix": "40574883ec30803d7945d40300488bf9752b488d0ddff1ae"
+      "rva": 7756704,
+      "prefix": "40574883ec30803d950ad50300488bf9752b488d0d6fc7af"
     },
     {
       "type": "SoftServeStock",
@@ -182,7 +182,7 @@
         "System.Single"
       ],
       "result": "System.Void",
-      "rva": 7041200,
+      "rva": 7043856,
       "prefix": "0f57c00f2fc17719f30f10414c0f2fc876120f28c833d2f3"
     },
     {
@@ -190,7 +190,7 @@
       "method": "StopPatience",
       "parameters": [],
       "result": "System.Void",
-      "rva": 9657872,
+      "rva": 9687888,
       "prefix": "40534883ec204883b99001000000488bd9742d488b919001"
     },
     {
@@ -198,7 +198,7 @@
       "method": "get_HasActiveOrder",
       "parameters": [],
       "result": "System.Boolean",
-      "rva": 9663920,
+      "rva": 9693936,
       "prefix": "0fb6818a010000c3cccccccccccccccc40534883ec20803d"
     },
     {
@@ -206,8 +206,8 @@
       "method": "HidePatience",
       "parameters": [],
       "result": "System.Void",
-      "rva": 8628208,
-      "prefix": "40534883ec20803de319c70300488bd97513488d0d2fd2a1"
+      "rva": 8682016,
+      "prefix": "40534883ec20803df7f1c60300488bd97513488d0d7faca1"
     },
     {
       "type": "UnityEngine.Object",
@@ -217,40 +217,40 @@
         "UnityEngine.FindObjectsSortMode"
       ],
       "result": "UnityEngine.Object[]",
-      "rva": 50512464,
-      "prefix": "48895c2408574883ec20803d4f264901008bda488bf97513"
+      "rva": 50547440,
+      "prefix": "48895c2408574883ec20803dff474901008bda488bf97513"
     },
     {
       "type": "UnityEngine.Object",
       "method": "GetInstanceID",
       "parameters": [],
       "result": "System.Int32",
-      "rva": 50513360,
-      "prefix": "40534883ec20803db422490100488bd97513488d0d4f5e24"
+      "rva": 50548336,
+      "prefix": "40534883ec20803d6444490100488bd97513488d0d378324"
     },
     {
       "type": "UnityEngine.Behaviour",
       "method": "get_isActiveAndEnabled",
       "parameters": [],
       "result": "System.Boolean",
-      "rva": 50388464,
-      "prefix": "40534883ec20803d27074b0100488bd97513488d0de72725"
+      "rva": 50423440,
+      "prefix": "40534883ec20803dd7284b0100488bd97513488d0d8f6925"
     },
     {
       "type": "UnityEngine.Component",
       "method": "get_gameObject",
       "parameters": [],
       "result": "UnityEngine.GameObject",
-      "rva": 50396112,
-      "prefix": "40534883ec20803d6be94a0100488bd9751f488d0d1f1325"
+      "rva": 50431088,
+      "prefix": "40534883ec20803d1b0b4b0100488bd9751f488d0dcf5425"
     },
     {
       "type": "UnityEngine.GameObject",
       "method": "get_scene",
       "parameters": [],
       "result": "UnityEngine.SceneManagement.Scene",
-      "rva": 50423280,
-      "prefix": "40534883ec20803d01804a0100488bd97513488d0dcfae24"
+      "rva": 50458256,
+      "prefix": "40534883ec20803db1a14a0100488bd97513488d0d77f024"
     }
   ],
   "fields": [

@@ -5,8 +5,8 @@ namespace HappyCheats.Core;
 public sealed class BuilderSimulatorModule(string baseDirectory) : IGameModule, IFeatureChoiceModule
 {
     public IReadOnlyList<string> GameExecutables { get; } = ["Builder Simulator.exe"];
-    public const string TrainerVersion = "1.0.0";
-    public const string SupportedAssemblyHash = "364320218449C22DB4A6E851276F4236CDC51DC74FCBF8EBA4AFB7FDFC1556F0";
+    public const string TrainerVersion = "1.0.1";
+    public const string SupportedAssemblyHash = "0786962D80AA8B6BFCE8561FCD1502C982B33F6856E59A5567864BB10DE7279D";
     internal static bool SupportsAssembly(string hash) => string.Equals(hash, SupportedAssemblyHash, StringComparison.OrdinalIgnoreCase);
     internal static bool MatchesInstalledPackage(string payload, string directory) => BuilderSimulatorInstaller.ReadPackage(payload)
         .All(file => File.Exists(SafePath(directory, file.Path))
@@ -14,7 +14,7 @@ public sealed class BuilderSimulatorModule(string baseDirectory) : IGameModule, 
     private readonly string package = Path.Combine(baseDirectory, "payload", "builder-simulator");
     private const string IpcRoot = "BepInEx/HappyCheats/builder-simulator/";
     private readonly SemaphoreSlim commandLock = new(1, 1);
-    public GameDefinition Definition { get; } = new("builder-simulator", "Builder Simulator", "Steam build 26240179 · 2.3.1", "1120320", "BS",
+    public GameDefinition Definition { get; } = new("builder-simulator", "Builder Simulator", "Steam build 26462579 · 2.3.1", "1120320", "BS",
         "Money, skills, materials, mixes, movement, jump height and game speed. Live gameplay validation pending. / 金钱、技能、材料、混合料、移动、跳跃和游戏速度；尚未实机验证。", new FeatureDefinition[] {
         new("unlimited_money", "Unlimited money / 无限金钱", "Show a spendable balance of at least 100,000,000 and freeze cash writes while enabled. Original balance returns on Off. / 开启时显示可用资金并锁定原余额，关闭后恢复。", "F1", true, "Resources / 资源"),
         new("max_skill_level", "Max skill level / 技能满级", "Upgrade all loaded skills to the game's maximum level 3. Permanent progression; not undone by Disable all or replayed on load. / 一次性提升至3级；不随载入重放，也不由全部关闭撤销。", "F2", false, "Progression / 成长"),

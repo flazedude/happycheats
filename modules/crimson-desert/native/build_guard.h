@@ -6,8 +6,8 @@ namespace crimson_build {
 // hexadecimal conversion. Tests compare this gate with a separately captured
 // executable-metadata fixture.
 inline constexpr std::uint16_t ExpectedMachine=0x8664;
-inline constexpr std::uint32_t ExpectedTimestamp=1793516520;
-inline constexpr std::uint32_t ExpectedImageSize=336015360; // Inspected PE3479, Steam build 26361232.
+inline constexpr std::uint32_t ExpectedTimestamp=1793928837;
+inline constexpr std::uint32_t ExpectedImageSize=332152832; // Inspected PE3576, Steam build 26480954.
 
 enum class HeaderResult { Match, MachineMismatch, TimestampMismatch, ImageSizeMismatch };
 inline HeaderResult CheckHeader(std::uint16_t machine,std::uint32_t timestamp,std::uint32_t imageSize) {

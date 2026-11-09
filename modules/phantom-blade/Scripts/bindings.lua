@@ -1,4 +1,4 @@
--- Native health restoration and reflected attributes inspected in Steam build 26266538.
+-- Original reflected bindings inspected in build 26266538; retained for build 26367565 after static review.
 -- See docs/phantom-blade-bindings.md. All calls run on the UE4SS game thread.
 local M, T = {}, {}
 T.__index = T

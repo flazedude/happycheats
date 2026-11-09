@@ -1,0 +1,43 @@
+{
+  "executable": "F:\\Games\\steamapps\\steamapps\\common\\ELDEN RING\\Game\\eldenring.exe",
+  "fileVersion": "2.7.2.0",
+  "bytes": 86973008,
+  "sha256": "F9118FEA2CFD8FA3901E8060BFADB1552CB2471771DED8A5B662C4E298FFB328",
+  "readOnly": true,
+  "gameLaunched": false,
+  "gameplayVerified": false,
+  "activeEacBypassImplemented": false,
+  "pe": {
+    "X64": true,
+    "OptionalMagic": 523,
+    "ImageSize": 98555392,
+    "Signatures": [
+      {
+        "Name": "GameMan",
+        "Count": 1,
+        "InstructionRvas": [
+          6795344
+        ],
+        "TargetRvas": [
+          64424360
+        ],
+        "ExpectedTarget": 64424360,
+        "MatchesProfile": true
+      },
+      {
+        "Name": "GameDataMan",
+        "Count": 1,
+        "InstructionRvas": [
+          2450784
+        ],
+        "TargetRvas": [
+          64376760
+        ],
+        "ExpectedTarget": 64376760,
+        "MatchesProfile": true
+      }
+    ],
+    "GlobalSectionsValid": true,
+    "PlayerVtableSectionValid": true
+  }
+}

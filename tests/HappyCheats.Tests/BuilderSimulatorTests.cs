@@ -23,6 +23,7 @@ internal static class BuilderSimulatorTests
             Check(module.Definition.Features.All(f => f.Name.Contains(" / ") && f.Description.Contains(" / ")));
             Check(BuilderSimulatorModule.SupportsAssembly(BuilderSimulatorModule.SupportedAssemblyHash.ToLowerInvariant()));
             Check(!BuilderSimulatorModule.SupportsAssembly(new string('0', 64)));
+            Check(!BuilderSimulatorModule.SupportsAssembly("364320218449C22DB4A6E851276F4236CDC51DC74FCBF8EBA4AFB7FDFC1556F0"));
             void Manifest(string id = "builder-simulator") => WriteJson(Path.Combine(package, "package.json"), new {
                 schema_version = 1, game_id = id, steam_app_id = 1120320, version = BuilderSimulatorModule.TrainerVersion,
                 game_assembly_sha256 = BuilderSimulatorModule.SupportedAssemblyHash, loader = new { architecture = "win-x64" },

@@ -1,0 +1,9 @@
+Builder Simulator — independent cheat 1.0.1
+
+Supports inspected Steam build 26462579; trainer/profile 1.0.1. HappyCheats client version and EXE are unchanged.
+
+Reviewed all 14 managed contracts and the money, consumption, movement, jump and skill-up IL. Rebuilt the plugin against the installed assembly; unknown assembly hashes remain rejected.
+
+Close this game, then use Library → Update. Installation and module verification complete in one operation. Connection remains explicit where the game already requires it.
+
+Validation is offline/static/synthetic. No game was launched or attached and no save was changed. Gameplay, physical-controller operation and exclusive fullscreen are unverified.

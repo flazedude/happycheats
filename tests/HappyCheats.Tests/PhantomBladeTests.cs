@@ -13,7 +13,7 @@ internal static class PhantomBladeTests
         Run("Phantom Blade identifies the inspected executable and three requested controls", () => {
             var module = new PhantomBladeModule("."); var definition = module.Definition;
             Assert(definition.Id == "phantom-blade-zero" && definition.AppId == "4115450");
-            Assert(PhantomBladeModule.SupportedSteamBuild == "26266538");
+            Assert(PhantomBladeModule.SupportedSteamBuild == "26367565");
             Assert(module.GameExecutables.SequenceEqual(new[] { "platform/steam/PBZ.exe" }));
             Assert(definition.Features.Select(f => f.Id).SequenceEqual(new[] { "pbz_health", "pbz_stamina", "pbz_damage" }));
             Assert(definition.Features.Select(f => f.Hotkey).SequenceEqual(new[] { "F1", "F2", "" }));

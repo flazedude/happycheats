@@ -2,16 +2,16 @@
 local checks=0
 local function check(value,label) checks=checks+1; assert(value,label) end
 dofile("modules/phantom-blade/UE4SS_Signatures/GUObjectArray.lua")
-check(Register()=="48 8D 0D 23 78 76 0C 48 89 44 24 28 44 8B CE 8B 44 24 60 48 8B D7 89 44 24 20 E8 6B 17 00 00","Exact native caller signature")
+check(Register()=="48 8D 0D 53 D3 7D 0C 48 89 44 24 28 44 8B CE 8B 44 24 60 48 8B D7 89 44 24 20 E8 6B 17 00 00","Exact native caller signature")
 for _,base in ipairs({0x140000000,0x7FF600000000}) do
-    local match=base+0x164c416
+    local match=base+0x164b8f6
     DerefToInt32=function(address)
-        if address==match+3 then return 0x0C767823 end
+        if address==match+3 then return 0x0C7DD353 end
         if address==match+0x1B then return 0x176B end
         error("Unexpected read")
     end
-    check(OnMatchFound(match)==base+0xddb3c40,"ASLR-relative global address")
-    DerefToInt32=function(address) return address==match+3 and 0x0C767823 or 0 end
+    check(OnMatchFound(match)==base+0xde28c50,"ASLR-relative global address")
+    DerefToInt32=function(address) return address==match+3 and 0x0C7DD353 or 0 end
     check(OnMatchFound(match)==nil,"Reject changed native call")
     DerefToInt32=function(address) return address==match+3 and 0 or 0x176B end
     check(OnMatchFound(match)==nil,"Reject changed global displacement")

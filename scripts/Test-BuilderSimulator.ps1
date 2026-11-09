@@ -5,7 +5,7 @@ $ErrorActionPreference='Stop'
 $bsRoot=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $bsPayload=Join-Path $bsRoot 'payload/builder-simulator'
 $bsManifest=Get-Content -LiteralPath (Join-Path $bsPayload 'package.json') -Raw | ConvertFrom-Json
-if ($bsManifest.game_id -cne 'builder-simulator' -or $bsManifest.version -cne '1.0.0' -or $bsManifest.steam_app_id -ne 1120320 -or $bsManifest.loader.architecture -cne 'win-x64') { throw 'Invalid Builder Simulator payload identity.' }
+if ($bsManifest.game_id -cne 'builder-simulator' -or $bsManifest.version -cne '1.0.1' -or $bsManifest.steam_app_id -ne 1120320 -or $bsManifest.loader.architecture -cne 'win-x64') { throw 'Invalid Builder Simulator payload identity.' }
 foreach ($bsFile in $bsManifest.files) {
     if ((Get-FileHash -LiteralPath (Join-Path $bsPayload $bsFile.path)).Hash -ine $bsFile.sha256) { throw "Builder Simulator payload hash failed: $($bsFile.path)" }
 }

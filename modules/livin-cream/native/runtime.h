@@ -9,7 +9,7 @@
 #include <nlohmann/json.hpp>
 namespace cream {
 using Json=nlohmann::json;
-inline constexpr const char* Version="1.0.2";
+inline constexpr const char* Version="1.0.3";
 inline constexpr const char* Toggles[]={"lc_no_patience","lc_unlimited_softserve"};
 inline constexpr const char* Actions[]={"lc_money","lc_add_xp","lc_add_skills","lc_refill_softserve"};
 struct Context {std::array<uintptr_t,12> key{}; bool valid{}; bool operator==(const Context&)const=default;};
