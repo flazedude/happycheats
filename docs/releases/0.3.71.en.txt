@@ -1,0 +1,9 @@
+HappyCheats 0.3.71 — Visible trainer update progress
+
+Library Update now shows a progress bar, download percentage and byte counts, elapsed time, and a timestamped, scrollable update log with Copy log. The current stage identifies catalog hosts, connection attempts and source fallback, cached-package verification/reuse/repair, download, SHA-256 verification, extraction, module loading, game discovery, installation and final verification.
+
+Installer messages appear in the update window itself. Package work and trainer installation run off the UI thread, while download notifications are throttled to keep the window responsive. Closing/reopening the busy window retains its running operation and log. Errors remain actionable and logged; the same action retries unfinished setup. Completion is reported only after installation verifies. Elden Ring still requires explicit Connect after offline launch.
+
+English and Chinese labels are included. Controls remain clickable, conflicting operations report a busy error, and existing signature/ownership/game-closed checks and shared menu/controller behavior are preserved. Both complete distributions contain all 21 existing trainer payloads at their tracked versions; no individual cheat version changes in this release.
+
+Validation: signed synthetic source fallback, download progress, cache reuse/repair, installation/retry and WPF regression checks, plus the normal release suites and complete-package/standalone checks. No installed game was launched or save modified. Gameplay and physical-controller operation remain unverified.

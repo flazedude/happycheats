@@ -97,8 +97,13 @@ public sealed class CheatStore(string root, CheatFeedConfiguration trust)
         return LoadPackage(Package(active), active);
     }
 
-    public async Task InstallAsync(CheatRelease release, byte[] proof, Func<string, Task> download, string clientVersion, CancellationToken token)
+    public Task InstallAsync(CheatRelease release, byte[] proof, Func<string, Task> download, string clientVersion, CancellationToken token)
+        => InstallWithActivityAsync(release, proof, download, clientVersion, token, null);
+
+    internal async Task InstallWithActivityAsync(CheatRelease release, byte[] proof, Func<string, Task> download, string clientVersion, CancellationToken token,
+        Action<CheatUpdateActivity>? activity)
     {
+        activity?.Invoke(new(CheatUpdateStage.CheckingCache));
         var verified = CheatSigning.Verify(proof, trust.PublicKeyPem, trust.Channel).Games.SingleOrDefault(x => x.Id == release.Id);
         if (verified == null || !CheatSigning.SamePackage(verified, release)) throw new InvalidDataException("Check and verify this cheat before downloading it.");
         RequireCompatible(release, clientVersion);
@@ -119,6 +124,7 @@ public sealed class CheatStore(string root, CheatFeedConfiguration trust)
             try { var probe = LoadPackage(destination, release); ReleaseModule(probe); ready = true; }
             catch (Exception error) when (error is IOException or InvalidDataException or BadImageFormatException) { /* Explicit repair retains the damaged package for recovery. */ }
         }
+        activity?.Invoke(new(ready ? CheatUpdateStage.ReusingCache : CheatUpdateStage.RepairingCache));
         if (!ready)
         {
             var stage = SafePath(Root, "staging/" + Guid.NewGuid().ToString("N"));
@@ -128,8 +134,11 @@ public sealed class CheatStore(string root, CheatFeedConfiguration trust)
                 var archive = SafePath(stage, "package.zip");
                 await download(archive).ConfigureAwait(false);
                 token.ThrowIfCancellationRequested();
+                activity?.Invoke(new(CheatUpdateStage.VerifyingPackage));
                 VerifyArchive(archive, release);
+                activity?.Invoke(new(CheatUpdateStage.Extracting));
                 Extract(archive, stage, release.Id);
+                activity?.Invoke(new(CheatUpdateStage.VerifyingModule));
                 var probe = LoadPackage(stage, release);
                 ReleaseModule(probe);
                 token.ThrowIfCancellationRequested();
@@ -150,6 +159,7 @@ public sealed class CheatStore(string root, CheatFeedConfiguration trust)
             }
         }
         token.ThrowIfCancellationRequested();
+        activity?.Invoke(new(CheatUpdateStage.SavingPackage));
         Directory.CreateDirectory(Path.GetDirectoryName(active)!);
         var temporary = active + "." + Guid.NewGuid().ToString("N") + ".tmp";
         await File.WriteAllBytesAsync(temporary, proof, token).ConfigureAwait(false);

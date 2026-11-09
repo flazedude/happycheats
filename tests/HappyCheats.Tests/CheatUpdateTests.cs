@@ -114,9 +114,34 @@ internal static class CheatUpdateTests
         {
             foreach (var module in ModuleCatalog.Create()) CheatStore.ValidateModule(module,module.Definition.Id); return Task.CompletedTask;
         });
+        Run("progress describes source fallback, verified setup and cache reuse", async () =>
+        {
+            using var f = new CheatFixture();
+            using var handler = new Handler(url => url.Contains("192.168.2.76") ? new(HttpStatusCode.ServiceUnavailable)
+                : Bytes(url.EndsWith(".zip") ? f.Archive : f.Proof()));
+            using var http = new HttpClient(handler);
+            var client = new CheatUpdateClient(http, f.Configuration);
+            var activities = new List<CheatUpdateActivity>();
+            var bytes = new List<UpdateProgress>();
+            client.ActivityChanged += activities.Add;
+            var check = await client.CheckAsync(f.Store.Root);
+            Assert(activities.Any(x => x.Stage == CheatUpdateStage.SourceUnavailable && x.Source!.Contains("192.168.2.76")));
+            Assert(activities.Count(x => x.Stage == CheatUpdateStage.SourceVerified) == 2);
+            await client.InstallAsync(check, f.Release, f.Store, "0.3.65", new CaptureProgress(bytes.Add));
+            Assert(bytes.First().BytesReceived == 0 && bytes.Last().BytesReceived == f.Release.PackageSize);
+            var stages = activities.Select(x => x.Stage).ToList();
+            Assert(stages.IndexOf(CheatUpdateStage.Downloading) < stages.IndexOf(CheatUpdateStage.VerifyingPackage));
+            Assert(stages.IndexOf(CheatUpdateStage.VerifyingPackage) < stages.IndexOf(CheatUpdateStage.Extracting));
+            Assert(stages.IndexOf(CheatUpdateStage.Extracting) < stages.IndexOf(CheatUpdateStage.SavingPackage));
+            activities.Clear(); bytes.Clear();
+            await client.InstallAsync(check, f.Release, f.Store, "0.3.65", new CaptureProgress(bytes.Add));
+            Assert(activities.Any(x => x.Stage == CheatUpdateStage.ReusingCache) && bytes.Count == 0);
+        });
         Console.WriteLine($"Independent cheat updates: {passed} passed, {failures} failed."); return failures;
     }
     private static HttpResponseMessage Bytes(byte[] value) => new(HttpStatusCode.OK) { Content = new ByteArrayContent(value) };
+    private sealed class CaptureProgress(Action<UpdateProgress> capture) : IProgress<UpdateProgress>
+    { public void Report(UpdateProgress value) => capture(value); }
     private static void Assert(bool value) { if (!value) throw new Exception("Assertion failed."); }
     private static async Task Fails(Func<Task> action) { try { await action(); } catch { return; } throw new Exception("Expected failure."); }
     private sealed class Handler(Func<string,HttpResponseMessage> response) : HttpMessageHandler

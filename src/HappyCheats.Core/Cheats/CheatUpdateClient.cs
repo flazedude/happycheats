@@ -10,12 +10,14 @@ public sealed record CheatUpdateCheck(CheatCatalog Catalog, byte[] Proof, IReadO
 
 public sealed class CheatUpdateClient(HttpClient http, CheatFeedConfiguration configuration, TimeSpan? networkTimeout = null)
 {
+    public event Action<CheatUpdateActivity>? ActivityChanged;
     public async Task<CheatUpdateCheck> CheckAsync(string storeRoot, CancellationToken token = default)
     {
         var candidates = new List<(string Source, CheatCatalog Catalog, byte[] Proof)>();
         Exception? last = null;
         foreach (var source in configuration.FeedUrls)
         {
+            ActivityChanged?.Invoke(new(CheatUpdateStage.CheckingSource, source));
             try
             {
                 var proof = await ReadAsync(source, CheatSigning.MaximumFeedBytes, token).ConfigureAwait(false);
@@ -23,11 +25,14 @@ public sealed class CheatUpdateClient(HttpClient http, CheatFeedConfiguration co
                 try { catalog = CheatSigning.Verify(proof, configuration.PublicKeyPem, configuration.Channel); }
                 catch (Exception error) when (error is JsonException or FormatException or CryptographicException) { throw new InvalidDataException("Invalid signed cheat feed.", error); }
                 candidates.Add((source, catalog, proof));
+                ActivityChanged?.Invoke(new(CheatUpdateStage.SourceVerified, source));
             }
-            catch (Exception error) when (error is HttpRequestException || error is OperationCanceledException && !token.IsCancellationRequested) { last = error; }
+            catch (Exception error) when (error is HttpRequestException || error is OperationCanceledException && !token.IsCancellationRequested)
+            { last = error; ActivityChanged?.Invoke(new(CheatUpdateStage.SourceUnavailable, source)); }
         }
         token.ThrowIfCancellationRequested();
         if (candidates.Count == 0) throw new IOException("No cheat update source could be reached. Check your connection and try again.", last);
+        ActivityChanged?.Invoke(new(CheatUpdateStage.SelectingCatalog));
         var cache = SafePath(storeRoot, "catalog.json");
         Directory.CreateDirectory(storeRoot);
         using var catalogLock = new FileStream(SafePath(storeRoot, "catalog.lock"), FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
@@ -61,7 +66,7 @@ public sealed class CheatUpdateClient(HttpClient http, CheatFeedConfiguration co
     public async Task InstallAsync(CheatUpdateCheck check, CheatRelease release, CheatStore store, string clientVersion,
         IProgress<UpdateProgress>? progress = null, CancellationToken token = default)
     {
-        await store.InstallAsync(release, check.Proof, async destination =>
+        await store.InstallWithActivityAsync(release, check.Proof, async destination =>
         {
             var urls = new List<string>();
             foreach (var candidate in check.Sources)
@@ -77,10 +82,10 @@ public sealed class CheatUpdateClient(HttpClient http, CheatFeedConfiguration co
             {
                 try { await DownloadAsync(url, destination, release, progress, token).ConfigureAwait(false); return; }
                 catch (Exception error) when (error is HttpRequestException || error is OperationCanceledException && !token.IsCancellationRequested)
-                { last = error; if (File.Exists(destination)) File.Delete(destination); }
+                { last = error; ActivityChanged?.Invoke(new(CheatUpdateStage.SourceUnavailable, url)); if (File.Exists(destination)) File.Delete(destination); }
             }
             throw new IOException("This exact cheat package could not be downloaded. Check your connection and retry.", last);
-        }, clientVersion, token).ConfigureAwait(false);
+        }, clientVersion, token, activity => ActivityChanged?.Invoke(activity)).ConfigureAwait(false);
     }
 
     private CancellationTokenSource Timeout(string url, CancellationToken token)
@@ -112,23 +117,28 @@ public sealed class CheatUpdateClient(HttpClient http, CheatFeedConfiguration co
 
     private async Task DownloadAsync(string url, string destination, CheatRelease release, IProgress<UpdateProgress>? progress, CancellationToken token)
     {
+        ActivityChanged?.Invoke(new(CheatUpdateStage.Connecting, url));
+        progress?.Report(new(0, release.PackageSize));
         using var headersTimeout = Timeout(url, token);
         using var response = await http.GetAsync(UpdateAddress.Validate(url, "Cheat package"), HttpCompletionOption.ResponseHeadersRead, headersTimeout.Token).ConfigureAwait(false);
         response.EnsureSuccessStatusCode(); ValidateRedirect(response, url);
         if (response.Content.Headers.ContentLength is { } size && size != release.PackageSize) throw new InvalidDataException("Cheat download size does not match the signed catalog.");
+        ActivityChanged?.Invoke(new(CheatUpdateStage.Downloading, url));
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
         timeout.CancelAfter(TimeSpan.FromMinutes(30));
         await using var input = await response.Content.ReadAsStreamAsync(timeout.Token).ConfigureAwait(false);
         await using var output = new FileStream(destination, FileMode.CreateNew, FileAccess.Write, FileShare.None, 65536, true);
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         var buffer = new byte[65536]; long received = 0; int count;
+        var reportClock = System.Diagnostics.Stopwatch.StartNew();
         while ((count = await ReadChunkAsync(input, buffer, url, timeout.Token).ConfigureAwait(false)) != 0)
         {
             received += count;
             if (received > release.PackageSize) throw new InvalidDataException("Cheat download exceeds its signed size.");
             hash.AppendData(buffer, 0, count);
             await output.WriteAsync(buffer.AsMemory(0, count), timeout.Token).ConfigureAwait(false);
-            progress?.Report(new(received, release.PackageSize));
+            if (received == count || received == release.PackageSize || reportClock.ElapsedMilliseconds >= 100)
+            { progress?.Report(new(received, release.PackageSize)); reportClock.Restart(); }
         }
         if (received != release.PackageSize || !Convert.ToHexString(hash.GetHashAndReset()).Equals(release.Sha256, StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException("Cheat download failed SHA-256 verification. No fallback was attempted.");

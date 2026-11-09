@@ -25,9 +25,11 @@ internal static class CheatUpdateUiChecks
         CheckWarnings(main, update, Check, artifacts);
         CheckFiltering(main, Check);
         CheckNewTrainers(main, Check);
+        main.SetLanguage("en",false);
         using var fixture=new CheatFixture();
         var gate=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var http=new HttpClient(new Handler(fixture,gate.Task));
+        var bodyGate=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var http=new HttpClient(new Handler(fixture,gate.Task,bodyGate.Task));
         var gameRoot=Path.Combine(fixture.Root,"game"); Directory.CreateDirectory(gameRoot);
         File.WriteAllText(Path.Combine(gameRoot, "FutureGame.exe"), "synthetic executable");
         var oldModule=new WorkflowGame(gameRoot);
@@ -35,7 +37,7 @@ internal static class CheatUpdateUiChecks
         main.Games.Add(oldGame);
         var other=main.Games.First(); var otherModule=other.Module;
         var window=new CheatUpdateWindow(fixture.Configuration,fixture.Store,new Dictionary<string,string>(),() => main.Games,null,false,
-            (release,download)=>main.ApplyCheatUpdateAsync(fixture.Store,release,download),CancellationToken.None,http)
+            (release,download,progress)=>main.ApplyCheatUpdateAsync(fixture.Store,release,download,progress),CancellationToken.None,http)
             {ShowActivated=false,ShowInTaskbar=false,Owner=main,WindowStartupLocation=WindowStartupLocation.Manual,Left=-32000,Top=-32000};
         try
         {
@@ -50,11 +52,27 @@ internal static class CheatUpdateUiChecks
             var row=window.Rows.Single(); Check(row.IsUpdate && row.Id=="future-game","a new game from the signed catalog is missing");
             var version=UpdateLauncher.CurrentVersion;
             var install=window.InstallAsync(row); Pump(()=>!install.IsCompleted);
+            Pump(()=>window.Status.Contains("Connecting") || window.Status.Contains("正在连接"));
+            window.UpdateLayout();
+            Check(window.IsWorking && window.IsIndeterminate && ((ProgressBar)window.FindName("CheatProgressBar")).IsVisible,"connection wait has no visible activity");
+            Check(window.ActivityLog.Contains("Future Game"),"operation log lacks the game being updated");
             Check(((Button)window.FindName("CheckCheatsButton")).IsEnabled,"busy controls became disabled");
             Check(window.FindName("ReloadCheatsButton")==null,"manual reload step is still exposed");
             var repeat=window.CheckAsync(); Pump(()=>repeat.IsCompleted); Check(window.Error.Length>0,"busy click was silently ignored");
             Check(main.IsEnabled && update.IsEnabled,"module download blocked the trainer window");
-            gate.SetResult(); Pump(()=>install.IsCompleted); install.GetAwaiter().GetResult();
+            var elapsed=window.ProgressDetails;
+            Pump(()=>window.ProgressDetails!=elapsed);
+            window.Close(); Check(!window.IsVisible && !install.IsCompleted,"closing progress canceled an active update");
+            window.Show();
+            gate.SetResult(); Pump(()=>window.ProgressPercent>0 && window.ProgressPercent<100);
+            Check(!window.IsIndeterminate && (window.ProgressDetails.Contains("MB") || window.ProgressDetails.Contains("KB")),"download has no byte count or determinate progress");
+            if(artifacts!=null) Capture(window,artifacts,"cheat-update-progress-en.png");
+            bodyGate.SetResult(); Pump(()=>install.IsCompleted); install.GetAwaiter().GetResult();
+            var completedStatus=window.Status;
+            var drained=false;window.Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle,new Action(()=>drained=true));Pump(()=>drained);
+            Check(!window.IsWorking && !window.IsIndeterminate && window.Status==completedStatus,"late progress replaced the final outcome");
+            Check(window.ActivityLog.Contains("SHA-256") && (window.ActivityLog.Contains("Verifying the installed") || window.ActivityLog.Contains("验证已安装")),"verification/install stages are missing from the log");
+            Check(window.ActivityLog.Contains("Synthetic installer copied trainer files."),"installer output did not reach the update window");
             Check(window.Rows.Count==0 && UpdateLauncher.CurrentVersion==version,"completed update stayed listed or changed client version");
             var installedFile=Path.Combine(gameRoot,"installed-trainer.txt");
             Check(File.ReadAllText(installedFile)=="synthetic payload","Update did not copy the trainer into the game");
@@ -80,6 +98,7 @@ internal static class CheatUpdateUiChecks
             File.WriteAllText(Path.Combine(gameRoot,"simulate-install-error"),"");
             repair=window.InstallAsync(row); Pump(()=>repair.IsCompleted);
             Check(window.Error.Contains("Synthetic installation failed") && window.Rows.Single().PendingSetup,"failed installation was silently reported ready");
+            Check(window.ActivityLog.Contains("Synthetic installation failed") && !window.IsWorking,"failure was missing from the log or progress remained active");
             File.Delete(Path.Combine(gameRoot,"simulate-install-error"));
             repair=window.InstallAsync(window.Rows.Single()); Pump(()=>repair.IsCompleted);
             Check(window.Error.Length==0 && window.Rows.Count==0,"Update retry did not finish installation or clear the row");
@@ -102,6 +121,7 @@ internal static class CheatUpdateUiChecks
                 var localizedInstall=window.InstallAsync(row); Pump(()=>localizedInstall.IsCompleted); window.UpdateLayout();
                 Check(window.WindowTitle.Length>0 && window.Rows.Count==0,"localized update window retained a completed update");
                 Check(window.Status.Contains(language=="en" ? "Ready to play" : "准备就绪"),"localized installation completion is missing");
+                Check(window.LogLabel==(language=="en"?"Update log":"更新日志") && window.CopyLogLabel==(language=="en"?"Copy log":"复制日志"),"progress log controls are not localized");
                 if(artifacts!=null)
                 {
                     var bitmap=new RenderTargetBitmap((int)window.ActualWidth,(int)window.ActualHeight,96,96,PixelFormats.Pbgra32);
@@ -113,7 +133,7 @@ internal static class CheatUpdateUiChecks
         }
         finally
         {
-            gate.TrySetResult(); window.Close();
+            gate.TrySetResult(); bodyGate.TrySetResult(); window.Close();
             ((ListBox)main.FindName("Library")).SelectedItem=originalSelection;
             var game=main.Games.SingleOrDefault(x=>x.Id=="future-game");
             if(game!=null){HappyCheats.Core.Cheats.CheatStore.ReleaseModule(game.Module);main.Games.Remove(game);}
@@ -278,7 +298,7 @@ internal static class CheatUpdateUiChecks
                 check(main.Games.All(x=>x.Id!="future-game"),"new trainer test began with a Library placeholder");
                 var unrelated=main.Games.First().Module;
                 CheatUpdateWindow Create()=>new(fixture.Configuration,fixture.Store,new Dictionary<string,string>(),()=>main.Games,null,false,
-                    (release,download)=>main.ApplyCheatUpdateAsync(fixture.Store,release,download),CancellationToken.None,http);
+                    (release,download,progress)=>main.ApplyCheatUpdateAsync(fixture.Store,release,download,progress),CancellationToken.None,http);
                 var window=Create();
                 try
                 {
@@ -331,13 +351,29 @@ internal static class CheatUpdateUiChecks
         try{Dispatcher.PushFrame(frame);}finally{timer.Stop();}
         if(!done())throw new TimeoutException("Cheat UI fixture timed out.");
     }
-    private sealed class Handler(CheatFixture fixture,Task gate):HttpMessageHandler
+    private static void Capture(Window window,string artifacts,string name)
+    {
+        window.UpdateLayout();
+        var bitmap=new RenderTargetBitmap((int)window.ActualWidth,(int)window.ActualHeight,96,96,PixelFormats.Pbgra32);
+        bitmap.Render(window);var encoder=new PngBitmapEncoder();encoder.Frames.Add(BitmapFrame.Create(bitmap));
+        using var file=File.Create(Path.Combine(artifacts,name));encoder.Save(file);
+    }
+    private sealed class Handler(CheatFixture fixture,Task gate,Task? bodyGate=null):HttpMessageHandler
     {
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken token)
         {
             var package=request.RequestUri!.AbsolutePath.EndsWith(".zip");
             if(package)await gate.WaitAsync(token);
-            return new(HttpStatusCode.OK){RequestMessage=request,Content=new ByteArrayContent(package?fixture.Archive:fixture.Proof())};
+            return new(HttpStatusCode.OK){RequestMessage=request,Content=package && bodyGate!=null
+                ? new StreamContent(new GatedStream(fixture.Archive,bodyGate)) : new ByteArrayContent(package?fixture.Archive:fixture.Proof())};
+        }
+    }
+    private sealed class GatedStream(byte[] bytes,Task gate):MemoryStream(bytes)
+    {
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer,CancellationToken token=default)
+        {
+            if(Position>0) await gate.WaitAsync(token);
+            return await base.ReadAsync(buffer[..(int)Math.Min(buffer.Length, Math.Max(1,Length/2))],token);
         }
     }
     private sealed class WorkflowGame(string directory):IGameModule

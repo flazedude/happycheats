@@ -31,7 +31,7 @@ public partial class MainWindow
         }
         var window = new CheatUpdateWindow(_cheatConfiguration, _cheatStore, _bundledCheatVersions,
             () => Games, _cheatLoadError, _isolatedUpdates,
-            (release, download) => ApplyCheatUpdateAsync(_cheatStore!, release, download), _updateLifetime.Token,
+            (release, download, progress) => ApplyCheatUpdateAsync(_cheatStore!, release, download, progress), _updateLifetime.Token,
             checkForUpdates: CheckCheatCatalogAsync)
             { Owner = this, ShowActivated = ShowActivated };
         _cheatWindow = window;
@@ -53,7 +53,9 @@ public partial class MainWindow
     {
         if (_isolatedUpdates || _cheatConfiguration == null || _cheatStore == null)
             throw new IOException(Localization.Choose("Open the configured release client to check trainer updates.", "请打开已配置的发布客户端检查修改器更新。"));
-        var check = await new CheatUpdateClient(UpdateHttp, _cheatConfiguration).CheckAsync(_cheatStore.Root, _updateLifetime.Token);
+        var client = new CheatUpdateClient(UpdateHttp, _cheatConfiguration);
+        client.ActivityChanged += activity => Dispatcher.InvokeAsync(() => _cheatWindow?.ReportCatalogActivity(activity));
+        var check = await client.CheckAsync(_cheatStore.Root, _updateLifetime.Token);
         _cheatCatalog = check.Catalog;
         RefreshCheatVersions();
         return check;
@@ -83,7 +85,7 @@ public partial class MainWindow
         catch (Exception error) { _cheatLoadError = error.Message; ClientErrorLog.Write("cheat-version-inventory", error.Message); }
     }
 
-    internal async Task<string> ApplyCheatUpdateAsync(CheatStore store, CheatRelease release, Func<Task> download)
+    internal async Task<string> ApplyCheatUpdateAsync(CheatStore store, CheatRelease release, Func<Task> download, Action<string>? progress = null)
     {
         if (_busy || _installingUpdate || _updateHandoff) throw new InvalidOperationException(Localization.Choose("Wait for the current trainer operation, then retry Update.", "请等待当前修改器操作完成后重新点击“更新”。"));
         _busy = true; _controlEpoch++; _pollTimer.Stop(); _controllerTimer.Stop(); _gameOverlay?.Hide();
@@ -94,6 +96,7 @@ public partial class MainWindow
         var transferred = false;
         try
         {
+            progress?.Invoke(Localization.Choose("Checking that the game is closed…", "正在确认游戏已关闭……"));
             while (_polling) await Task.Delay(40, _updateLifetime.Token);
             var path = previous?.Installation?.IsInstalled == true ? previous.Installation.Directory : _paths.GetValueOrDefault(release.Id);
             if (previous != null)
@@ -102,7 +105,9 @@ public partial class MainWindow
                 RequireClosed(before, previous.Name);
             }
             await download();
+            progress?.Invoke(Localization.Choose("Loading the verified trainer module…", "正在加载已验证的修改器模块……"));
             replacement = await Task.Run(() => store.LoadInstalled(release, UpdateLauncher.CurrentVersion), _updateLifetime.Token);
+            progress?.Invoke(Localization.Choose("Finding the game installation…", "正在查找游戏安装目录……"));
             var installation = await replacement.DiscoverAsync(path);
             if (!installation.IsInstalled && path != null) installation = await replacement.DiscoverAsync();
             discovered = installation;
@@ -127,11 +132,15 @@ public partial class MainWindow
             {
                 // Elden Ring's Install is a live offline-memory connection, not file setup.
                 // Updating it prepares the module; connection remains an explicit action after launch.
-                await replacement.InstallAsync(installation, new Progress<string>(text => SetMessage(text)));
-                installation = await replacement.DiscoverAsync(installation.Directory);
+                progress?.Invoke(Localization.Choose("Installing trainer files…", "正在安装修改器文件……"));
+                var installProgress = new Progress<string>(text => { SetMessage(text); progress?.Invoke(Localization.Message(text)); });
+                await Task.Run(() => replacement.InstallAsync(installation, installProgress), _updateLifetime.Token);
+                progress?.Invoke(Localization.Choose("Verifying the installed trainer…", "正在验证已安装的修改器……"));
+                installation = await Task.Run(() => replacement.DiscoverAsync(installation.Directory), _updateLifetime.Token);
                 if (!installation.TrainerInstalled || !installation.Compatible || TrainerVersionWarning.InstallationMismatch(installation))
                     throw new IOException(Localization.Choose("Trainer installation did not verify. ", "修改器安装验证未通过。") + Localization.Message(installation.Message));
             }
+            progress?.Invoke(Localization.Choose("Refreshing Library…", "正在刷新游戏库……"));
             var item = new GameItem(replacement) { Installation = installation,
                 Toggles = previous?.Toggles ?? new(),
                 Status = await replacement.ReadStatusAsync(installation), LoadedCheatVersion = release.Version };

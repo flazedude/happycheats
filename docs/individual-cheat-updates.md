@@ -1,5 +1,7 @@
 # Independent cheat updates
 
+Client **0.3.71** adds a visible activity/progress bar, download percentage and byte counts, elapsed time, and a timestamped scrollable **Update log / 更新日志** with **Copy log / 复制日志**. Source checks/fallback, package/cache verification, extraction, module loading and the existing installer's messages appear in the update window. Closing it during an operation keeps that operation and log available when reopened. Package processing and installation leave the UI thread responsive; download notifications are throttled. A full download is followed by verification and setup, and only verified installation reports completion.
+
 HappyCheats **0.3.65** introduces independently versioned game packages. This is the one-time client upgrade needed to enable the new system. Thereafter a compatible game fix or newly supported game changes only its cheat package version. The HappyCheats EXE and client version stay the same. Changes to the client, shared interfaces or updater still use the complete client release workflow.
 
 ## Using the client

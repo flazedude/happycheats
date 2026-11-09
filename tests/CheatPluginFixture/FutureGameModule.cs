@@ -21,6 +21,7 @@ public sealed class FutureGameModule(string directory) : IGameModule, IFeatureCh
     {
         if (File.Exists(Path.Combine(installation.Directory, "simulate-install-error"))) throw new IOException("Synthetic installation failed; retry Update.");
         File.Copy(Path.Combine(directory, "payload/future-game/fixture.txt"), Path.Combine(installation.Directory, "installed-trainer.txt"), true);
+        progress?.Report("Synthetic installer copied trainer files.");
         return Task.CompletedTask;
     }
     public Task RemoveAsync(GameInstallation installation, IProgress<string>? progress = null) => Task.CompletedTask;

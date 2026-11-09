@@ -2,6 +2,15 @@
 
 **[Download the latest release / 下载最新版本](https://github.com/flazedude/happycheats/releases/latest)** · [Home](README.md) · [中文首页](README.zh-CN.md)
 
+## Latest · 0.3.71
+
+- Trainer updates show source/stage activity, download percentage/bytes, elapsed time and timestamped logs with Copy log.
+- Installer output stays visible in the update window; package processing and installation run off the UI thread with throttled download notifications.
+- Busy clicks, retryable failures, verified completion, English/Chinese controls and all 21 current payloads are preserved.
+
+修改器更新显示阶段、进度、用时及可复制的时间戳日志，安装消息直接可见。离线/合成验证，未启动游戏或更改存档。
+
+[English](docs/releases/0.3.71.en.txt) · [中文](docs/releases/0.3.71.zh.txt)
 ## Independent compatibility updates · 9 November 2026
 
 - Builder Simulator 1.0.1, Livin' the Cream 1.0.3, Survival Log 1.0.1, Elden Ring 1.0.1, Crimson Desert 1.0.3 and Phantom Blade Zero 1.0.1 target the inspected installed builds. HappyCheats 0.3.70 and its complete EXE are unchanged.
@@ -10,7 +19,7 @@
 
 六款游戏独立更新兼容性，客户端及完整EXE保持不变。另三款游戏通过现有安装器修复文件。GTA V增强版的新加壳程序仍待绑定证据验证。仅离线/静态/模拟检查，未启动游戏或更改存档。
 
-## Latest · 0.3.70
+## 0.3.70
 
 - Library Update offers Add trainer for signed catalog games missing from this client's Library.
 - New modules download, verify, load and install in one operation. Missing folders, running games and failed setup remain retryable.

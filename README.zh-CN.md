@@ -4,13 +4,13 @@ Windows 游戏修改器合集，内置 21 款游戏、中英双语和统一游�
 
 **[下载 HappyCheats.exe](https://github.com/flazedude/happycheats/releases/latest/download/HappyCheats.exe)** · [最新发行版](https://github.com/flazedude/happycheats/releases/latest) · [更新日志](CHANGELOG.md) · [English](README.md)
 
-## 最新版本 · 0.3.70
+## 最新版本 · 0.3.71
 
-“游戏库 → 更新”现在可以发现客户端原先没有的修改器。点击“添加修改器”即可验证、加载并安装，无需额外脚本。目录缺失或安装中断时可以重试。完整客户端包含甜蜜冰淇淋 1.0.1 及全部 21 款当前游戏。验证为离线/合成检查，实际游戏效果尚未验证。
+“游戏库 → 更新”显示进度条、下载百分比与字节数、已用时间以及支持“复制日志”的时间戳日志，包括验证和安装消息。包处理及安装期间窗口保持响应。包含全部 21 款现有修改器，并支持从签名目录“添加修改器”。验证为离线/合成检查，实际游戏效果尚未验证。
 
-[完整更新说明](docs/releases/0.3.70.zh.txt)
+[完整更新说明](docs/releases/0.3.71.zh.txt)
 
-**[甜蜜冰淇淋 1.0.2](docs/livin-cream.md)** 移除整体就绪/可用性及旧场景会话拦截。请在游戏库更新此修改器，再正常连接。客户端 0.3.70 不变，内置的仍为先前的 1.0.1 包。已完成离线/静态/合成验证，实际游戏效果尚未验证。
+**[甜蜜冰淇淋 1.0.3](docs/livin-cream.md)** 支持已检查的 IL2CPP 版本，直接分发各项操作。本次完整客户端包含已跟踪的 1.0.3 包。已完成离线/静态/合成验证，实际游戏效果尚未验证。
 
 ![HappyCheats 英文深色界面的游戏库与星露谷物语修改器](docs/images/happycheats-library.png)
 

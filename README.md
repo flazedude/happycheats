@@ -4,13 +4,13 @@ A Windows trainer library with 21 bundled games, English / 中文, and one share
 
 **[Download HappyCheats.exe](https://github.com/flazedude/happycheats/releases/latest/download/HappyCheats.exe)** · [Latest release](https://github.com/flazedude/happycheats/releases/latest) · [Changelog](CHANGELOG.md) · [中文说明](README.zh-CN.md)
 
-## Latest version · 0.3.70
+## Latest version · 0.3.71
 
-Library Update now discovers trainers absent from the client. Click **Add trainer** to verify, load and install one without a separate setup script. Missing game folders and interrupted setup remain retryable. This complete client includes Livin' the Cream 1.0.1 and all 21 current games. Validation is offline/synthetic; gameplay remains unverified.
+Library Update shows a progress bar, download percentage/bytes, elapsed time and a timestamped log with **Copy log**, including verification and installation messages. Package processing and installation leave the window responsive. All 21 current trainers and signed-catalog **Add trainer** support are included. Validation is offline/synthetic; gameplay remains unverified.
 
-[Full release notes](docs/releases/0.3.70.en.txt)
+[Full release notes](docs/releases/0.3.71.en.txt)
 
-**[Livin' the Cream 1.0.2](docs/livin-cream.md)** removes blanket readiness/availability and stale-context vetoes. Update this trainer through Library Update, then connect normally. Client 0.3.70 remains unchanged and bundles the earlier 1.0.1 payload. Validation is offline/static/synthetic; gameplay remains unverified.
+**[Livin' the Cream 1.0.3](docs/livin-cream.md)** supports the inspected IL2CPP build with direct per-operation dispatch. This complete client includes the tracked 1.0.3 package. Validation is offline/static/synthetic; gameplay remains unverified.
 
 ![HappyCheats library and Stardew Valley trainer controls in the English dark theme](docs/images/happycheats-library.png)
 
