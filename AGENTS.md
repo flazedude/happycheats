@@ -1,5 +1,9 @@
 # HappyCheats project instructions
 
+## Direct ice cream control dispatch (9 November 2026)
+
+For Livin' the Cream, do not block explicit control clicks using Ready/available status flags, stale UI context-session IDs, a whole-shop restore flag, unique/all-manager requirements or unrelated database identity checks. Dispatch through the current connected process and attempt only the operation's own game targets. Keep toggles through in-process loads. A missing target reports the specific native operation failure. Preserve explicit process connection, package/build integrity, installation ownership, numeric wire format, process routing, at-most-once actions and client-exit cleanup; these do not serve as generic game-readiness vetoes. This supersedes older cream-wide readiness/context-reset rules.
+
 ## New trainers in the signed catalog (9 November 2026)
 
 Library Update must offer signed catalog trainers absent from the client's Library, with an Add trainer action. Do not filter those entries out because their module or game installation is unknown. Download/verify on explicit click, load the module through the existing store, discover the game and use the normal closed-game installer. Keep newly downloaded trainers visible in Library and retryable when their folder is missing, the game is running or setup fails. Preserve signature, compatibility, ownership, busy-operation and shared-menu checks. Compatible future additions must not require another client release or an external first-add script. Known current/older trainers remain omitted from ordinary updates.

@@ -63,10 +63,14 @@ internal static class LivinCreamTests
                 Reject(()=>LivinCreamModule.CreateCommand(ready,ready,toggle,null,null,Request,Ms(Now)));
                 var unready=ready with { Ready=false,Values=new Dictionary<string,string>() };
                 _=LivinCreamModule.CreateCommand(unready,unready,toggle,false,null,Request,Ms(Now));checks++;
-                Reject(()=>LivinCreamModule.CreateCommand(unready,unready,toggle,true,null,Request,Ms(Now)));
+                Check((bool)LivinCreamModule.CreateCommand(unready,unready,toggle,true,null,Request,Ms(Now))["enabled"]);
             }
             _=LivinCreamModule.CreateCommand(ready with {Ready=false},ready,"disable_all",null,null,Request,Ms(Now));checks++;
-            Reject(()=>LivinCreamModule.CreateCommand(ready,ready with {SessionId="other-session"},"lc_no_patience",true,null,Request,Ms(Now)));
+            Check((bool)LivinCreamModule.CreateCommand(ready,ready with {SessionId="other-session"},"lc_no_patience",true,null,Request,Ms(Now))["enabled"]);
+            var flagged=ready with {Ready=false,Connected=false,Values=new Dictionary<string,string>{{"available_lc_money",bool.FalseString}}};
+            Check((decimal)LivinCreamModule.CreateCommand(flagged,ready,"lc_money",null,123,Request,Ms(Now))["value"]==123);
+            var moved=State();moved["session_id"]=ProcessSession+"_2";
+            Check(LivinCreamModule.AcceptAcknowledgement(Parse(moved),Session,Request));
             Reject(()=>LivinCreamModule.CreateCommand(ready,ready,"unknown",null,null,Request,Ms(Now)));
             Check(LivinCreamModule.AcceptAcknowledgement(Parse(State()),Session,Request));
             var denied=State();((JsonObject)denied["command_result"]!)["success"]=false;Reject(()=>LivinCreamModule.AcceptAcknowledgement(Parse(denied),Session,Request));
@@ -122,7 +126,7 @@ internal static class LivinCreamTests
         Heartbeat(ProcessSession,"1");
         var waiting=module.ReadStatusAsync(installation).GetAwaiter().GetResult();
         Check(waiting.Values["available_lc_connect"]==bool.TrueString && !File.Exists(lease) && attaches==0);
-        module.SendAsync(installation,waiting,"lc_connect").GetAwaiter().GetResult();
+        module.SendAsync(installation,waiting with {Connected=false,Ready=false,SessionId="old-ui-session",Values=new Dictionary<string,string>()},"lc_connect").GetAwaiter().GetResult();
         Check(attaches==1 && File.ReadAllText(lease)==ProcessSession);
         Heartbeat(ProcessSession,"2");
         var restored=module.ReadStatusAsync(installation).GetAwaiter().GetResult();

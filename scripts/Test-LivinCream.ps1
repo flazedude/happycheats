@@ -22,7 +22,7 @@ if($LASTEXITCODE -ne 0){throw 'Livin Cream native fixture checks failed.'}
 if($LASTEXITCODE -ne 0){throw 'Livin Cream module/installer checks failed.'}
 $lcPayload=Join-Path $lcRoot 'payload/livin-cream'
 $lcManifest=Get-Content (Join-Path $lcPayload 'package.json') -Raw | ConvertFrom-Json
-if($lcManifest.game -cne 'livin-cream' -or $lcManifest.version -cne '1.0.1' -or $lcManifest.steamBuild -cne '26511230' -or @($lcManifest.files).Count -ne 2){throw 'Invalid native Livin Cream payload identity.'}
+if($lcManifest.game -cne 'livin-cream' -or $lcManifest.version -cne '1.0.2' -or $lcManifest.steamBuild -cne '26511230' -or @($lcManifest.files).Count -ne 2){throw 'Invalid native Livin Cream payload identity.'}
 foreach($lcFile in $lcManifest.files){if((Get-FileHash -LiteralPath (Join-Path $lcPayload $lcFile.path)).Hash -ine $lcFile.sha256){throw 'Livin Cream packaged file hash mismatch.'}}
 foreach($lcSource in $lcManifest.sources){if((Get-FileHash -LiteralPath (Join-Path $lcNative $lcSource.path)).Hash -ine $lcSource.sha256){throw 'Stale compiled Livin Cream source.'}}
 if(Get-ChildItem -LiteralPath $lcPayload -Recurse -File | Where-Object Name -in @('Assembly-CSharp.dll','GameAssembly.dll','UnityEngine.dll','Newtonsoft.Json.dll','winhttp.dll')){throw 'Legacy loader or game binaries must not be shipped in the native payload.'}

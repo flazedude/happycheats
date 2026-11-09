@@ -10,7 +10,7 @@ Library Update now discovers trainers absent from the client. Click **Add traine
 
 [Full release notes](docs/releases/0.3.70.en.txt)
 
-**[Livin' the Cream 1.0.1](docs/livin-cream.md)** is included in client 0.3.70. It supports IL2CPP Steam build 26511230 with all six controls. Install its trainer, launch normally, load your shop and click Connect trainer. Validation is offline/static/synthetic; gameplay remains unverified.
+**[Livin' the Cream 1.0.2](docs/livin-cream.md)** removes blanket readiness/availability and stale-context vetoes. Update this trainer through Library Update, then connect normally. Client 0.3.70 remains unchanged and bundles the earlier 1.0.1 payload. Validation is offline/static/synthetic; gameplay remains unverified.
 
 ![HappyCheats library and Stardew Valley trainer controls in the English dark theme](docs/images/happycheats-library.png)
 

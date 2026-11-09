@@ -16,7 +16,7 @@ public sealed class LivinCreamModule : IGameModule, IFeatureValueModule
     public const string SupportedAssemblyHash = "C6081C74041250A89BF8CB943B5E482AF8A05A15853DC727193FFD6FCF51F168";
     public const string MetadataPath = "Livin' the Cream Ice Cream Simulator_Data/il2cpp_data/Metadata/global-metadata.dat";
     public const string SupportedMetadataHash = "F19C0AF79B93122307211E81D2F2C2DEAEB09F908670643F687F83773062D137";
-    public const string TrainerVersion = "1.0.1";
+    public const string TrainerVersion = "1.0.2";
     public const string BridgeRoot = LivinCreamInstaller.TrainerRoot;
     private readonly string package;
     private readonly SemaphoreSlim commandLock = new(1, 1);
@@ -242,14 +242,11 @@ public sealed class LivinCreamModule : IGameModule, IFeatureValueModule
     internal static Dictionary<string, object> CreateCommand(TrainerStatus current, TrainerStatus requested, string featureId, bool? enabled,
         decimal? value, string requestId, long nowMilliseconds)
     {
-        if (!current.Connected || current.SessionId != requested.SessionId || !Regex.IsMatch(current.SessionId, "^[A-Za-z0-9_-]{8,128}$", RegexOptions.CultureInvariant))
-            throw new IOException("The Livin' the Cream session changed. Reconnect before using trainer controls.");
+        if (!Regex.IsMatch(current.SessionId, "^[a-f0-9]{32}_[0-9]+$", RegexOptions.CultureInvariant))
+            throw new IOException("Connect the Livin' the Cream trainer once, then retry this control.");
         if (!Guid.TryParseExact(requestId, "N", out _) || nowMilliseconds <= 0 || nowMilliseconds > long.MaxValue - 5000)
             throw new ArgumentException("Invalid Livin' the Cream command identity or time.");
         if (featureId != "disable_all" && !FeatureIds.Contains(featureId)) throw new ArgumentException("Unknown Livin' the Cream trainer control.");
-        var stopping = ToggleIds.Contains(featureId) && enabled == false;
-        if (featureId != "disable_all" && !stopping && (!current.Ready || !current.Values.TryGetValue("available_" + featureId, out var available) || available != bool.TrueString))
-            throw new InvalidOperationException("This Livin' the Cream control is unavailable in the current game session.");
         if (ToggleIds.Contains(featureId))
         {
             if (!enabled.HasValue || value.HasValue) throw new ArgumentException("An explicit toggle state is required.");
@@ -274,7 +271,8 @@ public sealed class LivinCreamModule : IGameModule, IFeatureValueModule
     internal static bool AcceptAcknowledgement(Snapshot next, string session, string requestId)
     {
         if (!next.Status.Connected) return false;
-        if (next.Status.SessionId != session) throw new IOException("The Livin' the Cream session changed while waiting for the command.");
+        if (!next.Status.SessionId.StartsWith(session.Split('_')[0] + "_", StringComparison.Ordinal))
+            throw new IOException("The game process restarted while waiting for the command.");
         if (next.Status.LastCommand != requestId || next.ResultRequest != requestId) return false;
         if (!next.ResultSuccess) throw new InvalidOperationException(string.IsNullOrWhiteSpace(next.ResultMessage) ? "Livin' the Cream rejected the control." : next.ResultMessage);
         return true;
@@ -323,13 +321,10 @@ public sealed class LivinCreamModule : IGameModule, IFeatureValueModule
             if (featureId == "lc_connect")
             {
                 if (enabled.HasValue || value.HasValue) throw new ArgumentException("Connect trainer does not accept a value.");
-                if (!current.Connected || current.SessionId != requested.SessionId || !current.Values.TryGetValue("available_lc_connect", out var available) || available != bool.TrueString)
-                    throw new InvalidOperationException("Refresh the Livin' the Cream game status before connecting.");
                 if (!Compatible(installation.Directory, force: true) || !LivinCreamInstaller.MatchesPackage(package, installation.Directory))
                     throw new IOException("The executable or installed Livin' the Cream trainer differs from the verified package.");
                 var before = ProcessProvider(installation.Directory);
-                if (before.Length != 1 || AwaitingConnection(before[0].Id, before[0].Started, true).SessionId != requested.SessionId)
-                    throw new IOException("The Livin' the Cream process changed before connection.");
+                if (before.Length != 1) throw new IOException("Start Livin' the Cream, then connect the trainer.");
                 await Task.Run(() => AttachTrainer(installation.Directory));
                 for (var attempt = 0; attempt < 20; attempt++)
                 {

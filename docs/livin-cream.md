@@ -1,6 +1,6 @@
 # Livin' the Cream: Ice Cream Simulator
 
-Independent cheat **1.0.1** supports Steam app **4621810**, inspected build **26511230**, with HappyCheats **0.3.69+**. The game changed from Mono to **IL2CPP (metadata 39)**. This update replaces the managed loader with a native trainer; the client EXE and version stay unchanged. Package 1.0.0 remains an immutable historical release for Mono build 26415994.
+Independent cheat **1.0.2** supports Steam app **4621810**, inspected build **26511230**, with HappyCheats **0.3.69+**. Controls dispatch directly without whole-shop readiness, availability or stale UI context vetoes. The game changed from Mono to **IL2CPP (metadata 39)**; package 1.0.1 introduced its native trainer. The client EXE/version stay unchanged for this update. Package 1.0.0 remains an immutable historical release for Mono build 26415994.
 
 ## Update and connect
 
@@ -19,7 +19,7 @@ Client 0.3.69 hides absent games in its update list. For first installation, clo
 | Add shop XP | Grant 1–10,000 once through LevelManager.AddXP, preserving normal level-up rewards. |
 | Add skill points | Grant 1–1,000 once through SkillTreeManager.EarnSkillPoint, preserving earned-point accounting. |
 | Unlimited customer patience | Stop the front customer's timer and hide its patience UI. Off refreshes native play-style rules and starts a full normal timer where applicable. Classic/Cozy mode stays unchanged. |
-| Unlimited soft-serve stock | Prevent consumption of existing reservoir contents in the current shop scene. Fill machines normally first. Does not create flavors or other supplies. |
+| Unlimited soft-serve stock | Intercept soft-serve reservoir consumption directly in the running game. Fill machines normally first. Does not create flavors or other supplies. |
 | Refill soft-serve stock | Refill nonempty reservoirs once through RestoreStock, preserving flavors and updating visuals. Empty reservoirs remain empty. |
 
 Grants and refill change loaded state and may persist through normal saves. Turning a toggle off does not undo prior grants/refill. The trainer never invokes saving or edits save files.
@@ -39,7 +39,7 @@ Exact SHA-256 identities are enforced at inspection, installation, connection an
 - GameAssembly.dll: `c6081c74041250a89bf8cb943b5e482af8a05a15853dc727193ffd6fcf51f168`
 - global-metadata.dat: `f19c0af79b93122307211e81d2f2c2deaeb09f908670643f687f83773062d137`
 
-The DLL verifies four hook prologues and runtime method identities before activation. Gameplay calls run from the existing game input tick on the game thread. Readiness requires a single active player, their shop, level/skill managers, restored database identities, a fresh game frame and an authorized client lease. Load transitions rotate the command session and clear confirmed effects. The shared client retains requested toggles and restores them through new ready-session commands. Off/Disable all cancels restoration. One-shot grants never replay; a new process requires Connect again.
+The DLL verifies four hook prologues and runtime method identities before activation. Gameplay calls run from the existing game input tick on the game thread. Explicit clicks are not vetoed by Ready/available flags, frame age, shop restoration, all-manager presence, matching database identities or an earlier UI context-session ID. Money invokes the native setter directly; XP and skills resolve only their own manager, and refill finds loaded reservoirs. An absent target reports its operation-specific error. Patience and stock toggles persist through in-process loads; Off/Disable all clears them. A process-scoped client lease cleans up effects when the client disconnects. Process identity, numeric wire shape, command expiry and duplicate suppression remain; one-shot grants never replay, and a new process requires Connect again. Return to the game so queued main-thread actions can execute.
 
 Inspection checks the x64 PE, metadata version, 23 exported APIs and a reviewed record of 28 methods, eight fields and four distinct hook sites. Cpp2IL is local inspection tooling only; generated assemblies/code are ignored and never shipped. Native fixtures cover expiry, stale sessions, bounded progression, lease/context changes and actual prologue relocation. Module tests cover explicit connection, passive context renewal, no automatic injection, package integrity and legacy migration/rollback. Shared menu/controller and toggle-continuity regressions apply.
 

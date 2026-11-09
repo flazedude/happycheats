@@ -19,7 +19,7 @@ cream::Runtime runtime;
 cream::NativeGame game;
 cream::Inbox inbox;
 std::optional<Json> pending;
-std::string processSession,lastRequest,lastMessage="Load your shop and wait for restoration to finish.",initError;
+std::string processSession,lastRequest,lastMessage="Controls dispatch directly. Return to the game to execute queued actions.",initError;
 std::atomic<bool> initialized{};bool lastSuccess=true;
 uint64_t processStart{},nextProbe{},nextPatienceRefresh{};
 Json values=Json::object();
@@ -32,16 +32,15 @@ int64_t unixMs(){FILETIME f;GetSystemTimeAsFileTime(&f);ULARGE_INTEGER n;n.LowPa
 std::string session(){return processSession+"_"+std::to_string(runtime.epoch);}
 void acknowledge(const Json& c,bool success,const std::string& message){lastRequest=c.value("request_id","");lastSuccess=success;lastMessage=message;}
 void patience(void* customer,float duration,const void* method){
- try{std::lock_guard lock(state);if(runtime.active(0,GetTickCount64()) && game.ownsCustomer(customer)){game.patience(true);return;}}
- catch(const std::exception& error){std::lock_guard lock(state);runtime.flags&=~1u;runtime.dirtyPatience=true;lastMessage=error.what();}
+ {std::lock_guard lock(state);if(runtime.active(0,GetTickCount64()))return;}
  originalPatience(customer,duration,method);
 }
 void consume(void* stock,float amount,const void* method){
- {std::lock_guard lock(state);if(runtime.active(1,GetTickCount64()) && game.ownedStocks.contains(stock))return;}
+ {std::lock_guard lock(state);if(runtime.active(1,GetTickCount64()))return;}
  originalConsume(stock,amount,method);
 }
 void restorePending(const void* method){
- {std::lock_guard lock(state);runtime.clear();runtime.context={};runtime.epoch++;game.ownedStocks.clear();values=Json::object();nextProbe=0;}
+ {std::lock_guard lock(state);runtime.context={};runtime.epoch++;game.ownedStocks.clear();values=Json::object();nextProbe=0;}
  originalRestore(method);
 }
 void tick(const void* method){
@@ -52,17 +51,17 @@ void tick(const void* method){
  try {
   if(now>=nextProbe || pending || runtime.dirtyPatience){
    nextProbe=now+250;
-   runtime.observe(game.probe(),now);
+   try{runtime.observe(game.probe(),now);}catch(const std::exception& error){lastMessage=error.what();runtime.frame=now;}
   }else runtime.frame=now;
   if(now>=runtime.lease)runtime.clear();
-  runtime.flush(game);
-  if(runtime.active(0,now) && now>=nextPatienceRefresh){game.patience(true);nextPatienceRefresh=now+250;}
+  try{runtime.flush(game);if(runtime.active(0,now) && now>=nextPatienceRefresh){game.patience(true);nextPatienceRefresh=now+250;}}
+  catch(const std::exception& error){lastMessage=error.what();}
   if(pending){
    auto command=std::move(*pending);pending.reset();
    try{cream::validate(command,session(),unixMs());acknowledge(command,true,runtime.apply(command,game,now));}
    catch(const std::exception& error){acknowledge(command,false,error.what());}
   }
-  values=runtime.context.valid?game.values():Json::object();
+  try{values=game.values();}catch(const std::exception& error){values=Json::object();lastMessage=error.what();}
  }catch(const std::exception& error){
   runtime.clear();runtime.context={};game.ownedStocks.clear();values=Json::object();
   lastMessage=std::string("Trainer paused: ")+error.what();
@@ -162,7 +161,7 @@ DWORD WINAPI run(void*){
     ULARGE_INTEGER t;t.LowPart=a.ftLastWriteTime.dwLowDateTime;t.HighPart=a.ftLastWriteTime.dwHighDateTime;auto age=unixMs()-static_cast<int64_t>((t.QuadPart-116444736000000000ULL)/10000);if(age>=0 && age<5000)runtime.lease=GetTickCount64()+5000-age;
    }}
    if(GetTickCount64()>=runtime.lease)runtime.clear();
-   if(pending && pending->value("expires_unix_ms",int64_t{})<=unixMs()){acknowledge(*pending,false,"No ready game update before command expiry. No action was replayed.");pending.reset();}
+   if(pending && pending->value("expires_unix_ms",int64_t{})<=unixMs()){acknowledge(*pending,false,"No game input tick before command expiry. Return to the game and retry; actions are never replayed.");pending.reset();}
    mailbox();status();
   }catch(const std::exception&){/* Sharing gaps are retried without replaying mutations. */}
   Sleep(100);

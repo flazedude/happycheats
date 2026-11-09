@@ -9,12 +9,13 @@
 #include <nlohmann/json.hpp>
 namespace cream {
 using Json=nlohmann::json;
-inline constexpr const char* Version="1.0.1";
+inline constexpr const char* Version="1.0.2";
 inline constexpr const char* Toggles[]={"lc_no_patience","lc_unlimited_softserve"};
 inline constexpr const char* Actions[]={"lc_money","lc_add_xp","lc_add_skills","lc_refill_softserve"};
 struct Context {std::array<uintptr_t,12> key{}; bool valid{}; bool operator==(const Context&)const=default;};
 struct Game {
  virtual ~Game()=default;
+ virtual void prepare(const std::string&){}
  virtual void patience(bool)=0;
  virtual void money(float)=0;
  virtual float xp()=0;
@@ -25,9 +26,10 @@ struct Game {
  virtual void addSkills(int)=0;
  virtual int refill()=0;
 };
+inline bool sameProcess(const std::string& left,const std::string& right){return left.size()>33 && right.size()>33 && left.substr(0,33)==right.substr(0,33) && left[32]=='_' && left.substr(0,32).find_first_not_of("0123456789abcdef")==std::string::npos && left.substr(33).find_first_not_of("0123456789")==std::string::npos;}
 inline void validate(const Json& c,const std::string& session,int64_t now) {
  auto id=c.value("request_id",""); auto end=c.value("expires_unix_ms",int64_t{});
- if(c.value("schema_version",0)!=1 || c.value("version","")!=Version || c.value("session_id","")!=session
+ if(c.value("schema_version",0)!=1 || c.value("version","")!=Version || !sameProcess(c.value("session_id",""),session)
    || id.size()!=32 || id.find_first_not_of("0123456789abcdef")!=std::string::npos)
    throw std::runtime_error("Trainer session/request changed. Refresh and retry.");
  if(end<=now || end>now+5000)throw std::runtime_error("Command expired or is dated in the future. Check the value before retrying.");
@@ -52,29 +54,28 @@ struct Inbox {
 };
 struct Runtime {
  Context context; uint64_t epoch{},frame{},lease{}; unsigned flags{}; bool dirtyPatience{};
- bool ready(uint64_t now)const{return context.valid && now<lease && now>=frame && now-frame<1000;}
- bool active(int bit,uint64_t now)const{return ready(now) && (flags&(1u<<bit));}
+ bool ready(uint64_t now)const{return now<lease;}
+ bool active(int bit,uint64_t now)const{return now<lease && (flags&(1u<<bit));}
  void clear(){dirtyPatience|=(flags&1)!=0;flags=0;}
  bool observe(Context next,uint64_t now) {
   bool changed=!(next==context);
-  if(changed){dirtyPatience|=(flags&1)!=0;flags=0;epoch++;context=next;}
+  if(changed){dirtyPatience|=(flags&1)!=0;epoch++;context=next;}
   frame=now;
-  if(!ready(now))clear();
+  if(now>=lease)clear();
   return changed;
  }
- void flush(Game& game){if(dirtyPatience && context.valid){game.patience((flags&1)!=0);dirtyPatience=false;}}
- std::string apply(const Json& command,Game& game,uint64_t now) {
+ void flush(Game& game){if(dirtyPatience){game.patience((flags&1)!=0);dirtyPatience=false;}}
+ std::string apply(const Json& command,Game& game,uint64_t) {
   auto action=command.value("feature","");
   if(action=="disable_all"){clear();flush(game);return "All continuous cheats are off.";}
   for(int i=0;i<2;i++)if(action==Toggles[i]) {
    bool on=command.at("enabled").get<bool>();
-   if(on && !ready(now))throw std::runtime_error("Load your shop and wait for restoration to finish.");
    auto old=flags;
    if(on)flags|=1u<<i;else flags&=~(1u<<i);
-   if(i==0 && old!=flags){dirtyPatience=true;try{flush(game);}catch(...){flags=old;throw;}}
+   if(i==0 && old!=flags){dirtyPatience=true;try{flush(game);}catch(...){if(on)flags=old;throw;}}
    return on?"Control turned on.":"Control turned off.";
   }
-  if(!ready(now))throw std::runtime_error("Load your shop and wait for restoration to finish.");
+  game.prepare(action);
   if(action=="lc_refill_softserve"){
    int count=game.refill();if(!count)throw std::runtime_error("Fill at least one soft-serve machine with a flavor first. Empty machines are preserved.");
    return "Refilled "+std::to_string(count)+" soft-serve reservoirs; flavors preserved.";

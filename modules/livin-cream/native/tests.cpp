@@ -11,7 +11,8 @@ int checks{};
 void check(bool value){if(!value)throw std::runtime_error("Assertion "+std::to_string(checks+1));checks++;}
 template<class T>void reject(T action){bool denied=false;try{action();}catch(const std::exception&){denied=true;}check(denied);}
 struct Fake final:Game {
- int timers{},moneyWrites{},xpWrites{},skillWrites{},refills{},levelValue=1,points=0,total=0,stocked=2;float amount=0,need=100,moneyValue{};bool noTimer{};
+ int timers{},moneyWrites{},xpWrites{},skillWrites{},refills{},levelValue=1,points=0,total=0,stocked=2;float amount=0,need=100,moneyValue{};bool noTimer{},missingXP{};
+ void prepare(const std::string& feature)override{if(feature=="lc_add_xp" && missingXP)throw std::runtime_error("No XP manager loaded.");}
  void patience(bool value)override{timers++;noTimer=value;}
  void money(float value)override{moneyWrites++;moneyValue=value;}
  float xp()override{return amount;}int level()override{return levelValue;}float required(int)override{return need;}
@@ -36,16 +37,16 @@ int main(){try{
  auto refill=command("lc_refill_softserve");refill.erase("value");apply(refill);check(game.refills==1);game.stocked=0;reject([&]{apply(refill);});
  auto toggle=command("lc_no_patience");toggle.erase("value");toggle["enabled"]=true;apply(toggle);
  auto previous=runtime.epoch;Context second=first;second.key[7]=2;runtime.observe(second,10002);
- check(runtime.epoch!=previous && runtime.flags==0 && runtime.dirtyPatience && game.moneyWrites==1);
- runtime.flush(game);check(!game.noTimer && !runtime.dirtyPatience);
- // Only a new, explicitly dispatched request can restore an effect after a new context.
+ check(runtime.epoch!=previous && runtime.flags==1 && runtime.dirtyPatience && game.moneyWrites==1);
+ runtime.flush(game);check(game.noTimer && !runtime.dirtyPatience);
+ // A context change does not veto an already submitted command or reset toggles.
  auto nextSession=std::string("0123456789abcdef0123456789abcdef_")+std::to_string(runtime.epoch);
- reject([&]{validate(toggle,nextSession,10002);});
+ validate(toggle,nextSession,10002);checks++;
  toggle["session_id"]=nextSession;toggle["request_id"]="2123456789abcdef0123456789abcdef";
  validate(toggle,nextSession,10002);
  runtime.apply(toggle,game,10002);check(runtime.active(0,10002));
- runtime.observe({},10003);check(!runtime.ready(10003) && runtime.flags==0);
- runtime.flush(game);check(runtime.dirtyPatience); // Defer native restoration until a valid shop exists.
+ runtime.observe({},10003);check(runtime.ready(10003) && runtime.flags==1);
+ runtime.flush(game);check(!runtime.dirtyPatience && game.noTimer);
  toggle["enabled"]=false;runtime.apply(toggle,game,10003);check(runtime.flags==0);
  auto disable=command("disable_all");disable.erase("value");runtime.apply(disable,game,10003);check(runtime.flags==0);
  runtime.observe(first,10004);runtime.lease=20000;toggle["enabled"]=true;runtime.apply(toggle,game,10004);
@@ -58,6 +59,13 @@ int main(){try{
  c=command("lc_no_patience");c.erase("value");reject([&]{apply(c);});
  Inbox inbox;check(inbox.claim("same",10000));check(!inbox.claim("same",10001));check(inbox.claim("next",10001));
  check(game.moneyWrites==1 && game.xpWrites==1 && game.skillWrites==1);
+ runtime.context={};runtime.frame=0;runtime.lease=0;
+ apply(command("lc_money",678));check(game.moneyWrites==2 && game.moneyValue==678);
+ apply(command("lc_add_xp",1));check(game.xpWrites==2);
+ game.missingXP=true;reject([&]{apply(command("lc_add_xp",1));});check(game.xpWrites==2);
+ apply(command("lc_money",456));check(game.moneyValue==456);game.missingXP=false;
+ auto oldSession=command("lc_money",789);validate(oldSession,"0123456789abcdef0123456789abcdef_99",10001);
+ reject([&]{validate(oldSession,"f123456789abcdef0123456789abcdef_99",10001);});
  // Relocate the four actual inspected prologues in disposable executable memory; never execute game code.
  check(MH_Initialize()==MH_OK);
  for(auto binding:bindings::sentinels){

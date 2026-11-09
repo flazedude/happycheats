@@ -1,0 +1,11 @@
+Livin' the Cream trainer 1.0.2 — Direct control dispatch
+
+Remove the blanket "control is unavailable in the current game session" gate. Explicit controls no longer depend on Ready/available flags or the UI's previous context-session ID. Connect can also be clicked without refreshing UI availability first.
+
+Remove whole-shop restore, single/all-manager, active-component and cross-database identity prerequisites from command eligibility. Money calls the native setter directly. XP and skill grants resolve only their own manager; refill finds loaded reservoirs. Missing targets report a specific operation error instead of disabling every control.
+
+Keep patience and stock toggles through in-process loads. Patience intercepts customer timer starts and stock intercepts reservoir consumption directly, without a prior shop/frame classification. Old context IDs in the same process remain routable. One-shot actions are not replayed.
+
+Close the game, update the trainer from Library Update, launch normally and Connect once. Client version/EXE unchanged. Package and exact native-build integrity, owned installation, numeric format, process routing, duplicate/expired-command protection and cleanup when the client disconnects remain in place.
+
+Validated with direct dispatch despite false readiness/availability, stale UI context, missing unrelated managers, load transitions and per-operation failures; native/package/installer and shared regressions are offline/synthetic. No game was launched or save modified. Gameplay effects remain unverified.

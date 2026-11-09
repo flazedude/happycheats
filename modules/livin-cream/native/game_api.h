@@ -52,49 +52,52 @@ struct Api {
 };
 struct NativeGame final:Game {
  Api api;
- void *playerType{},*levelType{},*skillType{},*stockType{},*find{},*active{},*getObject{},*getScene{},*instanceId{},*restore{},*getShop{},*database{},*getMoney{},*setMoney{},*addXP{},*getXP{},*getLevel{},*getRequired{},*earnSkills{},*points{},*currentStyle{},*refresh{},*stockAmount{},*stockMax{},*stockRestore{};
- void *player{},*shop{},*levels{},*skills{},*db{},*inventory{},*progress{},*skillData{};
- std::set<void*> ownedStocks;int scene{};
+ void *playerType{},*shopType{},*levelType{},*skillType{},*stockType{},*find{},*getShop{},*getMoney{},*setMoney{},*addXP{},*getXP{},*getLevel{},*getRequired{},*earnSkills{},*currentStyle{},*refresh{},*stockAmount{},*stockMax{},*stockRestore{};
+ void *shop{},*levels{},*skills{},*skillData{};
+ std::set<void*> ownedStocks;
  void initialize(HMODULE module){
   api.initialize(module);auto thread=api.threadAttach(api.domainGet());if(!thread)throw std::runtime_error("IL2CPP is not ready. Connect after loading your shop.");
   try {
    auto game=[&](const char* name){return api.klass("Assembly-CSharp.dll","",name);};
-   playerType=game("Player");levelType=game("LevelManager");skillType=game("SkillTreeManager");stockType=game("SoftServeStock");
+   playerType=game("Player");shopType=game("Shop");levelType=game("LevelManager");skillType=game("SkillTreeManager");stockType=game("SoftServeStock");
    auto unity=[&](const char* name){return api.klass("UnityEngine.CoreModule.dll","UnityEngine",name);};
    find=api.method(unity("Object"),"FindObjectsByType",{"System.Type","UnityEngine.FindObjectsSortMode"});
-   active=api.method(unity("Behaviour"),"get_isActiveAndEnabled");getObject=api.method(unity("Component"),"get_gameObject");getScene=api.method(unity("GameObject"),"get_scene");instanceId=api.method(unity("Object"),"GetInstanceID");
-   restore=api.method(game("ShopSaveManager"),"get_RestoreComplete");getShop=api.method(playerType,"GetCurrentShop");database=api.method(api.klass("Assembly-CSharp.dll","makif","GlobalData"),"get_Database");
+   getShop=api.method(playerType,"GetCurrentShop");
    auto money=api.klass("Assembly-CSharp.dll","makif.MoneyKit","Money");getMoney=api.method(money,"GetMoney");setMoney=api.method(money,"SetMoney",{"System.Single","System.String","System.Boolean"});
    addXP=api.method(levelType,"AddXP",{"System.Single"});getXP=api.method(levelType,"GetCurrentXP");getLevel=api.method(levelType,"GetCurrentLevel");getRequired=api.method(levelType,"GetXPRequiredForLevel",{"System.Int32"});
-   earnSkills=api.method(skillType,"EarnSkillPoint",{"System.Int32"});points=api.method(skillType,"GetAvailablePoints");currentStyle=api.method(game("PlayStyleRules"),"get_Current");refresh=api.method(game("Shop"),"OnPlayStyleChanged",{"PlayStyle"});
+   earnSkills=api.method(skillType,"EarnSkillPoint",{"System.Int32"});currentStyle=api.method(game("PlayStyleRules"),"get_Current");refresh=api.method(game("Shop"),"OnPlayStyleChanged",{"PlayStyle"});
    stockAmount=api.method(stockType,"GetStockAmount");stockMax=api.method(stockType,"get_MaxStock");stockRestore=api.method(stockType,"RestoreStock",{"System.Single"});
   } catch(...){api.threadDetach(thread);throw;}api.threadDetach(thread);
  }
- std::vector<void*> objects(void* type,bool behaviours){
+ std::vector<void*> objects(void* type){
   int sort=0;auto reflection=api.typeObject(api.classType(type));auto array=api.call(find,nullptr,{reflection,&sort});
   std::vector<void*> result;if(!array)return result;size_t count=api.arrayLength(array);if(count>100000)throw std::runtime_error("Unexpected game object count.");
   auto data=reinterpret_cast<void**>(reinterpret_cast<uintptr_t>(array)+4*sizeof(void*));
-  for(size_t i=0;i<count;i++)if(data[i] && (!behaviours || api.scalar<bool>(active,data[i])))result.push_back(data[i]);
+  for(size_t i=0;i<count;i++)if(data[i])result.push_back(data[i]);
   return result;
  }
- int sceneOf(void* component){return api.scalar<int>(getScene,api.call(getObject,component));}
- Context probe(){
-  Context context{};ownedStocks.clear();
-  if(!api.scalar<bool>(restore))return context;
-  auto players=objects(playerType,true);if(players.size()!=1)return context;
-  player=players[0];shop=api.call(getShop,player);if(!shop || !api.scalar<bool>(active,shop))return context;
-  auto l=objects(levelType,true),s=objects(skillType,true);if(l.size()!=1 || s.size()!=1)return context;
-  levels=l[0];skills=s[0];scene=sceneOf(shop);
-  db=api.call(database);if(!db)return context;
-  inventory=api.get<void*>(db,"InventoryDatabase");progress=api.get<void*>(db,"ProgressDatabase");skillData=api.get<void*>(db,"SkillPointDatabase");
-  if(!inventory || !progress || !skillData || api.get<void*>(skills,"DB")!=skillData)return context;
-  context.key={reinterpret_cast<uintptr_t>(player),reinterpret_cast<uintptr_t>(shop),reinterpret_cast<uintptr_t>(levels),reinterpret_cast<uintptr_t>(skills),reinterpret_cast<uintptr_t>(db),reinterpret_cast<uintptr_t>(inventory),reinterpret_cast<uintptr_t>(progress),reinterpret_cast<uintptr_t>(skillData),static_cast<uintptr_t>(api.scalar<int>(instanceId,player)),static_cast<uintptr_t>(api.scalar<int>(instanceId,shop)),static_cast<uintptr_t>(api.scalar<int>(instanceId,levels)),static_cast<uintptr_t>(api.scalar<int>(instanceId,skills))};context.valid=true;
-  for(auto stock:objects(stockType,true))if(sceneOf(stock)==scene)ownedStocks.insert(stock);
-  return context;
+ void* first(void* type){auto found=objects(type);return found.empty()?nullptr:found.front();}
+ void* currentShop(){
+  for(auto value:objects(playerType)){auto current=api.call(getShop,value);if(current)return current;}
+  return first(shopType);
  }
- void* customer(){auto list=api.get<void*>(shop,"currentCustomers");if(!list)return nullptr;auto type=api.objectClass(list);if(api.scalar<int>(api.method(type,"get_Count"),list)<=0)return nullptr;int zero=0;return api.call(api.method(type,"get_Item",{"System.Int32"}),list,{&zero});}
- bool ownsCustomer(void* value){return value && customer()==value;}
+ void stocks(){ownedStocks.clear();for(auto stock:objects(stockType))ownedStocks.insert(stock);}
+ Context probe(){
+  // Diagnostic observation only: unrelated managers, restore flags and database identities never veto controls.
+  Context context{};context.valid=true;
+  stocks();return context;
+ }
+ void prepare(const std::string& feature)override{
+  if(feature=="lc_add_xp"){
+   levels=first(levelType);if(!levels)throw std::runtime_error("The game has no loaded LevelManager for the XP grant.");
+  }else if(feature=="lc_add_skills"){
+   skills=first(skillType);if(!skills)throw std::runtime_error("The game has no loaded SkillTreeManager for the skill-point grant.");
+   skillData=api.get<void*>(skills,"DB");if(!skillData)throw std::runtime_error("The skill-point manager has no loaded point database.");
+  }else if(feature=="lc_refill_softserve")stocks();
+ }
+ void* customer(){if(!shop)return nullptr;auto list=api.get<void*>(shop,"currentCustomers");if(!list)return nullptr;auto type=api.objectClass(list);if(api.scalar<int>(api.method(type,"get_Count"),list)<=0)return nullptr;int zero=0;return api.call(api.method(type,"get_Item",{"System.Int32"}),list,{&zero});}
  void patience(bool disabled)override{
+  shop=currentShop();if(!shop)return;
   if(!disabled){auto style=api.scalar<int>(currentStyle);api.call(refresh,shop,{&style});return;}
   auto front=customer();if(!front)return;
   auto type=api.objectClass(front);
@@ -110,6 +113,6 @@ struct NativeGame final:Game {
  std::pair<int,int> skillCounts()override{return {api.get<int>(skillData,"SkillPoint"),api.get<int>(skillData,"TotalEarned")};}
  void addSkills(int value)override{api.call(earnSkills,skills,{&value});}
  int refill()override{int count=0;for(auto stock:ownedStocks)if(api.scalar<float>(stockAmount,stock)>0){float maximum=api.scalar<float>(stockMax,stock);if(!std::isfinite(maximum) || maximum<=0 || maximum>1000000)throw std::runtime_error("Invalid reservoir capacity.");api.call(stockRestore,stock,{&maximum});count++;}return count;}
- Json values(){return {{"lc_money",std::to_string(api.scalar<float>(getMoney))},{"diagnostic_lc_level",std::to_string(level())},{"diagnostic_lc_xp",std::to_string(xp())},{"diagnostic_lc_skills",std::to_string(api.scalar<int>(points,skills))}};}
+ Json values(){Json result=Json::object();try{result["lc_money"]=std::to_string(api.scalar<float>(getMoney));}catch(const std::exception&){}return result;}
 };
 }
