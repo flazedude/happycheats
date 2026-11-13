@@ -1,0 +1,9 @@
+Survival Log — independent cheat 1.0.2
+
+Supports Steam build 26615062 with native trainer 0.1.2. The HappyCheats client version and EXE remain unchanged. Requires client 0.3.69 or newer.
+
+Relocated all 11 native bindings using the updated typed IL2CPP metadata and x64 function boundaries. Updated both exact-build fingerprints and all 24-byte code sentinels. The inspected player, attribute, clock, carrying capacity, points and XP field layouts and enums are unchanged.
+
+Close Survival Log, then use Library → Update beside Sort. Download, verification and trainer-file installation complete in one operation. Start the game yourself, load a character and choose Connect trainer. Requested toggles restore through the existing shared path after loading; money and point grants are never replayed.
+
+Validation is read-only/static and synthetic, including all six hook prologues, native DLL startup diagnostics, module/installer and shared menu/controller regressions. No game was launched or attached and no save was changed. Live gameplay and physical-controller behavior remain unverified.

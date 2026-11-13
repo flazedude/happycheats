@@ -1,76 +1,76 @@
 {
   "steam_app_id": "4164790",
-  "steam_build": "26454866",
-  "game_assembly_sha256": "15ffde4e555fad6afe8c3aefd78d06a161023c6757a62223e2523b78198b062c",
-  "metadata_sha256": "dd37a8f1d9fcd5c10c026797fc76b7d9faaafa5a0b0df87e3dee4c7d39cba75b",
+  "steam_build": "26615062",
+  "game_assembly_sha256": "cadd20ff7e2adc2348baba81683e4ada2a7add33c6cdc502df8759ed3f158024",
+  "metadata_sha256": "33c65797086a9457a9707998dd55cd70e976dee4c03ccda19a1da711dc613975",
   "live_tested": false,
   "bindings": [
     {
       "name": "WorldUpdate",
-      "rva": 51763328,
-      "prefix": "40564883ec60803d506ae60200488bf10f297424500f28f2",
+      "rva": 51992800,
+      "prefix": "40564883ec60803d2276e70200488bf10f297424500f28f2",
       "signature": "System.Void GameCore.HotUpdate.Battle.Logic.BattleLogicWorld::OnUpdateAction(System.Single,System.Single)"
     },
     {
       "name": "EndBattle",
-      "rva": 51731184,
-      "prefix": "40534883ec20488bd9488b49584885c9745533d2e8270e56",
+      "rva": 51960880,
+      "prefix": "40534883ec20488bd9488b49584885c9745533d2e8375553",
       "signature": "System.Void GameCore.HotUpdate.Battle.Logic.BattleLogicWorld::EndBattle()"
     },
     {
       "name": "GetLeadingRole",
-      "rva": 51193808,
-      "prefix": "40534883ec20803dc317ef0200488bd97513488d0d97cbba",
+      "rva": 51387808,
+      "prefix": "40534883ec20803df8adf00200488bd97513488d0ddfa4bc",
       "signature": "GameCore.HotUpdate.Battle.Logic.LeadingRole GameCore.HotUpdate.Battle.Logic.AgentManager::GetLeadingRole()"
     },
     {
       "name": "SetFloat",
-      "rva": 50872928,
-      "prefix": "48895c24084889742410574883ec40803d9afaf30200410f",
+      "rva": 51061392,
+      "prefix": "48895c24084889742410574883ec40803d60a6f50200410f",
       "signature": "System.Void GameCore.HotUpdate.Battle.Logic.AttributeComponent::SetBaseValue_Float(GameCore.HotUpdate.AttrName,System.Single,System.Boolean)"
     },
     {
       "name": "SetInt",
-      "rva": 50873376,
-      "prefix": "48895c24084889742410574883ec30803dd8f8f30200418b",
+      "rva": 51061840,
+      "prefix": "48895c24084889742410574883ec30803d9ea4f50200418b",
       "signature": "System.Void GameCore.HotUpdate.Battle.Logic.AttributeComponent::SetBaseValue_Int(GameCore.HotUpdate.AttrName,System.Int32)"
     },
     {
       "name": "GetTotalFloat",
-      "rva": 50869200,
-      "prefix": "48895c2408574883ec30803d3909f402008bfa488bd97537",
+      "rva": 51057664,
+      "prefix": "48895c2408574883ec30803dffb4f502008bfa488bd97537",
       "signature": "System.Single GameCore.HotUpdate.Battle.Logic.AttributeComponent::GetTotalValue_Float(GameCore.HotUpdate.AttrName)"
     },
     {
       "name": "GetTotalInt",
-      "rva": 50869488,
-      "prefix": "48895c2408574883ec30803d1808f402008bda488bf9752b",
+      "rva": 51057952,
+      "prefix": "48895c2408574883ec30803ddeb3f502008bda488bf9752b",
       "signature": "System.Int32 GameCore.HotUpdate.Battle.Logic.AttributeComponent::GetTotalValue_Int(GameCore.HotUpdate.AttrName)"
     },
     {
       "name": "SetGold",
-      "rva": 51668192,
-      "prefix": "48895c2408574883ec20803d10dde702008bda488bf9751f",
+      "rva": 51866096,
+      "prefix": "48895c2408574883ec20803d0a64e902008bda488bf9751f",
       "signature": "System.Void GameCore.HotUpdate.Battle.Logic.LeadingRole::GmSetGold(System.Int32)"
     },
     {
       "name": "AddSurvival",
-      "rva": 42682544,
-      "prefix": "48895c2408574883ec20803d6abe7003008bda488bf97513",
+      "rva": 42746960,
+      "prefix": "48895c2408574883ec20803d124e7403008bda488bf97513",
       "signature": "System.Void GameCore.HotUpdate.Battle.Logic.SurvivalResultsManager::AddSurvivalPoint(System.Int32)"
     },
     {
       "name": "GetBurden",
-      "rva": 51061280,
+      "rva": 51250272,
       "prefix": "48895c2408574883ec408b5950488bf903594485db0f8e8e",
       "signature": "System.Int32 GameCore.HotUpdate.Battle.Logic.BagComponent::GetMaxBurden()"
     },
     {
       "name": "AddExp",
-      "rva": 42093824,
-      "prefix": "48896c24185741544155415641574883ec20803d3cb67903",
+      "rva": 42154176,
+      "prefix": "48896c24185741544155415641574883ec20803db8557d03",
       "signature": "System.Void GameCore.HotUpdate.Battle.Logic.ProficiencyManager::AddExp(GameCore.HotUpdate.ProficiencyType,System.String,System.Int32,System.Int32,System.Int32,GameCore.HotUpdate.ProficiencyExpSource,System.Int32&)"
     }
   ],
-  "inspection_date": "2026-11-09"
+  "inspection_date": "2026-11-13"
 }

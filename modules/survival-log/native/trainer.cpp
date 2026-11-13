@@ -16,8 +16,8 @@
 // Original HappyCheats IL2CPP bindings. All game calls run on BattleLogicWorld's update thread.
 namespace {
 using Json = nlohmann::json;
-constexpr const char* version = "0.1.1";
-constexpr const char* expectedHash = "15ffde4e555fad6afe8c3aefd78d06a161023c6757a62223e2523b78198b062c";
+constexpr const char* version = "0.1.2";
+constexpr const char* expectedHash = "cadd20ff7e2adc2348baba81683e4ada2a7add33c6cdc502df8759ed3f158024";
 const char* toggles[] = {"sl_satiety","sl_morale","sl_stamina","sl_health","sl_vitality","sl_freeze_clock","sl_carry"};
 const char* numbers[] = {"sl_money","sl_survival_points","sl_xp"};
 HMODULE self{};
@@ -235,7 +235,7 @@ void mailbox() {
 void initialize(const std::filesystem::path& root) {
     wchar_t executable[32768];GetModuleFileNameW(nullptr,executable,32768);
     if(std::filesystem::path(executable).filename()!=L"SurvivalLog.exe")throw std::runtime_error("Unsupported host; SurvivalLog.exe is required.");
-    if(hashFile(root/L"SurvivalLog_Data/il2cpp_data/Metadata/global-metadata.dat")!="dd37a8f1d9fcd5c10c026797fc76b7d9faaafa5a0b0df87e3dee4c7d39cba75b")throw std::runtime_error("Unsupported Survival Log metadata.");
+    if(hashFile(root/L"SurvivalLog_Data/il2cpp_data/Metadata/global-metadata.dat")!="33c65797086a9457a9707998dd55cd70e976dee4c03ccda19a1da711dc613975")throw std::runtime_error("Unsupported Survival Log metadata.");
     if(hashFile(root/L"GameAssembly.dll")!=expectedHash)throw std::runtime_error("Unsupported Survival Log build. Update the trainer before connecting.");
     auto module=GetModuleHandleW(L"GameAssembly.dll");if(!module)throw std::runtime_error("GameAssembly.dll is not loaded.");game=reinterpret_cast<uintptr_t>(module);
     for(auto& sentinel:bindings::sentinels)if(!memory(game+sentinel.rva,sizeof(sentinel.bytes)) || memcmp(reinterpret_cast<void*>(game+sentinel.rva),sentinel.bytes,sizeof(sentinel.bytes)))throw std::runtime_error("Game code differs from inspected bindings. Restart without conflicting mods.");

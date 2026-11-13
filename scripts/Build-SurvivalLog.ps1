@@ -27,7 +27,7 @@ if($LASTEXITCODE -ne 0){throw 'Survival Log DLL smoke host compilation failed.'}
 if($LASTEXITCODE -ne 0){throw 'Survival Log packaged DLL startup smoke check failed.'}
 Copy-Item -LiteralPath $slDll -Destination $slOutput -Force
 @(
-    'HappyCheats Survival Log trainer 0.1.1. Original bindings; game code/assets are not redistributed.',
+    'HappyCheats Survival Log trainer 0.1.2. Original bindings; game code/assets are not redistributed.',
     'MinHook v1.3.4 with repository reviewed x64 allocation fixes: https://github.com/TsudaKageyu/minhook/tree/v1.3.4',
     (Get-Content (Join-Path $slVendor 'minhook/LICENSE.txt') -Raw),
     'JSON for Modern C++ v3.12.0: https://github.com/nlohmann/json/tree/v3.12.0',
@@ -37,5 +37,5 @@ $slPayload=Split-Path $slOutput -Parent
 $slFiles=@('HappyCheatsSurvivalLog/HappyCheats.SurvivalLog.dll','HappyCheatsSurvivalLog/ThirdPartyNotices.txt') | ForEach-Object {
     @{path=$_;sha256=(Get-FileHash -LiteralPath (Join-Path $slPayload $_) -Algorithm SHA256).Hash}
 }
-@{schemaVersion=1;game='survival-log';version='0.1.1';steamBuild='26454866';files=@($slFiles)} | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $slPayload 'package.json') -Encoding utf8NoBOM
+@{schemaVersion=1;game='survival-log';version='0.1.2';steamBuild='26615062';files=@($slFiles)} | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $slPayload 'package.json') -Encoding utf8NoBOM
 Write-Host "Built Survival Log payload: $slOutput"

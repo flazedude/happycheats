@@ -10,10 +10,10 @@ public sealed class SurvivalLogModule : IGameModule, IFeatureValueModule
 {
     public IReadOnlyList<string> GameExecutables { get; } = [Executable];
     public const string Executable = "SurvivalLog.exe";
-    public const string SupportedAssemblyHash = "15FFDE4E555FAD6AFE8C3AEFD78D06A161023C6757A62223E2523B78198B062C";
+    public const string SupportedAssemblyHash = "CADD20FF7E2ADC2348BABA81683E4ADA2A7ADD33C6CDC502DF8759ED3F158024";
     public const string MetadataPath = "SurvivalLog_Data/il2cpp_data/Metadata/global-metadata.dat";
-    public const string SupportedMetadataHash = "DD37A8F1D9FCD5C10C026797FC76B7D9FAAAFA5A0B0DF87E3DEE4C7D39CBA75B";
-    public const string TrainerVersion = "0.1.1";
+    public const string SupportedMetadataHash = "33C65797086A9457A9707998DD55CD70E976DEE4C03CCDA19A1DA711DC613975";
+    public const string TrainerVersion = "0.1.2";
     public const string BridgeRoot = SurvivalLogInstaller.TrainerRoot;
     private readonly string package;
     private readonly SemaphoreSlim commandLock = new(1, 1);
@@ -30,10 +30,10 @@ public sealed class SurvivalLogModule : IGameModule, IFeatureValueModule
 
     internal static readonly string[] ToggleIds = { "sl_satiety", "sl_morale", "sl_stamina", "sl_health", "sl_vitality", "sl_freeze_clock", "sl_carry" };
     internal static readonly string[] FeatureIds = ToggleIds.Concat(new[] { "sl_money", "sl_survival_points", "sl_xp" }).ToArray();
-    public const string SupportedSteamBuild = "26454866";
+    public const string SupportedSteamBuild = "26615062";
     public SurvivalLogModule(string baseDirectory) => package = Path.Combine(baseDirectory, "payload", "survival-log");
     public GameDefinition Definition { get; } = new("survival-log", "Survival Log / 生存日志", "SURVIVAL MANAGEMENT", "4164790", "SL",
-        "Experimental trainer for Steam build 26454866. Install, launch normally, then Connect trainer. Offline checks only; gameplay validation pending. / 实验性修改器，尚未经实际游戏验证。",
+        "Experimental trainer for Steam build 26615062. Install, launch normally, then Connect trainer. Offline checks only; gameplay validation pending. / 实验性修改器，尚未经实际游戏验证。",
         new FeatureDefinition[] {
             new("sl_connect", "Connect trainer / 连接修改器", "Connect explicitly to the running supported game. / 手动连接已运行的受支持游戏。", "F8", false, "Connection / 连接"),
             new("sl_satiety", "Unlimited satiety / 无限饱食度", "Keep player satiety at its maximum on the next stat update. / 下次属性更新时保持玩家饱食度满值。", "F1", true, "Survival / 生存"),
@@ -80,7 +80,7 @@ public sealed class SurvivalLogModule : IGameModule, IFeatureValueModule
                     "Survival Log trainer package unavailable: " + error.Message);
             }
             return new GameInstallation(found.Directory, found.Build, true, installed, running, compatible,
-                !compatible ? "This Survival Log native assembly or metadata needs a compatibility check. Supported Steam build: 26454866."
+                !compatible ? "This Survival Log native assembly or metadata needs a compatibility check. Supported Steam build: 26615062."
                 : matching ? "Experimental trainer installed. Start the game, then choose Connect trainer."
                 : installed ? "Survival Log trainer update required. Close the game before installing."
                 : "Ready to install the experimental Survival Log trainer.");
