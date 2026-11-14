@@ -16,7 +16,7 @@ int wmain(int count,wchar_t** arguments) {
             if(value.value("ready",true) || value.at("values").value("initialization_error","").empty())return 4;
             for(auto& enabled:value.at("enabled"))if(enabled.get<bool>())return 5;
             for(auto& enabled:value.at("available"))if(enabled.get<bool>())return 6;
-            if(value.value("version","")!="1.0.3" || value.value("process_session","").size()!=32 || value.value("session_id","").size()<34)return 7;
+            if(value.value("version","")!="1.0.4" || value.value("process_session","").size()!=32 || value.value("session_id","").size()<34)return 7;
             std::cout<<"PASS Livin Cream packaged native DLL startup and unsupported-host diagnostics; no game accessed.\n";return 0;
         }catch(const std::exception&){}
     }
