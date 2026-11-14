@@ -16,7 +16,9 @@ public static class NomadDriveInstaller
         "BepInEx/core/0Harmony20.dll", "BepInEx/core/BepInEx.dll", "BepInEx/core/BepInEx.Harmony.dll",
         "BepInEx/core/BepInEx.Preloader.dll", "BepInEx/core/HarmonyXInterop.dll", "BepInEx/core/Mono.Cecil.dll",
         "BepInEx/core/Mono.Cecil.Mdb.dll", "BepInEx/core/Mono.Cecil.Pdb.dll", "BepInEx/core/Mono.Cecil.Rocks.dll",
-        "BepInEx/core/MonoMod.RuntimeDetour.dll", "BepInEx/core/MonoMod.Utils.dll", Plugin
+        "BepInEx/core/MonoMod.RuntimeDetour.dll", "BepInEx/core/MonoMod.Utils.dll",
+        "BepInEx/nomad-runtime/mscorlib.dll", "BepInEx/nomad-runtime/System.dll",
+        "BepInEx/nomad-runtime/System.Core.dll", "BepInEx/nomad-runtime/netstandard.dll", Plugin
     };
     public static IReadOnlyList<Entry> ReadPackage(string package)
     {
