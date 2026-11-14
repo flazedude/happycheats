@@ -101,7 +101,13 @@ public static class NomadDriveInstaller
                     applied[target] = file.Sha256;
                 } finally { if (File.Exists(stage)) File.Delete(stage); }
             }
+            progress?.Report("Verifying installed Nomad Drive trainer files...");
             checkGameClosed();
+            foreach (var file in payload) {
+                var target = SafePath(root, file.Path);
+                if (!File.Exists(target) || !string.Equals(Hash(target), file.Sha256, StringComparison.OrdinalIgnoreCase))
+                    throw new IOException("Nomad Drive installation verification failed: " + file.Path + ". Close the game and retry Update / Install.");
+            }
             backups[receiptPath] = File.Exists(receiptPath) ? File.ReadAllBytes(receiptPath) : null;
             WriteJson(receiptPath, new Receipt("nomad-drive", nextOwned));
             applied[receiptPath] = Hash(receiptPath);

@@ -38,6 +38,21 @@ internal static class NomadDriveTests
             Check(!Directory.EnumerateFiles(game, "*", SearchOption.AllDirectories).Any());
             NomadDriveInstaller.Install(package, game, () => { }); Check(NomadDriveInstaller.Installed(game));
             Check(NomadDriveModule.MatchesInstalledPackage(package, game));
+            // Exercise the existing ownership receipt upgrade used by the in-app updater.
+            var oldPlugin = SafePath(game, NomadDriveInstaller.Plugin);
+            File.WriteAllText(oldPlugin, "owned 1.0.0 plugin");
+            var oldFiles = NomadDriveInstaller.RequiredFiles.Select(p => new NomadDriveInstaller.Entry(p, Hash(SafePath(game, p)))).ToList();
+            WriteJson(SafePath(game, NomadDriveInstaller.ReceiptPath), new NomadDriveInstaller.Receipt("nomad-drive", oldFiles));
+            var progress = new List<string>();
+            NomadDriveInstaller.Install(package, game, () => { }, new ReportProgress(progress.Add));
+            Check(NomadDriveModule.MatchesInstalledPackage(package, game));
+            Check(progress.Any(message => message.Contains("Verifying installed")));
+            var verificationGame = Path.Combine(root, "verification-game"); Directory.CreateDirectory(verificationGame);
+            Reject(() => NomadDriveInstaller.Install(package, verificationGame, () => { }, new ReportProgress(message => {
+                if (message.StartsWith("Verifying installed")) File.AppendAllText(SafePath(verificationGame, NomadDriveInstaller.Plugin), "external change");
+            })));
+            Check(!File.Exists(SafePath(verificationGame, NomadDriveInstaller.ReceiptPath)));
+            Check(File.ReadAllText(SafePath(verificationGame, NomadDriveInstaller.Plugin)).EndsWith("external change"));
             File.AppendAllText(SafePath(game, NomadDriveInstaller.Plugin), "user modification");
             Reject(() => NomadDriveInstaller.Remove(game, () => { }));
             Check(File.ReadAllText(SafePath(game, NomadDriveInstaller.Plugin)).EndsWith("user modification"));
@@ -53,5 +68,9 @@ internal static class NomadDriveTests
             return 0;
         } catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
         finally { Directory.Delete(root, true); }
+    }
+    private sealed class ReportProgress(Action<string> report) : IProgress<string>
+    {
+        public void Report(string value) => report(value);
     }
 }

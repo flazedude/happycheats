@@ -49,7 +49,7 @@ foreach ($ndDll in @('HappyCheats.NomadDrive.dll')) {
     $ndPaths += $ndRelative
 }
 [ordered]@{
-    schema_version = 1; game_id = 'nomad-drive'; steam_app_id = 2223980; version = '1.0.0'; build_id = '26391437'; game_assembly_sha256 = $ndExpectedGameHash
+    schema_version = 1; game_id = 'nomad-drive'; steam_app_id = 2223980; version = '1.0.1'; build_id = '26391437'; game_assembly_sha256 = $ndExpectedGameHash
     loader = Get-Content -LiteralPath (Join-Path $ndRoot '.tools\bepinex\5.4.23.5-x64\provenance.json') -Raw | ConvertFrom-Json
     files = @($ndPaths | ForEach-Object { [ordered]@{ path = $_.Replace('\', '/'); sha256 = (Get-FileHash -LiteralPath (Join-Path $ndOutput $_) -Algorithm SHA256).Hash.ToLowerInvariant() } })
 } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $ndOutput 'package.json') -Encoding utf8

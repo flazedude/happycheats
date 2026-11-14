@@ -5,7 +5,7 @@ namespace HappyCheats.Core;
 public sealed class NomadDriveModule(string baseDirectory) : IGameModule
 {
     public IReadOnlyList<string> GameExecutables { get; } = ["Nomad Drive.exe"];
-    public const string TrainerVersion = "1.0.0";
+    public const string TrainerVersion = "1.0.1";
     public const string SupportedAssemblyHash = "6957F9A1180D811CA2AE1BB44748157D794FED5BEFD845290FD15E41FB54FFAF";
     internal static bool SupportsAssembly(string hash) => string.Equals(hash, SupportedAssemblyHash, StringComparison.OrdinalIgnoreCase);
     internal static bool MatchesInstalledPackage(string payload, string directory) => NomadDriveInstaller.ReadPackage(payload)

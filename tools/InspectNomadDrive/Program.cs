@@ -22,6 +22,6 @@ foreach (var (name, methods) in contracts) {
 }
 var hash = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path)));
 if (hash != "6957F9A1180D811CA2AE1BB44748157D794FED5BEFD845290FD15E41FB54FFAF") errors.Add("Unreviewed assembly hash");
-Console.WriteLine(JsonSerializer.Serialize(new { steam_build = "26391437", assembly_sha256 = hash, mvid = assembly.MainModule.Mvid,
+Console.WriteLine(JsonSerializer.Serialize(new { verified_date = "2026-11-14", steam_build = "26391437", assembly_sha256 = hash, mvid = assembly.MainModule.Mvid,
     static_contract_valid = errors.Count == 0, live_tested = false, errors, bindings }, new JsonSerializerOptions { WriteIndented = true }));
 return errors.Count == 0 ? 0 : 1;

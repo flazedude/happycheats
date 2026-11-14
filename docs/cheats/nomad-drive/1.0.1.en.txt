@@ -1,0 +1,9 @@
+Nomad Drive 1.0.1 — compatibility refresh and integrated trainer updates.
+
+Revalidated Steam build 26391437 on 14 November 2026. Its Assembly-CSharp SHA-256 is unchanged. All eleven existing controls and exact player/stat/medicine/fuel/engine bindings remain supported by static inspection; no uninspected newer build is claimed.
+
+Use Update beside Library Sort in HappyCheats 0.3.70+ and choose Update or Add trainer. The normal signed-cache and closed-game installer path completes setup in one operation; no first-add script or separate reload is needed. Missing folders, running games and setup failures remain visible and retryable. The module declares client 0.3.69+ for shared toggle restoration; the client EXE and version stay unchanged.
+
+Installation now verifies every installed payload SHA-256 before writing its receipt or reporting success. Owned 1.0.0 installations upgrade normally; modified/foreign files remain protected and interrupted writes roll back.
+
+Checks: exact-build binding inspection, payload compilation/hashes, synthetic runtime/protocol and upgrade/rollback fixtures, signed-cache and shared Update/Add trainer/menu/controller regressions. No game was launched or saves changed. Gameplay effects, physical controllers, achievements and exclusive fullscreen remain unverified. Solo hosted play only; vehicle actions require existing parts within 15 m.

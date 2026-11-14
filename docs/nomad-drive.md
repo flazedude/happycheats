@@ -1,7 +1,7 @@
 # Nomad Drive
 
-Independent package **1.0.0**, Steam app **2223980**, inspected build **26391437**.
-HappyCheats **0.3.65+** and contract API 1 are required. The client version and standalone EXE stay unchanged.
+Independent package **1.0.1**, Steam app **2223980**, inspected build **26391437**.
+HappyCheats **0.3.69+** and contract API 1 are required. The client version and standalone EXE stay unchanged.
 
 ## Controls
 
@@ -24,13 +24,11 @@ Use the common **Ctrl+Del** menu, or enable Xbox shortcuts and hold **Menu for 3
 
 ## Add to the existing client
 
-Clients 0.3.68/0.3.69 hide catalog entries that are absent from their Library. For this new game, close HappyCheats and supported games, then run in PowerShell 7 from a synced source checkout with .NET 8 installed:
+In **HappyCheats 0.3.70+**, open **Update** beside Library Sort, then **Check for updates**. Choose **Update** for Nomad Drive, or **Add trainer** if it is absent from Library. Close Nomad Drive first. The client downloads and verifies the signed package, repairs the cache if necessary, loads only this module, discovers the game and runs its existing installer in one operation. No first-add script or separate Library reload is required.
 
-```powershell
-.\scripts\Add-NomadDrive.ps1 -ClientDirectory '<existing unpacked HappyCheats client folder>'
-```
+If the folder is missing, the game is running or setup fails, the downloaded trainer remains in Library with a retryable **Finish update** action. Use Find in Steam / Browse folder when needed, then retry the same update. Current/older packages are omitted after verified installation. The module requires client 0.3.69+ for shared toggle restoration; the catalog's Add trainer flow requires the existing 0.3.70+ client feature. This game update does not rebuild or replace the EXE. Older first-add scripts remain historical compatibility utilities and are not the supported setup path for current clients.
 
-The helper checks the existing EXE version, pins the established public signing key, checks both LAN catalogs and GitHub, and uses the existing trusted cache API to verify and install the exact signed package. It installs the downloaded game's trainer files while the game is closed. Reopen the **same HappyCheats EXE** to load the new Library entry. Subsequent Nomad Drive updates use Update beside Library Sort and the existing game setup action. No shared client changes are required.
+Package 1.0.1 revalidates all eleven controls against the installed assembly on **14 November 2026** and adds a final installed-file SHA-256 check before committing an installation receipt or reporting completion. Existing owned 1.0.0 installations upgrade through the normal installer; foreign or modified files remain protected. Steam build 26391437 and the inspected assembly hash are unchanged; no uninspected later build is claimed.
 
 The installer preserves foreign/modified files, records owned files, rolls back partial writes and retains the shared BepInEx loader when removing the plugin. A conflicting loader produces an actionable error. No helper launches a game or writes a save. In normal play the game can save changed survival/vehicle values; no promise is made about achievements or leaderboard eligibility.
 
@@ -44,8 +42,10 @@ Validation includes synthetic runtime/protocol cases, transactional installer fi
 
 ## 中文
 
-独立修改器 **1.0.0** 支持已检查的 Steam 构建 **26391437**，需要 HappyCheats **0.3.65 或更新版本**，不替换客户端 EXE。F1 治疗伤害；F2/F3/F4 补满食物、水分和精力；F5 治疗中毒；F6 补满最近车辆现有汽油箱；F7 修复最近车辆已安装的引擎；F8/F9/F10 切换无限食物、水分和精力；F11 快速治疗；F12 关闭本插件的持续功能。
+独立修改器 **1.0.1** 支持已检查的 Steam 构建 **26391437**，需要 HappyCheats **0.3.69 或更新版本**，不替换客户端 EXE。F1 治疗伤害；F2/F3/F4 补满食物、水分和精力；F5 治疗中毒；F6 补满最近车辆现有汽油箱；F7 修复最近车辆已安装的引擎；F8/F9/F10 切换无限食物、水分和精力；F11 快速治疗；F12 关闭本插件的持续功能。
 
 仅支持已加载存活角色的单人主机游戏。车辆距离限制为 15 米，需要已安装对应部件；汽油箱中应先有汽油，不转换其他液体。快速治疗不能防止瞬间致死，也不能复活。按 Ctrl+Del 或按住 Menu 350 毫秒后点按 RB 打开统一菜单，使用鼠标/键盘操作。
 
-0.3.68/0.3.69 会隐藏尚未加入游戏库的新游戏，请关闭客户端和受支持游戏，使用上方 Add-NomadDrive.ps1 命令首次安装签名模块，再打开原 EXE。后续可使用游戏库排序旁的更新按钮。已完成静态和离线合成检查，尚未验证游戏启动、实际效果或真实手柄；没有启动游戏或改动存档。正常游玩时游戏可能保存修改后的数值，未承诺成就或排行榜资格。
+在 HappyCheats **0.3.70 或更新版本**中，打开游戏库排序旁的“更新”，检查后选择 Nomad Drive 的“更新”或“添加修改器”。先关闭游戏；客户端会一次完成签名验证、下载、缓存修复、加载与安装，不需要外部脚本或单独重新加载游戏库。找不到游戏目录、游戏仍在运行或安装失败时，修改器保留在游戏库，可通过同一“完成更新”操作重试。模块需要 0.3.69+ 的统一开关恢复能力；不会替换 EXE。
+
+1.0.1 已于 2026 年 11 月 14 日重新检查已安装的 Steam 构建 26391437，程序集哈希未变；新增安装完成前的逐文件 SHA-256 校验，兼容原有 1.0.0 归属记录升级，保留外来或被修改的文件。已完成静态和离线合成检查，未验证实际游戏效果或真实手柄，未启动游戏或修改存档。
