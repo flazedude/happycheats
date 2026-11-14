@@ -13,7 +13,7 @@ public sealed class PhantomBladeModule(string baseDirectory) : IGameModule, IFea
     public const string SupportedExecutableHash = "4415933CE33476F14C837ABB61A1B60AF8B78CD81783896501913A7AAC69E423";
     public const string SupportedSteamBuild = "26367565";
     public const string BridgeRoot = "platform/steam/ue4ss/Mods/HappyCheatsPhantomBlade/bridge/";
-    public const string TrainerVersion = "0.1.4";
+    public const string TrainerVersion = "0.1.5";
     private readonly string package = Path.Combine(baseDirectory, "payload", "phantom-blade-zero");
     private readonly SemaphoreSlim commandLock = new(1, 1);
     private readonly object inspectionLock = new();
@@ -24,11 +24,19 @@ public sealed class PhantomBladeModule(string baseDirectory) : IGameModule, IFea
     private sealed record PackageFileStamp(string Path, bool Exists, long Length, DateTime Modified, DateTime Created);
 
     public GameDefinition Definition { get; } = new("phantom-blade-zero", "Phantom Blade Zero", "ACTION RPG", "4115450", "PB",
-        "Health, stamina and an adjustable damage multiplier. Experimental Steam module; gameplay validation is pending.",
+        "Health, Sha-Chi, damage, player damage guard and adjustable movement. Experimental Steam module; gameplay validation is pending.",
         new FeatureDefinition[] {
             new("pbz_health", "Unlimited health", "Keep the current player's health topped up while enabled. Lethal hits between refills may still be fatal.", "F1", true, "Survival"),
             new("pbz_stamina", "Unlimited stamina (Sha-Chi)", "Keep the current player's Sha-Chi resource topped up while enabled.", "F2", true, "Survival"),
-            new("pbz_damage", "Damage multiplier (attack power)", "Apply a 1–20× player attack-power multiplier; final damage follows game rules. Game stat recalculation may cancel it. Choose 1× or Disable all to restore the captured value when it is still owned by this trainer.", "", false, "Combat", ChoiceValueKey: "pbz_damage", Number: new FeatureNumber(1, 20, 2, Unit: "×"))
+            new("pbz_damage", "Damage multiplier (attack power)", "Apply a 1–20× player attack-power multiplier; final damage follows game rules. Game stat recalculation may cancel it. Choose 1× or Disable all to restore the captured value when it is still owned by this trainer.", "", false, "Combat", ChoiceValueKey: "pbz_damage", Number: new FeatureNumber(1, 20, 2, Unit: "×")),
+            new("pbz_guard", "Player damage guard / 玩家伤害防护", "Turn off the current player's actor damage permission. Game-specific damage paths may bypass this guard. / 关闭当前玩家角色的受伤许可；游戏自定义伤害途径仍可能绕过防护。", "", true, "Survival"),
+            new("pbz_heal", "Refill health / 恢复生命", "Once, use the game's native health recovery for the current living player; does not revive. / 调用游戏原生恢复功能，为当前存活玩家恢复一次生命；不能复活。", "", false, "Survival"),
+            new("pbz_refill_shachi", "Refill Sha-Chi / 补满杀气", "Once, fill the current player's Sha-Chi to its current maximum. / 将当前玩家的杀气补满一次，不改变上限。", "", false, "Survival"),
+            new("pbz_speed", "Player simulation speed / 玩家模拟速度", "Scale the player's actor time by 1–5×, affecting movement and animation rather than world time. Game recalculation may cancel it; choose 1× to restore the captured value if still owned. / 将玩家角色时间缩放至 1–5 倍，影响移动和动画，不改变世界时间。游戏重算可能取消；选择 1 倍可在仍归本修改器控制时恢复原值。", "", false, "Movement", ChoiceValueKey: "pbz_speed", Number: new FeatureNumber(1, 5, 2, Unit: "×")),
+            new("pbz_regen", "Sha-Chi regeneration multiplier / 杀气恢复倍率", "Scale the current Sha-Chi regeneration stat by 1–10×. Game stat recalculation may cancel it; choose 1× to restore the captured value if still owned. / 将当前杀气恢复属性提高至 1–10 倍。游戏重算属性可能取消；选择 1 倍可在仍归本修改器控制时恢复原值。", "", false, "Survival", ChoiceValueKey: "pbz_regen", Number: new FeatureNumber(1, 10, 2, Unit: "×")),
+            new("pbz_walk", "Walk speed multiplier / 行走速度倍率", "Scale the player's maximum walk speed by 1–5×. Game recalculation may cancel it; choose 1× to restore the captured value if still owned. / 将玩家最大行走速度提高至 1–5 倍。游戏重算可能取消；选择 1 倍可在仍归本修改器控制时恢复原值。", "", false, "Movement", ChoiceValueKey: "pbz_walk", Number: new FeatureNumber(1, 5, 2, Unit: "×")),
+            new("pbz_jump", "Jump velocity multiplier / 跳跃初速度倍率", "Scale the player's vertical jump velocity by 1–5×; actual height follows game physics. Game recalculation may cancel it; choose 1× to restore the captured value if still owned. / 将玩家垂直起跳速度提高至 1–5 倍；实际高度遵循游戏物理。游戏重算可能取消；选择 1 倍可在仍归本修改器控制时恢复原值。", "", false, "Movement", ChoiceValueKey: "pbz_jump", Number: new FeatureNumber(1, 5, 2, Unit: "×")),
+            new("pbz_gravity", "Gravity reduction / 降低重力", "Divide the player's gravity scale by 1–5. Game recalculation may cancel it; choose 1× to restore the captured value if still owned. / 将玩家重力系数除以 1–5。游戏重算可能取消；选择 1 倍可在仍归本修改器控制时恢复原值。", "", false, "Movement", ChoiceValueKey: "pbz_gravity", Number: new FeatureNumber(1, 5, 2, Unit: "×"))
         });
 
     private bool Compatible(string directory, bool force = false)
@@ -183,23 +191,26 @@ public sealed class PhantomBladeModule(string baseDirectory) : IGameModule, IFea
             Bools(Object(json, "enabled")), values, Text(json, "last_command")), Bool(json, "last_success"), Text(json, "last_message"));
     }
 
-    internal static readonly string[] FeatureIds = { "pbz_health", "pbz_stamina", "pbz_damage" };
+    internal static readonly string[] FeatureIds = { "pbz_health", "pbz_stamina", "pbz_damage", "pbz_guard", "pbz_heal", "pbz_refill_shachi", "pbz_speed", "pbz_regen", "pbz_walk", "pbz_jump", "pbz_gravity" };
 
-    private static bool IsToggle(string action) => action is "pbz_health" or "pbz_stamina";
-    private static bool IsAmount(string action) => action == "pbz_damage";
+    private static bool IsToggle(string action) => action is "pbz_health" or "pbz_stamina" or "pbz_guard";
+    private static bool IsAmount(string action) => action is "pbz_damage" or "pbz_speed" or "pbz_regen" or "pbz_walk" or "pbz_jump" or "pbz_gravity";
 
     internal static int ValidateAmount(string action, decimal? amount)
     {
         if (!IsAmount(action)) throw new ArgumentException("This Phantom Blade Zero control does not accept an amount.", nameof(action));
         var value = amount ?? 2;
-        if (value < 1 || value > 20 || decimal.Truncate(value) != value)
-            throw new ArgumentOutOfRangeException(nameof(amount), "Choose a whole-number damage multiplier from 1 to 20.");
+        var maximum = action == "pbz_damage" ? 20 : action == "pbz_regen" ? 10 : 5;
+        if (value < 1 || value > maximum || decimal.Truncate(value) != value)
+            throw new ArgumentOutOfRangeException(nameof(amount), action == "pbz_damage"
+                ? "Choose a whole-number damage multiplier from 1 to 20."
+                : "Choose a whole-number multiplier from 1 to " + maximum.ToString(CultureInfo.InvariantCulture) + ".");
         return decimal.ToInt32(value);
     }
 
     internal static string FormatCommand(TrainerStatus current, TrainerStatus requested, string action, bool? enabled, string requestId, long createdUtc, decimal? amount = null)
     {
-        var disabling = enabled == false && IsToggle(action) || action == "pbz_damage" && amount == 1;
+        var disabling = enabled == false && IsToggle(action) || IsAmount(action) && amount == 1;
         if (!current.Connected || (!current.Ready && action != "disable_all" && !disabling)) throw new InvalidOperationException(current.Message.Length > 0 ? current.Message : "Load a single-player save before using Phantom Blade Zero controls.");
         if (current.SessionId != requested.SessionId) throw new InvalidOperationException("Phantom Blade Zero session changed. Reconnect before trying again.");
         if (!FeatureIds.Contains(action) && action != "disable_all") throw new ArgumentException("Unknown Phantom Blade Zero trainer control.", nameof(action));

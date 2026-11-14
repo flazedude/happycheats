@@ -1,0 +1,17 @@
+Phantom Blade Zero — independent cheat 1.0.2
+
+Trainer 0.1.5 for inspected Steam build 26367565. Requires HappyCheats 0.3.69 or later; the current 0.3.71 client version and EXE are unchanged.
+
+Expands the trainer from three to eleven controls. Adds player damage guard, one-time health and Sha-Chi refills, player actor speed (1–5×), Sha-Chi regeneration (1–10×), movement speed limit (1–5×), jump velocity (1–5×), and reduced gravity (1–5× reduction). Retains health/Sha-Chi refill toggles and the 1–20× attack-power multiplier. Actor speed affects the player, with world speed unchanged.
+
+Damage guard is not complete invulnerability: scripted or ability damage can bypass it. Movement settings may be bypassed by game movement or animations. Game stat recalculation may cancel attack and regeneration overrides. Reversible changes restore captured values only while the trainer still owns them.
+
+Requested toggle states use the existing client restoration path after a new session is ready. Explicit Off and Disable all cancel pending restoration. The two manual refill actions execute once and are never replayed through loading. A new client process starts with no remembered requests.
+
+Option research references WeMod's 50-option page and Cheat Happens' 53-option page. This release implements the eleven controls above, not their complete option lists:
+https://www.wemod.com/cheats/phantom-blade-zero-trainers
+https://www.cheathappens.com/83549-PC-Phantom-Blade-Zero-trainer
+
+Close Phantom Blade Zero, then use Library → Update to download, verify and install the package in one operation. Other trainers and the shared menu/controller shortcuts are preserved.
+
+Validation uses inspected native metadata/static evidence and offline fixtures. No game was launched or attached and no save was changed. Actual effects, current-build gameplay/startup, physical-controller use and exclusive fullscreen remain unverified.
