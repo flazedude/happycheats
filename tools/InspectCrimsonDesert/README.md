@@ -1,7 +1,7 @@
 # Crimson Desert offline inspection
 
-For the current PE3479 / Steam build 26361232 profile, use the source-guard
-verifier below and the [current evidence](../../docs/crimson-desert-3479.md).
+For the current PE3663 / Steam build 26636972 profile, use the source-guard
+verifier below and the [current evidence](../../docs/crimson-desert-3663.md).
 The PE2976 findings retained here are historical, with their original addresses.
 
 `inspect_binary.py` opens the game executable read-only, parses PE section headers,

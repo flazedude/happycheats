@@ -12,7 +12,7 @@ int main() {
     // This fixture was extracted from the actual PE inspection report, not
     // constructed from the production constants. It would fail with the old
     // 0x173AA000 image-size guard even though negative-host smoke tests passed.
-    std::ifstream metadata(std::filesystem::path(__FILE__).parent_path()/"fixtures"/"pe3576-build.txt");
+    std::ifstream metadata(std::filesystem::path(__FILE__).parent_path()/"fixtures"/"pe3663-build.txt");
     assert(metadata);
     std::string provenance,digest;
     assert(std::getline(metadata,provenance) && std::getline(metadata,digest));
@@ -23,9 +23,10 @@ int main() {
     assert(crimson_build::CheckHeader(inspectedMachine,inspectedTimestamp,inspectedImageSize)==HeaderResult::Match);
     assert(crimson_build::CheckHeader(34404,1790086912,389722112)==HeaderResult::TimestampMismatch); // Pre-DLC executable cannot use these bindings.
     assert(crimson_build::CheckHeader(34404,1793296370,341544960)==HeaderResult::TimestampMismatch); // PE3424 cannot use the hotfix bindings.
-    assert(crimson_build::CheckHeader(34404,1793355216,338067456)==HeaderResult::TimestampMismatch); // Retired PE3446 must not use PE3576 addresses.
-    assert(crimson_build::CheckHeader(34404,1793455655,333967360)==HeaderResult::TimestampMismatch); // Retired PE3462 cannot use PE3576 bindings.
+    assert(crimson_build::CheckHeader(34404,1793355216,338067456)==HeaderResult::TimestampMismatch); // Retired PE3446 must not use PE3663 addresses.
+    assert(crimson_build::CheckHeader(34404,1793455655,333967360)==HeaderResult::TimestampMismatch); // Retired PE3462 cannot use PE3663 bindings.
     assert(crimson_build::CheckHeader(34404,1793516520,336015360)==HeaderResult::TimestampMismatch); // Retired PE3479.
+    assert(crimson_build::CheckHeader(34404,1793928837,332152832)==HeaderResult::TimestampMismatch); // Retired PE3576.
     assert(crimson_build::CheckHeader(inspectedMachine,inspectedTimestamp,0x173AA000)==HeaderResult::ImageSizeMismatch);
     assert(crimson_build::CheckHeader(inspectedMachine,inspectedTimestamp,inspectedImageSize+4096)==HeaderResult::ImageSizeMismatch);
     assert(crimson_build::CheckHeader(inspectedMachine,inspectedTimestamp+1,inspectedImageSize)==HeaderResult::TimestampMismatch);
@@ -33,7 +34,7 @@ int main() {
     assert(std::string(crimson_build::ErrorCode(HeaderResult::ImageSizeMismatch))=="pe_image_size_mismatch");
     assert(std::string(crimson_build::ErrorMessage(HeaderResult::ImageSizeMismatch)).find("image size")!=std::string::npos);
     // Preserve the September live capture as historical resolver evidence.
-    // These addresses do not describe PE3576 or establish DLC gameplay.
+    // These addresses do not describe PE3663 or establish DLC gameplay.
     constexpr std::uintptr_t HistoricalClientRootRva=0x6D69190;
     constexpr std::uintptr_t HistoricalClientOwnerVtableRva=0x5585C40;
     std::ifstream realms(std::filesystem::path(__FILE__).parent_path()/"fixtures"/"pe2976-realm-pointers.txt");
@@ -52,8 +53,8 @@ int main() {
     assert(ResolveClientAnchor(imageBase+HistoricalClientRootRva,imageBase+HistoricalClientOwnerVtableRva,pointer,clientAnchor));
     assert(clientAnchor.owner==clientOwner && clientAnchor.owner!=serverOwner);
     std::uintptr_t resolvedComponent{},resolvedProxy{};
-    assert(ResolveMovementComponent(clientActor,pointer,resolvedComponent,resolvedProxy));
-    assert(resolvedComponent==clientComponent && resolvedProxy==clientProxy);
+    assert(pointer(clientComponent+0x2C0,resolvedProxy) && resolvedProxy==clientProxy); // Preserve the historical capture verbatim.
+    assert(!ResolveMovementComponent(clientActor,pointer,resolvedComponent,resolvedProxy)); // PE3663 must not accept its retired proxy layout.
     assert(!ResolveMovementComponent(serverActor,pointer,resolvedComponent,resolvedProxy)); // Reproduces the old server-chain failure.
     const auto ownerField=clientAnchor.service+0x50;
     observedPointers[ownerField]=serverOwner;
@@ -62,13 +63,13 @@ int main() {
     assert(!ResolveClientAnchor(imageBase+HistoricalClientRootRva,imageBase+HistoricalClientOwnerVtableRva,pointer,clientAnchor)); // Loading/unreadable client anchor.
     observedPointers[ownerField]=clientOwner;
     assert(ResolveClientAnchor(imageBase+HistoricalClientRootRva,imageBase+HistoricalClientOwnerVtableRva,pointer,clientAnchor));
-    // Independent synthetic memory exercises the PE3576 contract. The old
+    // Independent synthetic memory exercises the PE3663 contract. The old
     // capture above does not contain the newly required local-self evidence.
     constexpr std::uintptr_t testRoot=0x100000,testService=0x200000,testOwner=0x300000,testUser=0x400000;
-    constexpr std::uintptr_t inspectedNormalVtableRva=0x5914848;
-    // PE3576 RTTI and virtual-slot evidence identify the ChildOnly class observed
+    constexpr std::uintptr_t inspectedNormalVtableRva=0x5991108;
+    // PE3663 RTTI and virtual-slot evidence identify the ChildOnly class observed
     // in the historical PE3424 Kliff session; this is synthetic, not a new capture.
-    constexpr std::uintptr_t inspectedKliffVtableRva=0x5914D58;
+    constexpr std::uintptr_t inspectedKliffVtableRva=0x5990BF0;
     assert(ClientOwnerVtableRva==inspectedNormalVtableRva);
     assert(ClientChildOwnerVtableRva==inspectedKliffVtableRva);
     std::map<std::uintptr_t,std::uintptr_t> currentPointers{
@@ -133,7 +134,7 @@ int main() {
     assert(!Fill(0,0,current,norm));
     assert(!Fill(~0ULL,1,current,norm));
     assert(!Fill(1,MaxStat+1,current,norm));
-    assert(IsControlled(100,100,1)); assert(!IsControlled(100,100,9)); // Historical tag 9 is unproved for PE3576.
+    assert(IsControlled(100,100,1)); assert(!IsControlled(100,100,9)); // Historical tag 9 is unproved for PE3663.
     assert(!IsControlled(100,101,1)); assert(!IsControlled(100,100,3)); assert(!IsControlled(0,0,1));
     Identity original{100,200,300,400,500}, fresh=original;
     assert(SameIdentity(original,fresh)); fresh.stats=600; assert(!SameIdentity(original,fresh));
@@ -152,8 +153,8 @@ int main() {
     for(const auto unsupported:{0U,22U,23U,25U,26U,1000078U,1000019U,1000058U})
         assert(!StatEnabled(unsupported,true,true,true));
     constexpr std::uintptr_t metadataGlobal=0x900000,registry=0xA00000,table=0xB00000,row=0xC00000;
-    std::map<std::uintptr_t,std::uintptr_t> metadataPointers{{metadataGlobal,registry},{registry+0x58,table},{table+7*8,row}};
-    std::map<std::uintptr_t,std::uint32_t> metadataValues{{registry+8,88},{row+8,1000000}};
+    std::map<std::uintptr_t,std::uintptr_t> metadataPointers{{metadataGlobal,registry},{registry+0x20,table},{table+7*24+8,row}};
+    std::map<std::uintptr_t,std::uint32_t> metadataValues{{registry+0x28,88},{row+8,1000000}};
     auto metadataPointer=[&](std::uintptr_t address,std::uintptr_t& out) {
         const auto found=metadataPointers.find(address); if(found==metadataPointers.end()) return false;
         out=found->second; return out!=0;
@@ -166,8 +167,8 @@ int main() {
     auto resolveKey=[&](std::uint16_t ref) { return ResolveStatusKey(metadataGlobal,ref,metadataPointer,metadataDword,key); };
     assert(resolveKey(7) && key==HealthKey); // A relocated HP row remains HP.
     assert(!resolveKey(0) && !resolveKey(88) && !resolveKey(0xFFFF)); // Unloaded, out of range and invalid references.
-    for(const auto count:{0U,7U,65536U}) { metadataValues[registry+8]=count; assert(!resolveKey(7)); }
-    metadataValues[registry+8]=88;
+    for(const auto count:{0U,7U,65536U}) { metadataValues[registry+0x28]=count; assert(!resolveKey(7)); }
+    metadataValues[registry+0x28]=88;
     metadataValues[row+8]=1000019; assert(resolveKey(7) && !StatEnabled(key,true,true,true));
     metadataValues[row+8]=1000078; assert(resolveKey(7) && !StatEnabled(key,true,true,true));
     metadataValues.erase(row+8); assert(!resolveKey(7));
@@ -179,6 +180,42 @@ int main() {
         return true;
     };
     assert(!ResolveStatusKey(metadataGlobal,7,changingMetadata,metadataDword,key));
+    // Old flat slots and the first word of a new record must never authorize HP.
+    metadataPointers[registry+0x58]=table;
+    metadataPointers[table+7*8]=row;
+    metadataPointers[table+7*24]=row;
+    metadataValues[registry+8]=88;
+    metadataPointers.erase(table+7*24+8);
+    assert(!resolveKey(7));
+    metadataPointers[table+7*24+8]=row;
+    assert(resolveKey(7));
+    unsigned tableReads=0;
+    auto changingTable=[&](std::uintptr_t address,std::uintptr_t& out) {
+        if(!metadataPointer(address,out)) return false;
+        if(address==registry+0x20 && ++tableReads==2) out+=24;
+        return true;
+    };
+    assert(!ResolveStatusKey(metadataGlobal,7,changingTable,metadataDword,key));
+    unsigned slotReads=0;
+    auto changingSlot=[&](std::uintptr_t address,std::uintptr_t& out) {
+        if(!metadataPointer(address,out)) return false;
+        if(address==table+7*24+8 && ++slotReads==2) out+=0x1000;
+        return true;
+    };
+    assert(!ResolveStatusKey(metadataGlobal,7,changingSlot,metadataDword,key));
+    constexpr std::uintptr_t movementActor=0xD00000,movementObject=0xE00000,movementComponent=0xF00000,movementProxy=0x1000000;
+    std::map<std::uintptr_t,std::uintptr_t> movementPointers{
+        {movementActor+0x40,movementObject},{movementObject+0x140,movementComponent},
+        {movementComponent+0x2D0,movementProxy},{movementComponent+0x2C0,movementProxy+0x1000}};
+    auto movementPointer=[&](std::uintptr_t address,std::uintptr_t& out) {
+        const auto found=movementPointers.find(address);
+        if(found==movementPointers.end()) return false;
+        out=found->second; return true;
+    };
+    std::uintptr_t component{},proxy{};
+    assert(ResolveMovementComponent(movementActor,movementPointer,component,proxy) && component==movementComponent && proxy==movementProxy);
+    movementPointers.erase(movementComponent+0x2D0);
+    assert(!ResolveMovementComponent(movementActor,movementPointer,component,proxy));
     assert(ScaleOutgoing(-20,HealthKey,true,original,900,200)==-200000);
     assert(ScaleOutgoing(-20,HealthKey,true,original,400,200)==-20); // Incoming/self damage.
     assert(ScaleOutgoing(-20,HealthKey,true,original,900,201)==-20); // Another actor attacks.

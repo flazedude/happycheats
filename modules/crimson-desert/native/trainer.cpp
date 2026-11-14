@@ -27,15 +27,15 @@
 
 namespace {
 using Json = nlohmann::json;
-constexpr uintptr_t kManagerRva = 0x71C0628;
-constexpr uintptr_t kCommitRva = 0xB61BC10;
-constexpr uintptr_t kDamageRva = 0x18E79C0;
-constexpr uintptr_t kLocoRva = 0x3979B90;
-constexpr uintptr_t kOuterMoveRva = 0x3982F20;
-constexpr uintptr_t kMarkerSenderRva = 0xC99B90;
-constexpr uintptr_t kMarkerUiReturnRva = 0xF676AE;
-constexpr uintptr_t kOriginRva = 0x71AC2C0;
-constexpr uintptr_t kSyncProxyRva = 0x3C6E940;
+constexpr uintptr_t kManagerRva = 0x72456F0;
+constexpr uintptr_t kCommitRva = 0xB80DA10;
+constexpr uintptr_t kDamageRva = 0x194D0F0;
+constexpr uintptr_t kLocoRva = 0x39F3390;
+constexpr uintptr_t kOuterMoveRva = 0x39FC740;
+constexpr uintptr_t kMarkerSenderRva = 0xCD2210;
+constexpr uintptr_t kMarkerUiReturnRva = 0xFA2814;
+constexpr uintptr_t kOriginRva = 0x7231330;
+constexpr uintptr_t kSyncProxyRva = 0x3CEBB30;
 constexpr uintptr_t kPointerFloor = 0x10000;
 constexpr std::uint64_t kLeaseTicks = 5ULL * 10000000ULL;
 const std::array<const char*, 8> kFeatures{{"crimson_health", "crimson_stamina", "crimson_one_hit",
@@ -384,7 +384,7 @@ bool CurrentPlayer(Player& player) {
 bool ResolveClientPlayer(Client& client) {
     // This is the world-map's current client-owner accessor, not either server
     // character-manager global. Normal/ChildOnly and the engine local-self
-    // predicate are pinned to PE3576; a different class or self-user is rejected.
+    // predicate are pinned to PE3663; a different class or self-user is rejected.
     return g_clientBindingReady.load() && crimson_logic::ResolveControlledClientAnchor(g_game+crimson_logic::ClientRootRva,
         g_game+crimson_logic::ClientOwnerVtableRva,Pointer,Read<std::uint8_t>,client.anchor,
         g_game+crimson_logic::ClientChildOwnerVtableRva) &&
@@ -442,9 +442,9 @@ IdentityPublication RefreshIdentityCache(bool lease,bool playerReady,const Playe
     return {publishPlayer,publishClient};
 }
 bool MovementComponent(const Player& player, uintptr_t& component) {
-    // Inspected PE3576 CLIENT caller paths establish owner+68 -> actor+40 -> object+140 -> component.
+    // Inspected PE3663 CLIENT caller paths establish owner+68 -> actor+40 -> object+140 -> component.
     // A server owner has a different control component at actor+40 and must never enter this chain.
-    // The component's proxy is +2C0 on this build; no arbitrary pointer scans are used.
+    // The component's proxy is +2D0 on this build; no arbitrary pointer scans are used.
     uintptr_t proxy{};
     return crimson_logic::ResolveMovementComponent(player.actor,Pointer,component,proxy);
 }
@@ -455,7 +455,7 @@ bool WarpSnapshot(WarpContext& context) {
     Client freshClient{};
     uintptr_t componentAgain{},proxyAgain{},navAgain{},senderAgain{};
     return CurrentPlayer(context.player) && CurrentClientPlayer(context.client) && MovementComponent(context.client.player,context.component) &&
-        Pointer(context.component+0x2C0,context.proxy) && Pointer(context.client.player.actor+0x168,context.nav) &&
+        Pointer(context.component+0x2D0,context.proxy) && Pointer(context.client.player.actor+0x168,context.nav) &&
         Pointer(context.nav+8,context.sender) && context.sender==context.client.player.owner &&
         Read(context.proxy+0x38,handle) && handle!=~uintptr_t{} &&
         Read(g_game+kOriginRva,context.origin) && Read(context.proxy+0x90,context.local) &&
@@ -464,7 +464,7 @@ bool WarpSnapshot(WarpContext& context) {
         CurrentPlayer(fresh) && crimson_logic::SameIdentity(context.player,fresh) &&
         CurrentClientPlayer(freshClient) && crimson_logic::SameClientIdentity(context.client,freshClient) &&
         MovementComponent(freshClient.player,componentAgain) && componentAgain==context.component &&
-        Pointer(componentAgain+0x2C0,proxyAgain) && proxyAgain==context.proxy &&
+        Pointer(componentAgain+0x2D0,proxyAgain) && proxyAgain==context.proxy &&
         Pointer(freshClient.player.actor+0x168,navAgain) && navAgain==context.nav &&
         Pointer(navAgain+8,senderAgain) && senderAgain==context.sender;
 }
@@ -689,8 +689,8 @@ void WarpAfterOuterMove(uintptr_t component,const WarpObservationTicket& ticket)
             CancelWarpLocked("Marker teleport canceled: movement context or floating origin became invalid."); return;
         }
         current=fresh;
-        // PE3576's native setter subtracts this origin, stores XYZ at proxy+90,
-        // and calls 3C6E940. Preserve transform W, rotation and unproven fields.
+        // PE3663's native setter subtracts this origin, stores XYZ at proxy+90,
+        // and calls 3CEBB30. Preserve transform W, rotation and unproven fields.
         if(!Write(current.proxy+0x90,destination)) {
             CancelWarpLocked("Marker teleport canceled: position write failed; no deferred retry."); return;
         }
@@ -762,7 +762,7 @@ void LocoHook(uintptr_t component,float dt,float* velocity,std::uint64_t a4,std:
     Client client{};
     uintptr_t controlled{};
     float* inputForOriginal=velocity;
-    // The native callee reads only XYZ, as checked against PE3576. Copy exactly
+    // The native callee reads only XYZ, as checked against PE3663. Copy exactly
     // 12 bytes; the original scratch vector may end at a readable-page boundary.
     if (g_speedEnabled.load() && CurrentPlayer(server) && CurrentClientPlayer(client) && MovementComponent(client.player,controlled) &&
         ReadBytes(reinterpret_cast<uintptr_t>(velocity),input,3*sizeof(float)) &&
@@ -777,7 +777,7 @@ void LocoHook(uintptr_t component,float dt,float* velocity,std::uint64_t a4,std:
     g_originalLoco(component,dt,inputForOriginal,a4,a5,a6,a7);
 }
 void OuterMoveHook(uintptr_t component,float dt) {
-    // PE3576 performs contact rollback after nested Loco calls. Consume only
+    // PE3663 performs contact rollback after nested Loco calls. Consume only
     // after its complete outer update, and never count recursive callbacks.
     static thread_local unsigned depth{};
     struct DepthGuard { unsigned& value; explicit DepthGuard(unsigned& v):value(v) { ++value; } ~DepthGuard() { --value; } } guard(depth);
@@ -814,37 +814,43 @@ bool ValidateBaseBindings() {
     const std::array<unsigned char,17> commit{{0x66,0x44,0x89,0x4C,0x24,0x20,0x48,0x89,0x54,0x24,0x10,0x53,0x55,0x56,0x57,0x41,0x56}};
     const std::array<unsigned char,15> damage{{0x48,0x89,0x5C,0x24,0x08,0x48,0x89,0x6C,0x24,0x10,0x48,0x89,0x74,0x24,0x18}};
     const std::array<unsigned char,15> loco{{0x48,0x8B,0xC4,0x48,0x89,0x58,0x10,0x44,0x88,0x48,0x20,0x48,0x89,0x48,0x08}};
-    const std::array<unsigned char,37> statusLookup{{0x8B,0xFA,0x48,0x8B,0x1D,0x9C,0x33,0xDE,0x06,0x3B,0x53,0x08,0x0F,0x83,0x37,0x01,0x00,0x00,0x8B,0xF7,0x48,0x8B,0x43,0x58,0x48,0x8B,0x04,0xF8,0x48,0x85,0xC0,0x0F,0x85,0x2E,0x01,0x00,0x00}};
+    const std::array<unsigned char,118> statusLookup{{0x48,0x83,0xEC,0x28,0x44,0x0F,0xB7,0x01,0x48,0x8B,0x0D,0x59,0xB9,0xE6,0x06,0x44,0x3B,0x41,0x28,0x72,0x0C,0x48,0x8B,0x05,0xD4,0xFF,0xDF,0x06,0x48,0x83,0xC4,0x28,0xC3,0x48,0x8B,0x41,0x20,0x4B,0x8D,0x14,0x40,0x48,0x83,0x7C,0xD0,0x08,0x00,0x48,0x89,0x5C,0x24,0x20,0x48,0x8D,0x1C,0xD0,0x75,0x20,0x48,0x8D,0x54,0x24,0x30,0xE8,0xCC,0x5D,0x00,0x00,0x83,0x38,0x00,0x74,0x11,0x48,0x8B,0x05,0xA0,0xFF,0xDF,0x06,0x48,0x8B,0x5C,0x24,0x20,0x48,0x83,0xC4,0x28,0xC3,0x48,0x8B,0x4B,0x08,0x48,0x8B,0x05,0x8B,0xFF,0xDF,0x06,0x48,0x85,0xC9,0x48,0x8B,0x5C,0x24,0x20,0x48,0x0F,0x45,0xC1,0x48,0x83,0xC4,0x28,0xC3}};
     const std::array<unsigned char,7> statusKeyField{{0x8B,0x44,0x24,0x78,0x89,0x47,0x08}};
-    const std::array<unsigned char,18> statusReference{{0x49,0x8B,0x7C,0x24,0x58,0x46,0x0F,0xB7,0x34,0x3F,0x41,0x8B,0xD6,0xE8,0xDE,0x11,0xAF,0xFE}};
+    const std::array<unsigned char,28> statusReference{{0x49,0x8B,0x77,0x58,0x42,0x0F,0xB7,0x3C,0x36,0x66,0x89,0xBD,0x20,0x02,0x00,0x00,0x48,0x8D,0x8D,0x20,0x02,0x00,0x00,0xE8,0x84,0x87,0xA8,0xFE}};
+    const std::array<unsigned char,20> movementOwner{{0x49,0x8B,0x46,0x68,0x48,0x8B,0x48,0x40,0x48,0x8B,0x89,0x40,0x01,0x00,0x00,0xE8,0xA8,0x57,0x26,0x03}};
+    const std::array<unsigned char,7> movementProxy{{0x48,0x8D,0x99,0xD0,0x02,0x00,0x00}};
+    const std::array<unsigned char,13> managerEntries{{0x4C,0x8B,0xB7,0xB8,0x00,0x00,0x00,0x8B,0x87,0xC0,0x00,0x00,0x00}};
+    const std::array<unsigned char,4> regenerationCount{{0x41,0x8B,0x47,0x60}};
+    const std::array<unsigned char,7> regenerationStride{{0x49,0x81,0xC6,0x90,0x00,0x00,0x00}};
     return Matches(g_game+kCommitRva, commit) && Matches(g_game+kDamageRva, damage) && Matches(g_game+kLocoRva,loco) &&
-        Matches(g_game+0x3DDD33,statusLookup) && Matches(g_game+0x17221B9,statusKeyField) && Matches(g_game+0x18ECB30,statusReference);
+        Matches(g_game+0x3DAA60,statusLookup) && Matches(g_game+0x178B239,statusKeyField) && Matches(g_game+0x19522C0,statusReference) &&
+        Matches(g_game+0x78BDC4,movementOwner) && Matches(g_game+0x39F3406,movementProxy) && Matches(g_game+0x2D7A194,managerEntries) && Matches(g_game+0x1952296,regenerationCount) && Matches(g_game+0x19524A3,regenerationStride);
 }
 bool ValidateMarkerBindings() {
     const std::array<unsigned char,14> sender{{0x48,0x89,0x5C,0x24,0x08,0x48,0x89,0x74,0x24,0x18,0x89,0x54,0x24,0x10}};
     const std::array<unsigned char,18> sync{{0x48,0x89,0x5C,0x24,0x08,0x57,0x48,0x83,0xEC,0x30,0x48,0x8B,0xF9,0x48,0x83,0x79,0x38,0xFF}};
-    const std::array<unsigned char,8> caller{{0xE8,0xE2,0x24,0xD3,0xFF,0x83,0xE3,0xFE}};
+    const std::array<unsigned char,8> caller{{0xE8,0xFC,0xF9,0xD2,0xFF,0x83,0xE3,0xFE}};
     return Matches(g_game+kMarkerSenderRva,sender) && Matches(g_game+kSyncProxyRva,sync) &&
         Matches(g_game+kMarkerUiReturnRva-5,caller);
 }
 bool ValidateOuterMovementBinding() {
-    // PE3576 full outer locomotion update, including the saved-start rollback.
+    // PE3663 full outer locomotion update, including the saved-start rollback.
     // Direct caller passes component in RCX and float dt in XMM1.
     const std::array<unsigned char,29> entry{{0x48,0x8B,0xC4,0x55,0x53,0x56,0x57,0x41,0x54,0x41,0x55,0x41,0x56,0x41,0x57,0x48,0x8D,0xA8,0x08,0xF9,0xFF,0xFF,0x48,0x81,0xEC,0xB8,0x07,0x00,0x00}};
-    const std::array<unsigned char,20> caller{{0xC5,0xFA,0x59,0xCF,0x48,0x8B,0xCE,0xE8,0x60,0xC7,0x01,0x03,0x4C,0x8D,0x9C,0x24,0x80,0x01,0x00,0x00}};
-    return Matches(g_game+kOuterMoveRva,entry) && Matches(g_game+0x9667B4,caller);
+    const std::array<unsigned char,20> caller{{0xC5,0xFA,0x59,0xCF,0x48,0x8B,0xCE,0xE8,0xA0,0x80,0x06,0x03,0x4C,0x8D,0x9C,0x24,0x80,0x01,0x00,0x00}};
+    return Matches(g_game+kOuterMoveRva,entry) && Matches(g_game+0x994694,caller);
 }
 bool ValidateClientBindings() {
     // World-map code loads [global], then [root+30], then calls the accessor
     // whose [service+50] is the current client owner. Check both ends in memory.
-    const std::array<unsigned char,16> caller{{0x48,0x8B,0x0D,0x8B,0x8A,0x25,0x06,0x48,0x8B,0x49,0x30,0xE8,0xA2,0x73,0xA3,0xFF}};
+    const std::array<unsigned char,16> caller{{0x48,0x8B,0x0D,0xE5,0x29,0x2A,0x06,0x48,0x8B,0x49,0x30,0xE8,0x1C,0xB4,0xA2,0xFF}};
     const std::array<unsigned char,15> getter{{0x48,0x89,0x5C,0x24,0x08,0x48,0x89,0x54,0x24,0x10,0x57,0x48,0x83,0xEC,0x30}};
     const std::array<unsigned char,4> field{{0x48,0x8B,0x79,0x50}};
     // RTTI and current constructors establish Normal and ChildOnly primary
     // vtables. Both +178 slots use the same independent local-self predicate.
-    const std::array<unsigned char,39> localControl{{0x48,0x8B,0x05,0x59,0xC6,0xC0,0x06,0x48,0x8B,0x50,0x30,0x48,0x8B,0x81,0xA0,0x00,0x00,0x00,0x48,0x39,0x42,0x58,0x75,0x0C,0x80,0xB9,0x94,0x00,0x00,0x00,0x00,0x74,0x03,0xB0,0x01,0xC3,0x32,0xC0,0xC3}};
+    const std::array<unsigned char,39> localControl{{0x48,0x8B,0x05,0xF9,0x5F,0xC6,0x06,0x48,0x8B,0x50,0x30,0x48,0x8B,0x81,0xA0,0x00,0x00,0x00,0x48,0x39,0x42,0x58,0x75,0x0C,0x80,0xB9,0x94,0x00,0x00,0x00,0x00,0x74,0x03,0xB0,0x01,0xC3,0x32,0xC0,0xC3}};
     uintptr_t localControlTarget{},childLocalControlTarget{};
-    return Matches(g_game+0xF6766E,caller) && Matches(g_game+0x99EA20,getter) && Matches(g_game+0x99EA3A,field) &&
+    return Matches(g_game+0xFA27D4,caller) && Matches(g_game+0x9CDC00,getter) && Matches(g_game+0x9CDC1A,field) &&
         Matches(g_game+crimson_logic::ClientLocalControlRva,localControl) &&
         Pointer(g_game+crimson_logic::ClientOwnerVtableRva+0x178,localControlTarget) &&
         localControlTarget==g_game+crimson_logic::ClientLocalControlRva &&
@@ -877,7 +883,7 @@ bool ValidateExecutableHash() {
     if (!input.eof()) return false;
     std::array<unsigned char,32> digest{};
     if (BCryptFinishHash(handles.hash,digest.data(),static_cast<ULONG>(digest.size()),0)<0) return false;
-    constexpr std::array<unsigned char,32> expected{{0xC9,0x4A,0xD6,0xC3,0xEA,0x54,0x97,0x0A,0x6D,0x2D,0xA7,0xA2,0x71,0x97,0x53,0x21,0x0A,0x77,0x28,0xA9,0x16,0x98,0xED,0x34,0x05,0xDD,0x91,0x25,0x47,0x0E,0xD9,0x8F}};
+    constexpr std::array<unsigned char,32> expected{{0x8B,0xE6,0x71,0x78,0xD9,0xB9,0xA1,0x49,0xC3,0x61,0xA7,0x31,0x05,0x16,0x65,0xE0,0xBA,0x4D,0x44,0x1E,0x25,0x0A,0xE1,0xDF,0xE6,0x45,0xBD,0x6E,0x52,0x43,0x45,0xC8}};
     return digest==expected;
 }
 void InstallHooks() {
@@ -1015,7 +1021,7 @@ void Command() {
         g_lastCommand = id;
         g_lastSuccess = false;
         if (command.value("schema_version", 0) != 1) { g_lastMessage = "Unsupported command schema."; return; }
-        if (command.value("version",std::string())!="0.2.11") { g_lastMessage="Unsupported protocol version."; return; }
+        if (command.value("version",std::string())!="0.2.12") { g_lastMessage="Unsupported protocol version."; return; }
         const auto now=UnixMilliseconds();
         if (!command.contains("expires_unix_ms") || !command["expires_unix_ms"].is_number_unsigned()) {
             g_lastMessage="Command expiration is required."; return;
@@ -1112,7 +1118,7 @@ void Status() {
     std::string message = g_initMessage;
     if (message.empty()) message = g_playerReady.load() ? "Connected. Gameplay behavior has not yet been validated on this build."
         : "Load into the world with a supported controlled player. All controls are currently off.";
-    Json status = {{"schema_version",1},{"version","0.2.11"},{"process_id",GetCurrentProcessId()},
+    Json status = {{"schema_version",1},{"version","0.2.12"},{"process_id",GetCurrentProcessId()},
         {"pid",GetCurrentProcessId()},{"process_start_unix_ms",g_processStartUnixMs},
         {"heartbeat_unix_ms",UnixMilliseconds()},
         {"session_id",g_session},{"ready",g_commitReady.load() || g_damageReady.load() || g_locoReady.load() || g_outerReady.load()},

@@ -99,14 +99,14 @@ int main() {
     Block registry;
     struct Row { std::uint64_t header{}; std::uint32_t key{},padding{}; };
     std::array<Row,128> rows{};
-    std::array<uintptr_t,128> rowPointers{};
+    std::array<std::array<uintptr_t,3>,128> rowEntries{};
     auto bind=[&](std::uint16_t reference,std::uint32_t key) {
-        rows[reference].key=key; rowPointers[reference]=reinterpret_cast<uintptr_t>(&rows[reference]);
+        rows[reference].key=key; rowEntries[reference][1]=reinterpret_cast<uintptr_t>(&rows[reference]);
     };
     bind(HealthReference,1000000); bind(StaminaReference,1000026); bind(SpiritReference,1000027);
     bind(22,1000026); bind(23,1000027); bind(24,1000078); bind(25,1000019); bind(26,1000058);
     bind(0,1000078); bind(99,2000000); // Ordinal zero is deliberately not HP in this synthetic reordered table.
-    registry.Put(8,std::uint32_t{128}); registry.Put(0x58,reinterpret_cast<uintptr_t>(rowPointers.data()));
+    registry.Put(0x28,std::uint32_t{128}); registry.Put(0x20,reinterpret_cast<uintptr_t>(rowEntries.data()));
     assert(Write(g_game+crimson_logic::StatusRegistryRva,registry.Address()));
     Body playerBody,clientBody,npcBody,replacementBody;
     Block clientRoot,clientService;
