@@ -19,6 +19,8 @@ The assets were collected on 26–27 September 2026 from the installed Steam cli
 
 Local source paths are relative to the Steam installation directory. Remote asset hashes were verified against the installed Steam client's `appcache/appinfo.vdf` game metadata.
 
+Nomad Drive ([Steam app 2223980](https://store.steampowered.com/app/2223980/)): original transparent logo from local `appcache/librarycache/2223980/logo.png`, copied unchanged; icon from local `appcache/librarycache/2223980/f38c6445fe69ce569cae30f613952c285105673c.jpg`, converted to PNG with its original 32×32 pixels. Indie Devil artwork, collected 14 November 2026. Bundled as `nomad-drive-logo.png` and `nomad-drive-icon.png` for offline use; this does not change trainer effects or the running game.
+
 The project links these PNGs as WPF resources under `Assets/Games/`. `GameArtwork.IconUri(moduleId)` supplies library icons, and `GameArtwork.LogoUri(moduleId)` supplies the selected game's banner logo.
 
 Elden Ring ([Steam app 1245620](https://store.steampowered.com/app/1245620/)): icon from local `appcache/librarycache/1245620/b6e290dd5a92ce98f89089a207733c70c41a1871.jpg`, converted to PNG without resizing; original transparent logo from `appcache/librarycache/1245620/logo.png`, unchanged. FromSoftware / Bandai Namco artwork, collected 1 October 2026 and bundled as `elden-ring-icon.png` and `elden-ring-logo.png`.
