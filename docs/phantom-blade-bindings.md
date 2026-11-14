@@ -1,6 +1,6 @@
 # Phantom Blade Zero binding evidence
 
-Current independent package **1.0.2** / trainer **0.1.5** targets Steam **26367565**. Its exact caller is `0x164B8F6`, object array `0xDE28C50`, allocation `0x164D080`, SHA-256 `4415933ce33476f14c837abb61a1b60af8b78cd81783896501913a7aac69e423`. See the [current static review](compatibility-20261109.md) and [0.1.5 expansion evidence](phantom-blade-expansion.md). Earlier build numbers, addresses and live observations below are retained historical evidence, not current-build gameplay validation.
+Current independent package **1.0.3** / trainer **0.1.6** targets Steam **26367565**. Its exact caller is `0x164B8F6`, object array `0xDE28C50`, allocation `0x164D080`, SHA-256 `4415933ce33476f14c837abb61a1b60af8b78cd81783896501913a7aac69e423`. See the [current static review](compatibility-20261109.md) and [0.1.5 expansion evidence](phantom-blade-expansion.md). Earlier build numbers, addresses and live observations below are retained historical evidence, not current-build gameplay validation.
 
 The first profile targets Steam application **4115450**, build **26266538**, with
 the installation-relative game process **`platform/steam/PBZ.exe`**. The small

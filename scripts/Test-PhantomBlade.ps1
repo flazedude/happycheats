@@ -10,7 +10,7 @@ if (!$Python) {
 if ($LASTEXITCODE -ne 0) { throw 'Phantom Blade Zero Lua checks failed.' }
 $hcPackage = Join-Path $hcRoot 'payload\phantom-blade-zero'
 $hcManifest = Get-Content -LiteralPath (Join-Path $hcPackage 'package.json') -Raw | ConvertFrom-Json
-if ($hcManifest.version -ne '0.1.5' -or $hcManifest.app_id -ne '4115450' -or $hcManifest.steam_build -ne '26367565' -or $hcManifest.files.Count -ne 10 -or $hcManifest.executable_sha256 -ne '4415933CE33476F14C837ABB61A1B60AF8B78CD81783896501913A7AAC69E423') { throw 'Unexpected Phantom Blade Zero manifest.' }
+if ($hcManifest.version -ne '0.1.6' -or $hcManifest.app_id -ne '4115450' -or $hcManifest.steam_build -ne '26367565' -or $hcManifest.files.Count -ne 10 -or $hcManifest.executable_sha256 -ne '4415933CE33476F14C837ABB61A1B60AF8B78CD81783896501913A7AAC69E423') { throw 'Unexpected Phantom Blade Zero manifest.' }
 foreach ($hcFile in $hcManifest.files) {
     $hcPath = [IO.Path]::GetFullPath((Join-Path $hcPackage $hcFile.path))
     if (!$hcPath.StartsWith($hcPackage + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw 'Phantom Blade payload path escapes its root.' }
