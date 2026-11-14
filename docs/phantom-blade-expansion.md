@@ -35,6 +35,8 @@ Regeneration scaling uses the owned attribute's `CurrentValue`, with unchanged c
 
 Any reversible scalar override needs fresh player/session validation, exact target class and ownership, finite bounded values, readback, and a lease recording its original value. Restoration belongs to that original object only and must preserve subsequent game-owned changes. Missing or changed targets must produce specific operation errors. Requested toggles can be reapplied through the existing command path to a new ready session; one-shot refill actions cannot.
 
+Cleanup follows the captured original field lease after controller repossession; it does not require the controller to continue possessing the old pawn. The original world, player class, component ownership, and unchanged captured field/base still gate restoration. Automatic write attempts are bounded to three. Read-only retirement checks can release an invalid, replaced or game-recalculated lease after that cap, allowing requested toggles to restore for a new player. Fixtures cover both same-controller replacement and object invalidation after failed restoration.
+
 ## Deliberately unestablished options
 
 The executable contains names such as `GM_InfiniteMedicine`, `GM_InfiniteUltimateShachi`, and `GM_State`. Their presence does not prove an effective, owned-target, reversible command path. Some share a protected implementation entry; this review did not equate that entry with an empty function. No currency grant, medicine inventory edit, talent unlock, enemy mass action, save modification, or global cheat-manager mutation is justified by those names alone.

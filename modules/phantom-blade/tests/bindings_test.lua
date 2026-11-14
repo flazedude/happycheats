@@ -889,5 +889,49 @@ test("unreadable effects are unconfirmed and dead-player cleanup cannot bypass r
     equal(f.property_writes,writes)
     f.property_write_error=nil; equal(f.trainer:disable_all(),true); equal(f.pawn.CustomTimeDilation,1)
 end)
+test("same-controller possession replacement restores the old guard before enabling the new player",function()
+    local f=fixture(); ready(f)
+    local old,controller=f.pawn,f.controller
+    equal(f.trainer:apply("pbz_guard",true),true)
+    equal(old.bCanBeDamaged,false)
+    local replacement=make_player(f.class,f.world)
+    controller.Pawn=replacement; replacement.Controller=controller; old.Controller=nil
+    f.pawn,f.attrs=replacement,replacement.values
+    f.trainer.next_discovery=0
+    local _,available=ready(f)
+    equal(old.valid,true,"The old pawn survives after its controller changes possession")
+    equal(old.bCanBeDamaged,true,"Cleanup restores only the captured old pawn")
+    equal(replacement.bCanBeDamaged,true,"Replacement starts with its own unmodified value")
+    equal(f.trainer.overrides.pbz_guard,nil,"Retired pawn lease cannot block the new player")
+    equal(available.pbz_guard,true)
+    equal(f.trainer:enabled().pbz_guard,false)
+    equal(f.trainer:apply("pbz_guard",true),true)
+    equal(old.bCanBeDamaged,true); equal(replacement.bCanBeDamaged,false)
+end)
+test("an exhausted restoration lease is purged after its original pawn becomes invalid",function()
+    local f=fixture(); ready(f)
+    local old,controller=f.pawn,f.controller
+    equal(f.trainer:apply("pbz_guard",true),true)
+    f.property_write_error="bCanBeDamaged"
+    equal(f.trainer:apply("pbz_guard",false),false)
+    for _=1,20 do f.trainer:tick() end
+    equal(f.trainer.overrides.pbz_guard.attempts,3,"Failed restoration exhausts the bounded write attempts")
+    local writes=f.property_writes
+    for _=1,20 do f.trainer:tick() end
+    equal(f.property_writes,writes,"Exhausted lease cannot issue further writes")
+    old.valid=false
+    local replacement=make_player(f.class,f.world)
+    controller.Pawn=replacement; replacement.Controller=controller
+    f.pawn,f.attrs=replacement,replacement.values
+    f.trainer.next_discovery=0
+    local _,available=ready(f)
+    equal(f.trainer.overrides.pbz_guard,nil,"Invalid old pawn is retired even after the write cap")
+    equal(f.property_writes,writes,"Purging an invalid lease never writes a replacement")
+    equal(available.pbz_guard,true,"New player does not require another manual Off")
+    equal(replacement.bCanBeDamaged,true)
+    f.property_write_error=nil
+    equal(f.trainer:apply("pbz_guard",true),true)
+    equal(replacement.bCanBeDamaged,false)
+end)
 assert(failures==0,tostring(failures).." Phantom Blade binding fixture(s) failed")
 print("Phantom Blade Zero bindings: "..checks.." assertions passed")

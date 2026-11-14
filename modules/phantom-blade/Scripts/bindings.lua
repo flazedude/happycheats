@@ -264,8 +264,6 @@ function T:_restore_damage(automatic)
     self.flags.pbz_damage=false
     if not lease then return true end
     lease.attempts=lease.attempts or 0
-    if automatic and lease.attempts>=3 then return false end
-    lease.attempts=lease.attempts+1
     if not valid(lease.pawn) then self.damage=nil; return true end
     if not valid(lease.set) then self.damage=nil; return true end
     local ok,world=call(lease.pawn,"GetWorld")
@@ -281,6 +279,8 @@ function T:_restore_damage(automatic)
         -- The game owns any later base/current change. Preserve its recalculation.
         self.damage=nil; return true
     end
+    if automatic and lease.attempts>=3 then return false end
+    lease.attempts=lease.attempts+1
     self:_write(lease.pawn,"Attack",lease.original,lease.set)
     local restored=self:_read("Attack",lease.pawn,lease.set)
     if restored==nil or close(restored,lease.applied) then return false end
@@ -319,8 +319,6 @@ function T:_restore_override(id,automatic)
     self.flags[id]=false
     local lease=self.overrides[id]
     if not lease then return true end
-    if automatic and lease.attempts>=3 then return false end
-    lease.attempts=lease.attempts+1
     if not valid(lease.pawn) or not valid(lease.world) then self.overrides[id]=nil; return true end
     local ok,world=call(lease.pawn,"GetWorld")
     if not ok then return false end
@@ -340,8 +338,12 @@ function T:_restore_override(id,automatic)
     if current==nil then return false end
     if matching(current,lease.original) then self.overrides[id]=nil; return true end
     if not matching(current,lease.applied) then self.overrides[id]=nil; return true end
-    -- Restore only the original owned target while our exact override survives.
-    if not owned(lease.pawn,lease.controller,self.player_class,self.local_player_class) then return false end
+    -- Cleanup owns the captured field lease, even after the controller possesses
+    -- a replacement pawn. It never writes the replacement actor/component.
+    local checked,is_player=call(lease.pawn,"IsA",self.player_class)
+    if not checked or is_player~=true then return false end
+    if automatic and lease.attempts>=3 then return false end
+    lease.attempts=lease.attempts+1
     local wrote=self:_override_write(id,lease.pawn,lease.set,lease.original,lease.target)
     if wrote and matching(self:_override_value(id,lease.pawn,lease.set,lease.target),lease.original) then
         self.overrides[id]=nil; return true
