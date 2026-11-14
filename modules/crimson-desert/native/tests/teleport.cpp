@@ -122,8 +122,8 @@ int main() {
     for(const uintptr_t rva:{kOriginRva,crimson_logic::ClientRootRva,crimson_logic::StatusRegistryRva})
         assert(VirtualAlloc(image+(rva&~uintptr_t{0xFFF}),4096,MEM_COMMIT,PAGE_READWRITE));
     Block statusRegistry,statusTable,healthRow;
-    statusRegistry.Put(8,std::uint32_t{1}); statusRegistry.Put(0x58,statusTable.address());
-    statusTable.Put(0,healthRow.address()); healthRow.Put(8,std::uint32_t{1000000});
+    statusRegistry.Put(0x28,std::uint32_t{1}); statusRegistry.Put(0x20,statusTable.address());
+    statusTable.Put(8,healthRow.address()); healthRow.Put(8,std::uint32_t{1000000});
     assert(Write(g_game+crimson_logic::StatusRegistryRva,statusRegistry.address()));
     Body serverBody,clientBody;
     const Player server=serverBody.Build(),player=clientBody.Build();
@@ -134,14 +134,14 @@ int main() {
     service.Put(0x58,clientBody.possessor.address()); clientBody.owner.Put(0x94,std::uint8_t{1});
     clientBody.owner.Put(0,g_game+crimson_logic::ClientOwnerVtableRva);
     clientBody.actor.Put(0x40,object.address()); object.Put(0x140,component.address());
-    component.Put(0x2C0,proxy.address()); proxy.Put(0x38,uintptr_t{1234});
+    component.Put(0x2D0,proxy.address()); proxy.Put(0x38,uintptr_t{1234});
     clientBody.actor.Put(0x168,nav.address()); nav.Put(8,player.owner);
     componentAddress=component.address(); proxyAddress=proxy.address(); navAddress=nav.address();
     g_syncProxy=Sync; g_originalLoco=Loco; g_originalOuterMove=Outer;
 
-    // Exercise both statically remapped PE3576 classes in synthetic memory.
+    // Exercise both statically remapped PE3663 classes in synthetic memory.
     // ChildOnly was observed in Kliff's historical PE3424 session.
-    for(const uintptr_t vtableRva:{uintptr_t{0x5914848},uintptr_t{0x5914D58}}) {
+    for(const uintptr_t vtableRva:{uintptr_t{0x5991108},uintptr_t{0x5990BF0}}) {
         clientBody.owner.Put(0,g_game+vtableRva);
         Begin(server,client);
         assert(FeatureAvailable("crimson_speed") && FeatureAvailable("crimson_teleport") && FeatureAvailable("crimson_auto_teleport"));
@@ -159,12 +159,12 @@ int main() {
         assert(syncCalls==6 && g_warpObservation==WarpObservation::ObservedNearMarker);
     }
     // Continue the complete correction/cancellation suite with Kliff's class.
-    clientBody.owner.Put(0,g_game+uintptr_t{0x5914D58});
+    clientBody.owner.Put(0,g_game+uintptr_t{0x5990BF0});
     Begin(server,client);
     clientBody.owner.Put(0,g_game+uintptr_t{0x5ED9A20});
     assert(!FeatureAvailable("crimson_speed") && !FeatureAvailable("crimson_teleport"));
     RefreshWarpState(); assert(!g_warpPending.load());
-    clientBody.owner.Put(0,g_game+uintptr_t{0x5914D58});
+    clientBody.owner.Put(0,g_game+uintptr_t{0x5990BF0});
 
     Begin(server,client);
     g_outerReady=false; assert(!FeatureAvailable("crimson_teleport") && !FeatureAvailable("crimson_auto_teleport"));

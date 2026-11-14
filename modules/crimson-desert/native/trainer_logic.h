@@ -6,11 +6,11 @@
 
 namespace crimson_logic {
 constexpr std::uint64_t MaxStat = 1000000000000ULL;
-inline constexpr std::uintptr_t ClientRootRva=0x71C0100;
-inline constexpr std::uintptr_t ClientOwnerVtableRva=0x5914848;
-inline constexpr std::uintptr_t ClientChildOwnerVtableRva=0x5914D58;
-inline constexpr std::uintptr_t ClientLocalControlRva=0x5B3AA0;
-inline constexpr std::uintptr_t StatusRegistryRva=0x71C10D8;
+inline constexpr std::uintptr_t ClientRootRva=0x72451C0;
+inline constexpr std::uintptr_t ClientOwnerVtableRva=0x5991108;
+inline constexpr std::uintptr_t ClientChildOwnerVtableRva=0x5990BF0;
+inline constexpr std::uintptr_t ClientLocalControlRva=0x5DF1C0;
+inline constexpr std::uintptr_t StatusRegistryRva=0x72463C8;
 inline constexpr std::uint32_t HealthKey=1000000,StaminaKey=1000026,SpiritKey=1000027;
 struct Identity { std::uintptr_t owner{}, actor{}, marker{}, root{}, stats{}; };
 struct ClientAnchor { std::uintptr_t root{},service{},owner{},selfUser{}; };
@@ -32,9 +32,9 @@ template<class PointerReader,class ByteReader> bool ResolveControlledClientAncho
     ClientAnchor candidate{};
     std::uintptr_t possessor{},pawn{};
     std::uint8_t local{};
-    // PE3576 ClientActor virtual +178 is the engine's local-control predicate:
+    // PE3663 ClientActor virtual +178 is the engine's local-control predicate:
     // owner+A0 equals this service's self-user (+58), and owner+94 is nonzero.
-    // Normal and ChildOnly share this exact method on PE3576. Kliff's owner
+    // Normal and ChildOnly share this exact method on PE3663. Kliff's owner
     // was observed as ChildOnly on PE3424; retain every local-self check.
     if(!ResolveClientAnchor(globalAddress,expectedVtable,pointer,candidate,expectedChildVtable) ||
         !pointer(candidate.service+0x58,candidate.selfUser) ||
@@ -52,7 +52,7 @@ template<class PointerReader,class ByteReader> bool ResolveControlledClientAncho
 template<class PointerReader> bool ResolveMovementComponent(std::uintptr_t clientActor,PointerReader pointer,
                                                            std::uintptr_t& component,std::uintptr_t& proxy) {
     std::uintptr_t object{};
-    return clientActor && pointer(clientActor+0x40,object) && pointer(object+0x140,component) && pointer(component+0x2C0,proxy);
+    return clientActor && pointer(clientActor+0x40,object) && pointer(object+0x140,component) && pointer(component+0x2D0,proxy);
 }
 inline bool IsControlled(std::uintptr_t owner, std::uintptr_t pawn, std::uint8_t tag) {
     // Only tag 1 has current-build player-class evidence. Historical tag 9 is
@@ -85,15 +85,16 @@ template<class PointerReader,class DwordReader> bool ResolveStatusKey(std::uintp
     std::uint16_t reference,PointerReader pointer,DwordReader dword,std::uint32_t& key) {
     std::uintptr_t registry{},table{},row{},again{};
     std::uint32_t count{},candidate{},valueAgain{};
-    // Current engine getter 0x3DDD20 bounds a WORD table reference by +08,
-    // then reads its loaded row from +58. Deserializer stores the stable key
-    // at row+08. A missing cache row is rejected; never invoke the lazy loader.
-    if(reference==0xFFFF || !pointer(globalAddress,registry) || !dword(registry+8,count) ||
-        !count || count>0xFFFF || reference>=count || !pointer(registry+0x58,table) ||
-        !pointer(table+sizeof(std::uintptr_t)*reference,row) || !dword(row+8,candidate) ||
-        !pointer(globalAddress,again) || again!=registry || !dword(registry+8,valueAgain) || valueAgain!=count ||
-        !pointer(registry+0x58,again) || again!=table ||
-        !pointer(table+sizeof(std::uintptr_t)*reference,again) || again!=row ||
+    // PE3663 getter 0x3DAA60 bounds a WORD reference by registry+28,
+    // then indexes 24-byte records at +20 and reads the cached row at +08.
+    // StatusInfo still stores its semantic key at row+08. Reject missing
+    // cache entries; never invoke the native lazy loader or fallback row.
+    if(reference==0xFFFF || !pointer(globalAddress,registry) || !dword(registry+0x28,count) ||
+        !count || count>0xFFFF || reference>=count || !pointer(registry+0x20,table) ||
+        !pointer(table+24*std::uintptr_t(reference)+8,row) || !dword(row+8,candidate) ||
+        !pointer(globalAddress,again) || again!=registry || !dword(registry+0x28,valueAgain) || valueAgain!=count ||
+        !pointer(registry+0x20,again) || again!=table ||
+        !pointer(table+24*std::uintptr_t(reference)+8,again) || again!=row ||
         !dword(row+8,valueAgain) || valueAgain!=candidate) return false;
     key=candidate;
     return true;
