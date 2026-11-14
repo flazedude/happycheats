@@ -5,7 +5,7 @@ namespace HappyCheats.Core;
 public sealed class NomadDriveModule(string baseDirectory) : IGameModule
 {
     public IReadOnlyList<string> GameExecutables { get; } = ["Nomad Drive.exe"];
-    public const string TrainerVersion = "1.0.1";
+    public const string TrainerVersion = "1.0.2";
     public const string SupportedAssemblyHash = "6957F9A1180D811CA2AE1BB44748157D794FED5BEFD845290FD15E41FB54FFAF";
     internal static bool SupportsAssembly(string hash) => string.Equals(hash, SupportedAssemblyHash, StringComparison.OrdinalIgnoreCase);
     internal static bool MatchesInstalledPackage(string payload, string directory) => NomadDriveInstaller.ReadPackage(payload)
@@ -15,7 +15,7 @@ public sealed class NomadDriveModule(string baseDirectory) : IGameModule
     private const string IpcRoot = "BepInEx/HappyCheats/nomad-drive/";
     private readonly SemaphoreSlim commandLock = new(1, 1);
     public GameDefinition Definition { get; } = new("nomad-drive", "Nomad Drive", "Steam build 26391437", "2223980", "ND",
-        "Survival refills and locks, poison treatment, fuel and engine repair. Solo hosted play only; gameplay validation pending.", new FeatureDefinition[] {
+        "Survival refills and locks, poison treatment, fuel and engine repair. Solo hosted play only.", new FeatureDefinition[] {
         new("heal", "Heal damage", "Restore direct-damage health; does not revive a dead character.", "F1", false, "Survival"),
         new("refill_food", "Refill food", "Fill nutrition to its current maximum.", "F2", false, "Survival"),
         new("refill_water", "Refill water", "Fill hydration to its current maximum.", "F3", false, "Survival"),
@@ -62,22 +62,38 @@ public sealed class NomadDriveModule(string baseDirectory) : IGameModule
             var processes = Processes(installation.Directory, "Nomad Drive.exe");
             if (processes.Length != 1) return TrainerStatus.Offline();
             var path = SafePath(installation.Directory, IpcRoot + "status.json");
-            if (!File.Exists(path)) return TrainerStatus.Offline("Waiting for the trainer. First launch can take a moment.");
+            if (!File.Exists(path)) return TrainerStatus.Offline(ReadStartupFailure(installation.Directory, processes[0].Started)
+                ?? "Waiting for the trainer. First launch can take a moment.");
             var modified = File.GetLastWriteTimeUtc(path);
-            if (DateTime.UtcNow - modified > TimeSpan.FromSeconds(6) || modified < processes[0].Started) return TrainerStatus.Offline("Waiting for a fresh trainer heartbeat.");
+            if (DateTime.UtcNow - modified > TimeSpan.FromSeconds(6) || modified < processes[0].Started) return TrainerStatus.Offline(ReadStartupFailure(installation.Directory, processes[0].Started)
+                ?? "Waiting for a fresh trainer heartbeat.");
             var json = ReadJson(path); var session = Text(json, "session_id");
             if (Text(json, "schema_version") != "1" || Text(json, "process_id") != processes[0].Id.ToString() || !Guid.TryParseExact(session, "N", out _) || Text(json, "plugin_version") != TrainerVersion || !Bool(json, "bindings_valid") || !SupportsAssembly(Text(json, "assembly_sha256"))) return TrainerStatus.Offline("Trainer session does not match this game build.");
             return new TrainerStatus(true, Bool(json, "ready"), Text(json, "message"), session, Bools(Object(json, "enabled")), Strings(Object(json, "values")), Text(json, "last_command"));
         } catch (IOException) { return TrainerStatus.Offline("Waiting for trainer status..."); }
         catch (System.Text.Json.JsonException) { return TrainerStatus.Offline("Waiting for trainer status..."); }
     });
+    internal static string? ReadStartupFailure(string directory, DateTime processStartedUtc)
+    {
+        foreach (var file in Directory.EnumerateFiles(directory, "preloader_*.log").OrderByDescending(File.GetLastWriteTimeUtc).Take(5)) {
+            var safe = SafePath(directory, Path.GetFileName(file));
+            if (File.GetLastWriteTimeUtc(safe) < processStartedUtc || new FileInfo(safe).Length > 65536) continue;
+            var line = File.ReadLines(safe).FirstOrDefault(x => x.Contains("Exception", StringComparison.Ordinal));
+            if (line == null) continue;
+            var reason = line.Length > 700 ? line[..700] : line;
+            return "Nomad Drive loader failed before the trainer started: " + reason
+                + " Close the game and install the latest Nomad Drive trainer update. Startup log: " + Path.GetFileName(safe);
+        }
+        return null;
+    }
     public async Task SendAsync(GameInstallation installation, TrainerStatus status, string featureId, bool? enabled = null)
     {
         if (!await commandLock.WaitAsync(0)) throw new InvalidOperationException("Waiting for the previous game command.");
         string? commandPath = null;
         try {
             var fresh = await ReadStatusAsync(installation);
-            if (!fresh.Ready || !fresh.Connected || status.SessionId != fresh.SessionId) throw new InvalidOperationException("Load a game before using trainer controls.");
+            if (!fresh.Connected) throw new InvalidOperationException(fresh.Message);
+            if (!fresh.Ready || status.SessionId != fresh.SessionId) throw new InvalidOperationException("Load a game before using trainer controls.");
             if (featureId != "disable_all" && !Definition.Features.Any(f => f.Id == featureId)) throw new ArgumentException("Unknown trainer control.");
             var id = Guid.NewGuid().ToString("N");
             commandPath = SafePath(installation.Directory, IpcRoot + "commands/" + id + ".json");

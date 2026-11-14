@@ -48,4 +48,4 @@ namespace NomadDrive.Features.LiquidTransferSystem {
 namespace NomadDrive.Features.Attachables {
     public class ConditionComponent { public bool isServer=true; public float MaxCondition=100, Condition=5; public void ServerSetCondition(float value) { Condition=value; } }
 }
-namespace HappyCheats.NomadDrive { public class Plugin { public const string Version = "1.0.1"; } }
+namespace HappyCheats.NomadDrive { public class Plugin { public const string Version = "1.0.2"; } }

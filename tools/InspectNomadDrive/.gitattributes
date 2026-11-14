@@ -1,0 +1,2 @@
+# Preserve the upstream notice bytes used by runtime-resources.json.
+Mono-LICENSE.txt -text -whitespace

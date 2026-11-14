@@ -1,0 +1,9 @@
+Livin' the Cream: Ice Cream Simulator — independent cheat 1.0.4
+
+Supports inspected Steam build 26664226. Updates the native assembly and metadata fingerprints, four hook addresses and prologue witnesses for the new game build.
+
+Adapts unlimited customer patience to the game's new order-slot UI API: passes the current customer's OrderSpot to HidePatience(Int32). Retains all six controls, direct operation dispatch, toggles through loading and explicit process connection. No shared client or other trainer version changes.
+
+Close Livin' the Cream, then choose Library → Update → Livin' the Cream. After installation, launch normally, load your shop and click Connect trainer.
+
+Validation: read-only IL2CPP metadata 39 inspection of 29 method sites, eight fields, 23 runtime exports and four distinct hooks; synthetic native adapter tests for both order slots and game-call errors; actual prologue relocation, unsupported-host DLL startup, module/installer and shared regression suites. No game was launched or attached and no save was changed. Gameplay, physical-controller operation and exclusive fullscreen remain unverified.

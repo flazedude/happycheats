@@ -96,6 +96,11 @@ struct NativeGame final:Game {
   }else if(feature=="lc_refill_softserve")stocks();
  }
  void* customer(){if(!shop)return nullptr;auto list=api.get<void*>(shop,"currentCustomers");if(!list)return nullptr;auto type=api.objectClass(list);if(api.scalar<int>(api.method(type,"get_Count"),list)<=0)return nullptr;int zero=0;return api.call(api.method(type,"get_Item",{"System.Int32"}),list,{&zero});}
+ void hidePatience(void* front,void* ui){
+  if(!ui)return;
+  int spot=api.scalar<int>(api.method(api.objectClass(front),"get_OrderSpot"),front);
+  api.call(api.method(api.objectClass(ui),"HidePatience",{"System.Int32"}),ui,{&spot});
+ }
  void patience(bool disabled)override{
   shop=currentShop();if(!shop)return;
   if(!disabled){auto style=api.scalar<int>(currentStyle);api.call(refresh,shop,{&style});return;}
@@ -103,7 +108,7 @@ struct NativeGame final:Game {
   auto type=api.objectClass(front);
   if(!api.scalar<bool>(api.method(type,"get_HasActiveOrder"),front))return;
   api.call(api.method(type,"StopPatience"),front);
-  auto ui=api.get<void*>(shop,"orderUI");if(ui)api.call(api.method(api.objectClass(ui),"HidePatience"),ui);
+  hidePatience(front,api.get<void*>(shop,"orderUI"));
  }
  void money(float value)override{auto source=api.stringNew("HappyCheats");bool silent=true;api.call(setMoney,nullptr,{&value,source,&silent});}
  float xp()override{return api.scalar<float>(getXP,levels);}

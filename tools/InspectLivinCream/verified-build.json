@@ -1,8 +1,8 @@
 {
   "steam_app_id": "4621810",
-  "steam_build": "26525450",
-  "game_assembly_sha256": "b54273abaa7e95595f2284fb428ed5f741d03b936218694c6196761669049280",
-  "metadata_sha256": "3cc92f0868f5ac31409145f78affc18d06795c50c5226d30ec63dc25d5bf4fe0",
+  "steam_build": "26664226",
+  "game_assembly_sha256": "cd64344f4d79e7dd251df4a4ad4fec1f2518bf85d35af452ec1bb799ac1d582a",
+  "metadata_sha256": "5bd2e57d62177d34282c419260e6609addbd05d33599145187fe9e00394744f4",
   "metadata_version": 39,
   "inspection_tool": "Cpp2IL 2022.1.0-pre-release.21",
   "inspection_tool_sha256": "663fb432433b4371fd1ee0ebc321a8fff2a9aac5ac4230c843f9e03ddee4e04c",
@@ -12,8 +12,8 @@
       "method": "Tick",
       "parameters": [],
       "result": "System.Void",
-      "rva": 7082112,
-      "prefix": "4883ec58803dde50df03007513488d0dace0b603e8171ddd"
+      "rva": 8682768,
+      "prefix": "4883ec58803d3f3a9404007513488d0d44296d04e8b7d1cb"
     },
     {
       "type": "Customer",
@@ -22,8 +22,8 @@
         "System.Single"
       ],
       "result": "System.Void",
-      "rva": 9687680,
-      "prefix": "48895c2408574883ec304883b99001000000488bf90f2974"
+      "rva": 7064992,
+      "prefix": "48895c2408574883ec304883b99801000000488bd90f2974"
     },
     {
       "type": "SoftServeStock",
@@ -32,31 +32,31 @@
         "System.Single"
       ],
       "result": "System.Void",
-      "rva": 7043216,
-      "prefix": "f30f104124f30f5cc10f57c90f2fc87710f30f10494c0f2f"
+      "rva": 8572464,
+      "prefix": "40534883ec30803d75e8950400488bd90f297424200f28f1"
     },
     {
       "type": "ShopSaveManager",
       "method": "MarkRestorePending",
       "parameters": [],
       "result": "System.Void",
-      "rva": 7643440,
-      "prefix": "4883ec28803db9c3d603007513488d0d3c10ad03e8678cd4"
+      "rva": 8985584,
+      "prefix": "4883ec28803df39d8f04007513488d0dac6f5f04e8d732c7"
     },
     {
       "type": "ShopSaveManager",
       "method": "get_RestoreComplete",
       "parameters": [],
       "result": "System.Boolean",
-      "rva": 7669200,
-      "prefix": "4883ec28803d175fd603007513488d0d9cabac03e8c727d4"
+      "rva": 9011344,
+      "prefix": "4883ec28803d51398f04007513488d0d0c0b5f04e837cec6"
     },
     {
       "type": "Player",
       "method": "GetCurrentShop",
       "parameters": [],
       "result": "Shop",
-      "rva": 5826544,
+      "rva": 6297584,
       "prefix": "488b4128c3cccccccccccccccccccccc8b4130c3cccccccc"
     },
     {
@@ -64,8 +64,8 @@
       "method": "get_Database",
       "parameters": [],
       "result": "makif.DatabaseSystem.Database",
-      "rva": 8972480,
-      "prefix": "4883ec2833c9e855fcffff4885c07409488b40184883c428"
+      "rva": 10491104,
+      "prefix": "4883ec2833c9e8c55e00004885c07409488b40184883c428"
     },
     {
       "type": "makif.MoneyKit.Money",
@@ -76,16 +76,16 @@
         "System.Boolean"
       ],
       "result": "System.Void",
-      "rva": 8976640,
-      "prefix": "40534883ec40803de175c20300410fb6d80f297424300f28"
+      "rva": 10536224,
+      "prefix": "48895c2408574883ec40803d1aff770400410fb6d80f2974"
     },
     {
       "type": "makif.MoneyKit.Money",
       "method": "GetMoney",
       "parameters": [],
       "result": "System.Single",
-      "rva": 8976464,
-      "prefix": "4883ec2833c9e8c5ecffff4885c0741c488b40184885c074"
+      "rva": 10536048,
+      "prefix": "4883ec2833c9e835afffff4885c0741c488b40184885c074"
     },
     {
       "type": "LevelManager",
@@ -94,24 +94,24 @@
         "System.Single"
       ],
       "result": "System.Void",
-      "rva": 7091088,
-      "prefix": "40574883ec40803d102edf0300488bf90f297424300f28f1"
+      "rva": 8694608,
+      "prefix": "40574883ec40803d410c940400488bf90f297424300f28f1"
     },
     {
       "type": "LevelManager",
       "method": "GetCurrentXP",
       "parameters": [],
       "result": "System.Single",
-      "rva": 7091952,
-      "prefix": "4883ec2833c9e8c5b11c004885c07413488b40384885c074"
+      "rva": 8695360,
+      "prefix": "4883ec2833c9e895661b004885c07413488b40384885c074"
     },
     {
       "type": "LevelManager",
       "method": "GetCurrentLevel",
       "parameters": [],
       "result": "System.Int32",
-      "rva": 7091904,
-      "prefix": "4883ec2833c9e8f5b11c004885c07411488b40384885c074"
+      "rva": 7268064,
+      "prefix": "4883ec2833c9e8f52d31004885c07411488b40384885c074"
     },
     {
       "type": "LevelManager",
@@ -120,8 +120,8 @@
         "System.Int32"
       ],
       "result": "System.Single",
-      "rva": 7092176,
-      "prefix": "4883ec28488b49204885c9740c4533c04883c428e9e7b507"
+      "rva": 8695584,
+      "prefix": "4883ec28488b49204885c9740c4533c04883c428e9e7e306"
     },
     {
       "type": "SkillTreeManager",
@@ -130,24 +130,24 @@
         "System.Int32"
       ],
       "result": "System.Void",
-      "rva": 8002336,
-      "prefix": "40534883ec20488bd9488b49384885c9744f4533c0e89651"
+      "rva": 9508016,
+      "prefix": "40534883ec20488bd9488b49384885c9744f4533c0e8b6d3"
     },
     {
       "type": "SkillTreeManager",
       "method": "GetAvailablePoints",
       "parameters": [],
       "result": "System.Int32",
-      "rva": 8003168,
-      "prefix": "4883ec28488b41384885c074088b40144883c428c3e8d611"
+      "rva": 9508848,
+      "prefix": "4883ec28488b41384885c074088b40144883c428c3e87639"
     },
     {
       "type": "PlayStyleRules",
       "method": "get_Current",
       "parameters": [],
       "result": "PlayStyle",
-      "rva": 7398416,
-      "prefix": "40534883ec20803db47eda03007513488d0d9aedb603e885"
+      "rva": 8738736,
+      "prefix": "40534883ec20803d08609304007513488d0dcaef6804e815"
     },
     {
       "type": "Shop",
@@ -156,15 +156,15 @@
         "PlayStyle"
       ],
       "result": "System.Void",
-      "rva": 7756704,
-      "prefix": "40574883ec30803d950ad50300488bf9752b488d0d6fc7af"
+      "rva": 9258752,
+      "prefix": "40564883ec30803db0748b0400488bf17513488d0d770061"
     },
     {
       "type": "SoftServeStock",
       "method": "GetStockAmount",
       "parameters": [],
       "result": "System.Single",
-      "rva": 5825024,
+      "rva": 6296064,
       "prefix": "f30f104124c3ccccccccccccccccccccf30f114928c3cccc"
     },
     {
@@ -172,7 +172,7 @@
       "method": "get_MaxStock",
       "parameters": [],
       "result": "System.Single",
-      "rva": 5727120,
+      "rva": 6198160,
       "prefix": "f30f10414cc3cccccccccccccccccccc488bc44889580848"
     },
     {
@@ -182,7 +182,7 @@
         "System.Single"
       ],
       "result": "System.Void",
-      "rva": 7043856,
+      "rva": 8574416,
       "prefix": "0f57c00f2fc17719f30f10414c0f2fc876120f28c833d2f3"
     },
     {
@@ -190,24 +190,34 @@
       "method": "StopPatience",
       "parameters": [],
       "result": "System.Void",
-      "rva": 9687888,
-      "prefix": "40534883ec204883b99001000000488bd9742d488b919001"
+      "rva": 7065376,
+      "prefix": "40534883ec204883b99801000000488bd9742d488b919801"
     },
     {
       "type": "Customer",
       "method": "get_HasActiveOrder",
       "parameters": [],
       "result": "System.Boolean",
-      "rva": 9693936,
+      "rva": 7071344,
       "prefix": "0fb6818a010000c3cccccccccccccccc40534883ec20803d"
+    },
+    {
+      "type": "Customer",
+      "method": "get_OrderSpot",
+      "parameters": [],
+      "result": "System.Int32",
+      "rva": 7072000,
+      "prefix": "8b818c010000c3cccccccccccccccccc488b8110010000c3"
     },
     {
       "type": "OrderUI",
       "method": "HidePatience",
-      "parameters": [],
+      "parameters": [
+        "System.Int32"
+      ],
       "result": "System.Void",
-      "rva": 8682016,
-      "prefix": "40534883ec20803df7f1c60300488bd97513488d0d7faca1"
+      "rva": 10018528,
+      "prefix": "48895c2408574883ec20803d1ee27f0400488bf94863da75"
     },
     {
       "type": "UnityEngine.Object",
@@ -217,40 +227,40 @@
         "UnityEngine.FindObjectsSortMode"
       ],
       "result": "UnityEngine.Object[]",
-      "rva": 50547440,
-      "prefix": "48895c2408574883ec20803dff474901008bda488bf97513"
+      "rva": 61360560,
+      "prefix": "48895c2408574883ec20803defd57101008bda488bf97513"
     },
     {
       "type": "UnityEngine.Object",
       "method": "GetInstanceID",
       "parameters": [],
       "result": "System.Int32",
-      "rva": 50548336,
-      "prefix": "40534883ec20803d6444490100488bd97513488d0d378324"
+      "rva": 61361456,
+      "prefix": "40534883ec20803d54d2710100488bd97513488d0d47fa45"
     },
     {
       "type": "UnityEngine.Behaviour",
       "method": "get_isActiveAndEnabled",
       "parameters": [],
       "result": "System.Boolean",
-      "rva": 50423440,
-      "prefix": "40534883ec20803dd7284b0100488bd97513488d0d8f6925"
+      "rva": 61236096,
+      "prefix": "40534883ec20803d97b8730100488bd97513488d0d1f8a45"
     },
     {
       "type": "UnityEngine.Component",
       "method": "get_gameObject",
       "parameters": [],
       "result": "UnityEngine.GameObject",
-      "rva": 50431088,
-      "prefix": "40534883ec20803d1b0b4b0100488bd9751f488d0dcf5425"
+      "rva": 61243744,
+      "prefix": "40534883ec20803ddb9a730100488bd9751f488d0dcf7845"
     },
     {
       "type": "UnityEngine.GameObject",
       "method": "get_scene",
       "parameters": [],
       "result": "UnityEngine.SceneManagement.Scene",
-      "rva": 50458256,
-      "prefix": "40534883ec20803db1a14a0100488bd97513488d0d77f024"
+      "rva": 61270912,
+      "prefix": "40534883ec20803d7131730100488bd97513488d0d0f1745"
     }
   ],
   "fields": [

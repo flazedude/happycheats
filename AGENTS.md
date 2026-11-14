@@ -1,5 +1,9 @@
 # HappyCheats project instructions
 
+## Always push completed work (14 November 2026)
+
+Always commit and push completed, reviewed HappyCheats source, documentation and instruction changes to GitHub without waiting for another reminder. Integrate completed changes into `main` through the existing workflow and verify the remote commit. Preserve other chats' unfinished work; never stage it merely to make a push possible. Source push and signed trainer publication are separate steps: report each accurately and do not describe an update as available until its signed public catalog and package have been verified.
+
 ## Direct ice cream control dispatch (9 November 2026)
 
 For Livin' the Cream, do not block explicit control clicks using Ready/available status flags, stale UI context-session IDs, a whole-shop restore flag, unique/all-manager requirements or unrelated database identity checks. Dispatch through the current connected process and attempt only the operation's own game targets. Keep toggles through in-process loads. A missing target reports the specific native operation failure. Preserve explicit process connection, package/build integrity, installation ownership, numeric wire format, process routing, at-most-once actions and client-exit cleanup; these do not serve as generic game-readiness vetoes. This supersedes older cream-wide readiness/context-reset rules.

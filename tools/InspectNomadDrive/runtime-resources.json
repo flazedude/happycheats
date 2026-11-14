@@ -1,0 +1,15 @@
+{
+  "unity_version": "6000.0.73f1",
+  "platform": "unityjit-win32",
+  "source_url": "https://download.unity3d.com/download_unity/a166abc3bf0e/Windows64EditorInstaller/UnitySetup64-6000.0.73f1.exe",
+  "source_md5": "654f11025176b562d4d07436d4f9520d",
+  "source_directory": "Editor/Data/MonoBleedingEdge/lib/mono/unityjit-win32",
+  "cache_package_url": "https://github.com/flazedude/happycheats/releases/download/cheat-nomad-drive-1.0.2/HappyCheats-cheat-nomad-drive-1.0.2.zip",
+  "license_sha256": "844242559dbdb96cb9cbe103b06c2bc8a349f19ad0b89d5c3cf830a8914333f6",
+  "files": [
+    { "name": "mscorlib.dll", "sha256": "5ed1180fc8cb409d57952296c7f573f2b1b3d3d2a2cd37258ef407498a17dd4d" },
+    { "name": "System.dll", "sha256": "439ca04b265472afe66df7802bed26e880b3db35e33c7e0ecf182611f4b9b6d7" },
+    { "name": "System.Core.dll", "sha256": "9493ebe16569f6067beef5281d68e83ee9511db7f55245b1dc2c95e8e189fce3" },
+    { "name": "netstandard.dll", "sha256": "6ae62e082dc494a2433984177f60ca4db5fae69b1f360a8b33754172b310b8c5" }
+  ]
+}

@@ -5,6 +5,7 @@
 #include <iostream>
 #include <cstring>
 #include "runtime.h"
+#include "game_api.h"
 #include "bindings.h"
 using namespace cream;
 int checks{};
@@ -23,7 +24,32 @@ struct Fake final:Game {
 };
 Json command(const std::string& id,double value=1){return {{"schema_version",1},{"version",Version},{"session_id","0123456789abcdef0123456789abcdef_1"},{"request_id","1123456789abcdef0123456789abcdef"},{"expires_unix_ms",int64_t(15000)},{"feature",id},{"value",value}};}
 void detour(){}
+namespace patienceFixture {
+ int spot{},observed=-1,calls{};bool fail{};
+ struct Method{const char* name;unsigned params;};
+ Method orderSpot{"get_OrderSpot",0},hide{"HidePatience",1};
+ void* customer=reinterpret_cast<void*>(1);void* ui=reinterpret_cast<void*>(2);
+ void configure(Api& api){
+  api.objectClass=[](void* object){return object;};
+  api.methods=[](void* type,void** iterator)->void*{if(*iterator)return nullptr;*iterator=reinterpret_cast<void*>(1);return type==customer?&orderSpot:&hide;};
+  api.methodName=[](void* method){return static_cast<Method*>(method)->name;};
+  api.paramCount=[](void* method){return static_cast<Method*>(method)->params;};
+  api.isGeneric=[](void*){return false;};api.paramType=[](void*,uint32_t)->void*{return &hide;};
+  api.typeName=[](void*){return _strdup("System.Int32");};api.free=[](void* value){std::free(value);};
+  api.unbox=[](void* value){return value;};
+  api.invoke=[](void* method,void* self,void** args,void** error)->void*{
+   if(method==&orderSpot){check(self==customer);return &spot;}
+   check(method==&hide && self==ui && args && args[0]);
+   observed=*static_cast<int*>(args[0]);calls++;if(fail)*error=ui;return nullptr;
+  };
+ }
+}
 int main(){try{
+ // Exercise the real IL2CPP adapter: the new UI signature must receive the customer's slot, including slot 1.
+ NativeGame native;patienceFixture::configure(native.api);
+ for(int spot:{0,1}){patienceFixture::spot=spot;native.hidePatience(patienceFixture::customer,patienceFixture::ui);check(patienceFixture::observed==spot);}
+ native.hidePatience(patienceFixture::customer,nullptr);check(patienceFixture::calls==2);
+ patienceFixture::fail=true;reject([&]{native.hidePatience(patienceFixture::customer,patienceFixture::ui);});check(patienceFixture::calls==3);
  Runtime runtime;Fake game;Context first;first.valid=true;first.key[0]=1;runtime.lease=20000;runtime.observe(first,10000);
  auto apply=[&](Json c){validate(c,"0123456789abcdef0123456789abcdef_1",10001);return runtime.apply(c,game,10001);};
  check(runtime.ready(10001));apply(command("lc_money",12345));check(game.moneyWrites==1 && game.moneyValue==12345);

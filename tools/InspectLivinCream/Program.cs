@@ -6,8 +6,8 @@ using Mono.Cecil;
 
 var game=args.FirstOrDefault() ?? @"G:\Games\SteamLib\steamapps\common\Livin' the Cream Ice Cream Simulator";
 string? Option(string key){var i=Array.IndexOf(args,key);return i>=0 && i+1<args.Length?args[i+1]:null;}
-const string assemblyHash="b54273abaa7e95595f2284fb428ed5f741d03b936218694c6196761669049280";
-const string metadataHash="3cc92f0868f5ac31409145f78affc18d06795c50c5226d30ec63dc25d5bf4fe0";
+const string assemblyHash="cd64344f4d79e7dd251df4a4ad4fec1f2518bf85d35af452ec1bb799ac1d582a";
+const string metadataHash="5bd2e57d62177d34282c419260e6609addbd05d33599145187fe9e00394744f4";
 var binary=Path.Combine(game,"GameAssembly.dll");
 var metadata=Path.Combine(game,"Livin' the Cream Ice Cream Simulator_Data/il2cpp_data/Metadata/global-metadata.dat");
 string Hash(string p)=>Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(p))).ToLowerInvariant();
@@ -39,7 +39,7 @@ if(record!=null){
   ("SkillTreeManager","EarnSkillPoint",["System.Int32"],null),("SkillTreeManager","GetAvailablePoints",[],null),
   ("PlayStyleRules","get_Current",[],null),("Shop","OnPlayStyleChanged",["PlayStyle"],null),
   ("SoftServeStock","GetStockAmount",[],null),("SoftServeStock","get_MaxStock",[],null),("SoftServeStock","RestoreStock",["System.Single"],null),
-  ("Customer","StopPatience",[],null),("Customer","get_HasActiveOrder",[],null),("OrderUI","HidePatience",[],null),
+  ("Customer","StopPatience",[],null),("Customer","get_HasActiveOrder",[],null),("Customer","get_OrderSpot",[],null),("OrderUI","HidePatience",["System.Int32"],null),
   ("UnityEngine.Object","FindObjectsByType",["System.Type","UnityEngine.FindObjectsSortMode"],null),
   ("UnityEngine.Object","GetInstanceID",[],null),("UnityEngine.Behaviour","get_isActiveAndEnabled",[],null),
   ("UnityEngine.Component","get_gameObject",[],null),("UnityEngine.GameObject","get_scene",[],null)};
@@ -47,7 +47,9 @@ if(record!=null){
  foreach(var target in targets){
   var owner=target.Type.StartsWith("UnityEngine.",StringComparison.Ordinal)?unity:managed;
   var type=owner.MainModule.Types.Single(t=>t.FullName==target.Type);
-  var method=type.Methods.Single(m=>m.Name==target.Method && !m.HasGenericParameters && m.Parameters.Select(p=>p.ParameterType.FullName).SequenceEqual(target.Parameters));
+  var candidates=type.Methods.Where(m=>m.Name==target.Method && !m.HasGenericParameters && m.Parameters.Select(p=>p.ParameterType.FullName).SequenceEqual(target.Parameters)).ToArray();
+  Check(candidates.Length==1,"expected one method: "+target.Type+"."+target.Method+"; candidates: "+string.Join("; ",type.Methods.Where(m=>m.Name==target.Method).Select(m=>m.FullName)));
+  var method=candidates[0];
   uint rva=Rva(method);Check(rva!=0,"missing native method: "+target.Type+"."+target.Method);
   bindings.Add(new { type=target.Type,method=target.Method,parameters=target.Parameters,result=method.ReturnType.FullName,rva,prefix=Convert.ToHexString(Bytes((int)rva,24)).ToLowerInvariant() });
   if(target.Hook!=null){
@@ -58,7 +60,7 @@ if(record!=null){
  }
  var fields=new[]{("Shop","currentCustomers"),("Shop","orderUI"),("SkillTreeManager","DB"),("makif.DatabaseSystem.Database","InventoryDatabase"),("makif.DatabaseSystem.Database","ProgressDatabase"),("makif.DatabaseSystem.Database","SkillPointDatabase"),("makif.DatabaseSystem.SkillPointDatabase","SkillPoint"),("makif.DatabaseSystem.SkillPointDatabase","TotalEarned")};
  foreach(var (type,name) in fields)Check(managed.MainModule.Types.Single(t=>t.FullName==type).Fields.Any(f=>f.Name==name),"missing field: "+type+"."+name);
- var evidence=new {steam_app_id="4621810",steam_build="26525450",game_assembly_sha256=assemblyHash,metadata_sha256=metadataHash,metadata_version=39,inspection_tool="Cpp2IL 2022.1.0-pre-release.21",inspection_tool_sha256="663fb432433b4371fd1ee0ebc321a8fff2a9aac5ac4230c843f9e03ddee4e04c",bindings,fields=fields.Select(f=>new{type=f.Item1,field=f.Item2}),live_tested=false};
+ var evidence=new {steam_app_id="4621810",steam_build="26664226",game_assembly_sha256=assemblyHash,metadata_sha256=metadataHash,metadata_version=39,inspection_tool="Cpp2IL 2022.1.0-pre-release.21",inspection_tool_sha256="663fb432433b4371fd1ee0ebc321a8fff2a9aac5ac4230c843f9e03ddee4e04c",bindings,fields=fields.Select(f=>new{type=f.Item1,field=f.Item2}),live_tested=false};
  Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(record))!);File.WriteAllText(record,JsonSerializer.Serialize(evidence,new JsonSerializerOptions{WriteIndented=true}));
  var header=Option("--header") ?? throw new ArgumentException("--header required when recording bindings");Check(!File.Exists(header),"do not overwrite a reviewed native header");
  var content=new StringBuilder("#pragma once\n#include <cstdint>\nnamespace bindings {\n");
@@ -73,5 +75,5 @@ if(record!=null){
  using var json=JsonDocument.Parse(File.ReadAllBytes(Path.Combine(root,"tools/InspectLivinCream/verified-build.json")));
  var data=json.RootElement;Check(data.GetProperty("game_assembly_sha256").GetString()==assemblyHash && data.GetProperty("metadata_sha256").GetString()==metadataHash,"evidence identity");
  foreach(var binding in data.GetProperty("bindings").EnumerateArray()){int rva=binding.GetProperty("rva").GetInt32();Check(Convert.ToHexString(Bytes(rva,24)).Equals(binding.GetProperty("prefix").GetString(),StringComparison.OrdinalIgnoreCase),"native prologue drift");}
- Console.WriteLine($"PASS Livin Cream build 26525450: IL2CPP v39, native/metadata hashes, {data.GetProperty("bindings").GetArrayLength()} method sites and {requiredExports.Length} runtime exports; no game launched.");
+ Console.WriteLine($"PASS Livin Cream build 26664226: IL2CPP v39, native/metadata hashes, {data.GetProperty("bindings").GetArrayLength()} method sites and {requiredExports.Length} runtime exports; no game launched.");
 }
