@@ -1,0 +1,9 @@
+Nomad Drive — trainer 1.0.2
+
+Fixes the loader crash that left every control waiting for the game connection. Includes the matching unstripped Windows Mono framework in an isolated loader directory; original game DLLs are unchanged.
+
+Accepts both the older 16-file and expanded 20-file ownership records, fixing Update/Install after the development test installation. Existing ownership, file integrity, closed-game installation and final verification remain enforced. Recent preloader exceptions now produce a specific startup diagnostic.
+
+Close Nomad Drive, then use Update beside Library Sort and update Nomad Drive. The signed download, module reload and trainer installation complete in one operation. HappyCheats client/EXE remains unchanged; minimum client 0.3.69, or 0.3.70+ for Add trainer.
+
+Supports inspected Steam build 26391437, Unity 6000.0.73f1. At the user's request, live testing on JACK-PC verified startup/connection, food refill, water refill through the client, unlimited food and Disable all in a fresh solo test world. Existing saves were not loaded or edited. Other effects, physical controllers, exclusive fullscreen and achievements remain unverified. Offline checks cover old/new ownership records, repeat installation, rollback, integrity and shared menu/controller behavior.

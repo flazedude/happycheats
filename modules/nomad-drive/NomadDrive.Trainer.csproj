@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework><AssemblyName>HappyCheats.NomadDrive</AssemblyName>
-    <LangVersion>latest</LangVersion><Nullable>disable</Nullable><ImplicitUsings>disable</ImplicitUsings><Version>1.0.1</Version>
+    <LangVersion>latest</LangVersion><Nullable>disable</Nullable><ImplicitUsings>disable</ImplicitUsings><Version>1.0.2</Version>
     <GameDirectory Condition="'$(GameDirectory)' == ''">G:\Games\SteamLib\steamapps\common\Nomad Drive</GameDirectory>
     <Managed>$(GameDirectory)\Nomad Drive_Data\Managed</Managed>
     <BepInExDirectory>$(MSBuildThisFileDirectory)..\..\.tools\bepinex\5.4.23.5-x64\extracted\BepInEx</BepInExDirectory>

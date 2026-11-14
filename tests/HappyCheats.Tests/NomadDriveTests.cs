@@ -19,6 +19,11 @@ internal static class NomadDriveTests
             Check(module.Definition.Features.Count(f => f.IsToggle) == 4);
             Check(NomadDriveModule.SupportsAssembly(NomadDriveModule.SupportedAssemblyHash.ToLowerInvariant()));
             Check(!NomadDriveModule.SupportsAssembly(new string('0', 64)));
+            var bootLog = Path.Combine(game, "preloader_test.log");
+            File.WriteAllText(bootLog, "System.MissingMethodException: Method not found: Module.GetPEKind");
+            Check(NomadDriveModule.ReadStartupFailure(game, DateTime.UtcNow.AddMinutes(-1))?.Contains("GetPEKind") == true);
+            Check(NomadDriveModule.ReadStartupFailure(game, DateTime.UtcNow.AddMinutes(1)) == null);
+            File.Delete(bootLog);
             void Manifest(string id = "nomad-drive") => WriteJson(Path.Combine(package, "package.json"), new {
                 schema_version = 1, game_id = id, steam_app_id = 2223980, version = NomadDriveModule.TrainerVersion,
                 game_assembly_sha256 = NomadDriveModule.SupportedAssemblyHash, loader = new { architecture = "win-x64" },
@@ -41,12 +46,24 @@ internal static class NomadDriveTests
             // Exercise the existing ownership receipt upgrade used by the in-app updater.
             var oldPlugin = SafePath(game, NomadDriveInstaller.Plugin);
             File.WriteAllText(oldPlugin, "owned 1.0.0 plugin");
-            var oldFiles = NomadDriveInstaller.RequiredFiles.Select(p => new NomadDriveInstaller.Entry(p, Hash(SafePath(game, p)))).ToList();
+            var runtimeFiles = NomadDriveInstaller.RequiredFiles.Where(p => p.StartsWith("BepInEx/nomad-runtime/", StringComparison.Ordinal)).ToArray();
+            var oldFiles = NomadDriveInstaller.RequiredFiles.Except(runtimeFiles).Select(p => new NomadDriveInstaller.Entry(p, Hash(SafePath(game, p)))).ToList();
+            Check(oldFiles.Count == 16 && runtimeFiles.Length == 4);
+            foreach (var path in runtimeFiles) File.Delete(SafePath(game, path));
             WriteJson(SafePath(game, NomadDriveInstaller.ReceiptPath), new NomadDriveInstaller.Receipt("nomad-drive", oldFiles));
             var progress = new List<string>();
             NomadDriveInstaller.Install(package, game, () => { }, new ReportProgress(progress.Add));
             Check(NomadDriveModule.MatchesInstalledPackage(package, game));
             Check(progress.Any(message => message.Contains("Verifying installed")));
+            var upgradedReceipt = ReadJson(SafePath(game, NomadDriveInstaller.ReceiptPath));
+            Check(Object(upgradedReceipt, "Files").GetArrayLength() == 20);
+            // A second Update/Install must accept its own expanded ownership record.
+            NomadDriveInstaller.Install(package, game, () => { });
+            Check(NomadDriveModule.MatchesInstalledPackage(package, game));
+            var receiptText = File.ReadAllText(SafePath(game, NomadDriveInstaller.ReceiptPath));
+            File.WriteAllText(SafePath(game, NomadDriveInstaller.ReceiptPath), receiptText.Replace(runtimeFiles[0], "Nomad Drive_Data/Managed/mscorlib.dll"));
+            Reject(() => NomadDriveInstaller.Install(package, game, () => { }));
+            File.WriteAllText(SafePath(game, NomadDriveInstaller.ReceiptPath), receiptText);
             var verificationGame = Path.Combine(root, "verification-game"); Directory.CreateDirectory(verificationGame);
             Reject(() => NomadDriveInstaller.Install(package, verificationGame, () => { }, new ReportProgress(message => {
                 if (message.StartsWith("Verifying installed")) File.AppendAllText(SafePath(verificationGame, NomadDriveInstaller.Plugin), "external change");

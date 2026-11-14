@@ -40,6 +40,20 @@ foreach ($ndRelative in $ndPaths) {
     New-Item -ItemType Directory -Path ([IO.Path]::GetDirectoryName($ndDestination)) -Force | Out-Null
     Copy-Item -LiteralPath (Join-Path $ndLoader $ndRelative) -Destination $ndDestination -Force
 }
+$ndRuntimeExtract = & (Join-Path $ndRoot 'tools/InspectNomadDrive/Prepare-Runtime.ps1')
+Copy-Item -LiteralPath (Join-Path $ndRoot 'tools/InspectNomadDrive/runtime-resources.json') -Destination (Join-Path $ndLicensePath 'runtime-resources.json') -Force
+Copy-Item -LiteralPath (Join-Path $ndRoot 'tools/InspectNomadDrive/Mono-LICENSE.txt') -Destination (Join-Path $ndLicensePath 'Mono-LICENSE.txt') -Force
+foreach ($ndLibrary in @('mscorlib.dll','System.dll','System.Core.dll','netstandard.dll')) {
+    $ndRelative = 'BepInEx/nomad-runtime/' + $ndLibrary
+    $ndDestination = Join-Path $ndOutput $ndRelative
+    New-Item -ItemType Directory -Force (Split-Path $ndDestination) | Out-Null
+    Copy-Item -LiteralPath (Join-Path $ndRuntimeExtract $ndLibrary) -Destination $ndDestination -Force
+    $ndPaths += $ndRelative
+}
+$ndDoorstopPath = Join-Path $ndOutput 'doorstop_config.ini'
+$ndDoorstop = Get-Content -LiteralPath $ndDoorstopPath -Raw
+$ndDoorstop = $ndDoorstop -replace '(?m)^dll_search_path_override\s*=.*$', 'dll_search_path_override = BepInEx/nomad-runtime'
+[IO.File]::WriteAllText($ndDoorstopPath, $ndDoorstop, [Text.UTF8Encoding]::new($false))
 $ndPluginRoot = 'BepInEx/plugins/HappyCheats.NomadDrive/'
 foreach ($ndDll in @('HappyCheats.NomadDrive.dll')) {
     $ndRelative = $ndPluginRoot + $ndDll
@@ -49,7 +63,7 @@ foreach ($ndDll in @('HappyCheats.NomadDrive.dll')) {
     $ndPaths += $ndRelative
 }
 [ordered]@{
-    schema_version = 1; game_id = 'nomad-drive'; steam_app_id = 2223980; version = '1.0.1'; build_id = '26391437'; game_assembly_sha256 = $ndExpectedGameHash
+    schema_version = 1; game_id = 'nomad-drive'; steam_app_id = 2223980; version = '1.0.2'; build_id = '26391437'; game_assembly_sha256 = $ndExpectedGameHash
     loader = Get-Content -LiteralPath (Join-Path $ndRoot '.tools\bepinex\5.4.23.5-x64\provenance.json') -Raw | ConvertFrom-Json
     files = @($ndPaths | ForEach-Object { [ordered]@{ path = $_.Replace('\', '/'); sha256 = (Get-FileHash -LiteralPath (Join-Path $ndOutput $_) -Algorithm SHA256).Hash.ToLowerInvariant() } })
 } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $ndOutput 'package.json') -Encoding utf8
