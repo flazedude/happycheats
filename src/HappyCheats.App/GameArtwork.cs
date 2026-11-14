@@ -11,6 +11,7 @@ public static class GameArtwork
     {
         var assetName = moduleId switch
         {
+            "nomad-drive" => "nomad-drive",
             "chinese-parents" => "chinese-parents",
             "project-hospital" => "project-hospital",
             "hotel-architect" => "hotel-architect",
