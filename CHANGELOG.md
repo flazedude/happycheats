@@ -2,7 +2,7 @@
 
 **[Download the latest release / 下载最新版本](https://github.com/flazedude/happycheats/releases/latest)** · [Home](README.md) · [中文首页](README.zh-CN.md)
 
-## Latest · 0.3.72
+## Latest · 0.3.73
 
 - Fix Nomad Drive's Library icon and banner with its original Steam artwork, bundled for offline display.
 - Preserve trainer 1.0.2 and game files; all 21 current integrated payloads remain in the complete client.
@@ -10,7 +10,7 @@
 
 修复 Nomad Drive 游戏库图标及横幅，内置原始 Steam 图片。修改器 1.0.2 及游戏文件不变；本次图片修复未更改运行中的游戏。
 
-[English](docs/releases/0.3.72.en.txt) · [中文](docs/releases/0.3.72.zh.txt)
+[English](docs/releases/0.3.73.en.txt) · [中文](docs/releases/0.3.73.zh.txt)
 
 ## 0.3.71
 

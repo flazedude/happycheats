@@ -4,11 +4,11 @@ Windows 游戏修改器合集，内置 21 款游戏、中英双语和统一游�
 
 **[下载 HappyCheats.exe](https://github.com/flazedude/happycheats/releases/latest/download/HappyCheats.exe)** · [最新发行版](https://github.com/flazedude/happycheats/releases/latest) · [更新日志](CHANGELOG.md) · [English](README.md)
 
-## 最新版本 · 0.3.72
+## 最新版本 · 0.3.73
 
 Nomad Drive 在游戏库显示原始 Steam 图标及横幅标志，修复通用 HappyCheats 图片占位。图片内置，离线可用。完整客户端包含全部 21 款现有修改器载荷，包括 Nomad Drive 1.0.2，并保留独立游戏库更新功能。本次图片发行通过离线验证，未更改正在运行的游戏。
 
-[完整更新说明](docs/releases/0.3.72.zh.txt)
+[完整更新说明](docs/releases/0.3.73.zh.txt)
 
 **[甜蜜冰淇淋 1.0.4](docs/livin-cream.md)** 支持已检查的 IL2CPP 版本，直接分发各项操作。本次完整客户端包含已跟踪的 1.0.4 包。已完成离线/静态/合成验证，实际游戏效果尚未验证。
 

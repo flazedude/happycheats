@@ -1,0 +1,9 @@
+HappyCheats 0.3.73
+
+Fixes Nomad Drive's Library icon and banner logo, which previously showed the generic HappyCheats image. Bundles the game's original Steam artwork for offline display.
+
+This client artwork fix does not change Nomad Drive's trainer 1.0.2 or its installed game files. The complete distribution includes the current integrated trainer payloads and independent package versions. Existing independently downloaded trainers remain available through the normal store.
+
+The complete bundle also carries the integrated Phantom Blade Zero 1.0.3 controller-possession lease fix. Its gameplay effects remain unverified; see that trainer's separate notes.
+
+Validated bundled-image decoding/rendering and the normal offline release suites. No game was launched, closed or modified for this artwork change. Install the client update after finishing your game; gameplay, physical-controller operation and exclusive-fullscreen rendering were not tested for this release.
