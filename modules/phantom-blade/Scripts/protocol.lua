@@ -1,6 +1,10 @@
 -- Allowlisted, expiring session-bound data. Never evaluated as code.
 local P = {}
-local actions = {pbz_health=true, pbz_stamina=true, pbz_damage=true, disable_all=true}
+local toggles = {pbz_health=true, pbz_stamina=true, pbz_guard=true}
+local amounts = {pbz_damage=20, pbz_speed=5, pbz_regen=10, pbz_walk=5, pbz_jump=5, pbz_gravity=5}
+local actions = {pbz_heal=true, pbz_refill_shachi=true, disable_all=true}
+for action in pairs(toggles) do actions[action]=true end
+for action in pairs(amounts) do actions[action]=true end
 function P.parse(text, session, now)
     if type(text) ~= "string" or #text > 2048 then return nil, "Invalid trainer command" end
     local fields = {}
@@ -21,11 +25,12 @@ function P.parse(text, session, now)
     local created = tonumber(fields.created_utc)
     if not created or created <= 0 or created % 1 ~= 0 or now - created > 8 or created > now + 2 then return nil, "Trainer command expired" end
     if fields.enabled ~= "0" and fields.enabled ~= "1" then return nil, "Invalid toggle state" end
-    if (fields.action == "pbz_damage" or fields.action == "disable_all") and fields.enabled ~= "0" then return nil, "Action cannot be enabled as a toggle" end
-    if fields.action == "pbz_damage" then
+    if not toggles[fields.action] and fields.enabled ~= "0" then return nil, "Action cannot be enabled as a toggle" end
+    if amounts[fields.action] then
         local amount = fields.amount and tonumber(fields.amount) or 2
-        if fields.amount and not fields.amount:match("^%d+$") then return nil, "Invalid damage multiplier" end
-        if not amount or amount % 1 ~= 0 or amount < 1 or amount > 20 then return nil, "Invalid damage multiplier" end
+        local reason = fields.action == "pbz_damage" and "Invalid damage multiplier" or "Invalid multiplier"
+        if fields.amount and not fields.amount:match("^%d+$") then return nil, reason end
+        if not amount or amount % 1 ~= 0 or amount < 1 or amount > amounts[fields.action] then return nil, reason end
         fields.amount = amount
     elseif fields.amount then return nil, "Unexpected multiplier" end
     fields.enabled = fields.enabled == "1"

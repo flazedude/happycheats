@@ -17,6 +17,10 @@ local state={ready=true,key="world1/player1",flags={pbz_health=false,pbz_stamina
     available={pbz_health=true,pbz_stamina=true,pbz_damage=true}, calls={},damage=1,damage_calls=0,disables=0,ticks=0}
 local function game_thread() assert(on_thread,"Engine work ran outside game thread") end
 local trainer={}
+local new_numeric={pbz_speed=true,pbz_regen=true,pbz_walk=true,pbz_jump=true,pbz_gravity=true}
+state.numeric={}; state.refills=0; state.flags.pbz_guard=false; state.available.pbz_guard=true
+state.available.pbz_heal=true; state.available.pbz_refill_shachi=true
+for id in pairs(new_numeric) do state.numeric[id]=1; state.available[id]=true end
 function trainer:refresh()
     game_thread(); refreshes=refreshes+1
     if state.refresh_error then error("fixture refresh failure") end
@@ -28,6 +32,7 @@ function trainer:disable_all()
     game_thread(); state.disables=state.disables+1
     for action in pairs(state.flags) do state.flags[action]=false end
     state.damage=1
+    for id in pairs(state.numeric) do state.numeric[id]=1 end
     return true,"All off"
 end
 function trainer:tick(reuse_refresh)
@@ -42,10 +47,18 @@ function trainer:apply(action,enabled,amount)
     state.calls[#state.calls+1]={action=action,enabled=enabled,amount=amount}
     if state.apply_error then error("fixture dispatch failure") end
     if action=="disable_all" then return self:disable_all() end
-    if enabled==false and (action=="pbz_health" or action=="pbz_stamina") then state.flags[action]=false; return true,"Off" end
+    if enabled==false and (action=="pbz_health" or action=="pbz_stamina" or action=="pbz_guard") then state.flags[action]=false; return true,"Off" end
     if action=="pbz_damage" and amount==1 then state.damage=1; state.flags.pbz_damage=false; return true,"Damage restored" end
+    if new_numeric[action] then
+        equal(enabled,nil,"Numeric wire state is stripped before binding dispatch")
+        if amount==1 or state.ready then state.numeric[action]=amount; return true,"Numeric applied" end
+    end
     if not state.ready then return false,"Load gameplay" end
     if state.reject then return false,"Binding refused action" end
+    if action=="pbz_heal" or action=="pbz_refill_shachi" then
+        equal(enabled,nil,"One-shot wire state is stripped before binding dispatch")
+        equal(amount,nil); state.refills=state.refills+1; return true,"Resource refilled"
+    end
     if action=="pbz_damage" then
         state.damage=amount; state.damage_calls=state.damage_calls+1; state.flags.pbz_damage=true
         if state.after_damage_error then error("fixture exception after dispatch") end
@@ -129,7 +142,7 @@ equal(timers,1); equal(#jobs,0)
 for _,key in ipairs({1,2,10}) do equal(type(keys[key]),"function","Game-focus hotkeys registered") end
 local key_count=0; for _ in pairs(keys) do key_count=key_count+1 end
 equal(key_count,3,"No native menu or numeric-action hotkey")
-tick(); equal(latest.ready,true); equal(latest.version,"0.1.4"); equal(state.disables,1)
+tick(); equal(latest.ready,true); equal(latest.version,"0.1.5"); equal(state.disables,1)
 equal(refreshes,1,"One idle tick resolves native context only once")
 local published=publications
 tick(); tick(); tick(); equal(publications,published,"Stable polls coalesce status writes")
@@ -221,6 +234,23 @@ equal(publications,count+1,"Returning to old state republishes after gap")
 equal(latest.ready,true); equal(files["status.tmp"],nil)
 equal(timers,1,"Polling and toggles never allocate extra timers")
 equal(#jobs,0,"No asynchronous backlog")
+state.ready=true; state.key="expansion/player"; tick()
+queue("pbz_guard",100,true); tick(); equal(state.flags.pbz_guard,true)
+state.ready=false; queue("pbz_guard",101,false); tick(); equal(state.flags.pbz_guard,false)
+local request=102
+for id in pairs(new_numeric) do
+    state.ready=true; queue(id,request,false,3); request=request+1; tick()
+    equal(state.numeric[id],3); equal(latest.last_success,true)
+    state.ready=false; queue(id,request,false,1); request=request+1; tick()
+    equal(state.numeric[id],1); equal(latest.last_success,true)
+end
+state.ready=true
+for _,id in ipairs({"pbz_heal","pbz_refill_shachi"}) do
+    local refills=state.refills
+    queue(id,request,false); tick(); equal(state.refills,refills+1)
+    queue(id,request,false); tick(); equal(state.refills,refills+1,"Same one-shot request cannot replay")
+    request=request+1
+end
 local disables=state.disables
 schedule_failure=true; keys={}; loop=nil; load_main()
 equal(loop,nil); equal(latest.ready,false)

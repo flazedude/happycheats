@@ -19,6 +19,15 @@ local health_messages = {
     verify="Phantom Blade Zero health restore could not be verified. Choose Disable all before retrying.",
 }
 local resources = {pbz_health={"Health","Health_Max"}, pbz_stamina={"Shachi","Shachi_Max"}}
+-- Reflected, player-owned fields; no world defaults, global cheats or save edits.
+local overrides = {
+    pbz_guard={field="bCanBeDamaged",boolean=true,label="Player damage guard / 玩家伤害防护"},
+    pbz_speed={field="CustomTimeDilation",limit=5,label="Player actor speed / 玩家动作速度"},
+    pbz_regen={field="ShachiRegen",attribute=true,limit=10,label="Sha-Chi regeneration / 杀气恢复"},
+    pbz_walk={field="MaxWalkSpeed",movement=true,limit=5,label="Movement speed limit / 移动速度上限"},
+    pbz_jump={field="JumpZVelocity",movement=true,limit=5,label="Jump velocity / 跳跃初速度"},
+    pbz_gravity={field="GravityScale",movement=true,divide=true,limit=5,label="Reduced gravity / 降低重力"},
+}
 local function finite(v) return type(v)=="number" and v==v and math.abs(v)<math.huge end
 local function close(a,b) return finite(a) and finite(b) and math.abs(a-b)<=math.max(0.01,math.abs(b)*0.00001) end
 local function valid(o)
@@ -250,10 +259,13 @@ function T:_restore_health()
     self.health_reason,self.health_error=nil,nil
     return true
 end
-function T:_restore_damage()
+function T:_restore_damage(automatic)
     local lease=self.damage
     self.flags.pbz_damage=false
     if not lease then return true end
+    lease.attempts=lease.attempts or 0
+    if automatic and lease.attempts>=3 then return false end
+    lease.attempts=lease.attempts+1
     if not valid(lease.pawn) then self.damage=nil; return true end
     if not valid(lease.set) then self.damage=nil; return true end
     local ok,world=call(lease.pawn,"GetWorld")
@@ -275,11 +287,111 @@ function T:_restore_damage()
     self.damage=nil
     return close(restored,lease.original)
 end
-function T:disable_all()
+function T:_override_target(id,pawn)
+    if not overrides[id].movement then return pawn end
+    local ok,target=read(pawn,"CharacterMovement")
+    if not ok or not valid(target) then return nil end
+    if not valid(self.movement_class) then self.movement_class=find("/Script/Engine.CharacterMovementComponent") end
+    local a,class=call(target,"IsA",self.movement_class)
+    local b,owner=call(target,"GetOuter")
+    return a and class==true and b and same(owner,pawn) and target or nil
+end
+function T:_override_value(id,pawn,set,expected_target)
+    local spec=overrides[id]
+    if spec.attribute then return self:_read(spec.field,pawn,set) end
+    local target=self:_override_target(id,pawn)
+    if expected_target and not same(target,expected_target) then return nil end
+    local ok,value=read(target,spec.field)
+    if not ok then return nil end
+    if spec.boolean then if type(value)=="boolean" then return value end; return nil end
+    return finite(value) and value>0 and value<=(spec.movement and 100000 or 10) and value or nil
+end
+local function matching(a,b) return type(a)=="boolean" and a==b or close(a,b) end
+function T:_override_write(id,pawn,set,value,expected_target)
+    local spec=overrides[id]
+    if spec.attribute then return self:_write(pawn,spec.field,value,set) end
+    local target=self:_override_target(id,pawn)
+    if not valid(target) or expected_target and not same(target,expected_target) then return false end
+    local wrote=pcall(function() target[spec.field]=value end)
+    return wrote and same(self:_override_target(id,pawn),target)
+end
+function T:_restore_override(id,automatic)
+    self.flags[id]=false
+    local lease=self.overrides[id]
+    if not lease then return true end
+    if automatic and lease.attempts>=3 then return false end
+    lease.attempts=lease.attempts+1
+    if not valid(lease.pawn) or not valid(lease.world) then self.overrides[id]=nil; return true end
+    local ok,world=call(lease.pawn,"GetWorld")
+    if not ok then return false end
+    if not same(world,lease.world) then self.overrides[id]=nil; return true end
+    local target=self:_override_target(id,lease.pawn)
+    if not target then return false end
+    if not same(target,lease.target) then self.overrides[id]=nil; return true end
+    if overrides[id].attribute then
+        local set=self:_attribute_set(lease.pawn)
+        if not set then return false end
+        if not same(set,lease.set) then self.overrides[id]=nil; return true end
+        local base=self:_value(overrides[id].field,"BaseValue",lease.pawn,set)
+        if base==nil then return false end
+        if not close(base,lease.base) then self.overrides[id]=nil; return true end
+    end
+    local current=self:_override_value(id,lease.pawn,lease.set,lease.target)
+    if current==nil then return false end
+    if matching(current,lease.original) then self.overrides[id]=nil; return true end
+    if not matching(current,lease.applied) then self.overrides[id]=nil; return true end
+    -- Restore only the original owned target while our exact override survives.
+    if not owned(lease.pawn,lease.controller,self.player_class,self.local_player_class) then return false end
+    local wrote=self:_override_write(id,lease.pawn,lease.set,lease.original,lease.target)
+    if wrote and matching(self:_override_value(id,lease.pawn,lease.set,lease.target),lease.original) then
+        self.overrides[id]=nil; return true
+    end
+    return false
+end
+function T:_apply_override(id,amount)
+    local spec=overrides[id]
+    if not spec.boolean and (not finite(amount) or amount%1~=0 or amount<1 or amount>spec.limit) then
+        return false,"Choose a whole-number multiplier within this control's displayed range."
+    end
+    local lease=self.overrides[id]
+    if self.flags[id] and lease and lease.multiplier==amount then return true,"Control is already applied." end
+    if not self:_restore_override(id) then return false,spec.label..": restoration pending; choose Off / 1x or Disable all to retry." end
+    local pawn,controller,world,identity=self.pawn,self.controller,self.world,self.identity
+    local set=self:_attribute_set(pawn)
+    if not self:_health_context(pawn,controller,world,set,identity) then return false,"Player target changed; retry after connecting." end
+    local target=self:_override_target(id,pawn)
+    if not valid(target) then return false,spec.label..": owned target is unavailable." end
+    local original=self:_override_value(id,pawn,set,target)
+    local base=spec.attribute and self:_value(spec.field,"BaseValue",pawn,set) or nil
+    if original==nil or spec.attribute and (base==nil or base<=0 or not close(original,base)) then
+        return false,spec.label..": owned field is unavailable or game modifiers are active."
+    end
+    local applied
+    if spec.boolean then applied=false
+    elseif spec.divide then applied=original/amount
+    else applied=original*amount end
+    if not spec.boolean and (applied<=0 or applied>(spec.attribute and 100000000 or spec.movement and 100000 or 10)) then return false,"Requested player value exceeds the supported range." end
+    if not self:_health_context(pawn,controller,world,set,identity) then return false,"Player target changed; retry after connecting." end
+    lease={pawn=pawn,controller=controller,world=world,set=set,target=target,base=base,original=original,applied=applied,multiplier=amount,attempts=0}
+    self.overrides[id]=lease
+    local wrote=self:_override_write(id,pawn,set,applied,target)
+    if not wrote or not self:_health_context(pawn,controller,world,set,identity)
+        or not matching(self:_override_value(id,pawn,set,target),applied)
+        or spec.attribute and not close(self:_value(spec.field,"BaseValue",pawn,set),base) then
+        self:_restore_override(id)
+        return false,spec.label..": write could not be verified; choose Off / 1x or Disable all to restore."
+    end
+    self.flags[id]=true
+    return true,spec.label..": applied; gameplay effects remain unverified."
+end
+function T:disable_all(automatic)
     self.flags.pbz_health=false; self.flags.pbz_stamina=false
     self.health_fault,self.health_reason,self.health_error=nil,nil,nil
-    local restored=self:_restore_damage()
-    return restored,restored and "All Phantom Blade Zero controls reset." or "Attack restoration is pending; keep HappyCheats connected."
+    local restored=self:_restore_damage(automatic)
+    local extra=true
+    for id in pairs(overrides) do if not self:_restore_override(id,automatic) then extra=false end end
+    return restored and extra,not extra and "Player control restoration failed; choose Disable all to retry."
+        or restored and "All Phantom Blade Zero controls reset." or "Attack restoration is pending; keep HappyCheats connected."
 end
 function T:enabled()
     local copy={}; for name,value in pairs(self.flags) do copy[name]=value end; return copy
@@ -289,7 +401,7 @@ function T:refresh()
     local pawn,controller,world,discovery,discovery_detail=self:_player()
     local identity=valid(pawn) and (address(world)..":"..address(controller)..":"..address(pawn)) or ""
     if identity~=self.identity then
-        self:disable_all()
+        self:disable_all(true)
         self.identity=identity
     end
     self.pawn,self.controller,self.world=pawn,controller,world
@@ -302,12 +414,12 @@ function T:refresh()
         return false,"Phantom Blade Zero player detection: "..discovery..".",values,self.available
     end
     if not self:_attribute_set(pawn) then
-        self:disable_all()
+        self:disable_all(true)
         return false,"Phantom Blade Zero owned attribute set is unavailable.",values,self.available
     end
     local health=self:_read("Health")
     if health==nil or health<=0 then
-        self:disable_all()
+        self:disable_all(true)
         return false,"Waiting for a living Phantom Blade Zero player.",values,self.available
     end
     local health_current,health_max
@@ -319,7 +431,9 @@ function T:refresh()
         if maximum~=nil then values[feature.."_max"]=string.format("%.3f",maximum) end
     end
     self.available.pbz_health=self:_health_available(health_current,health_max)==true
-    if self.health_reason then values.reason_pbz_health=self.health_reason end
+    self.available.pbz_heal=self.available.pbz_health
+    self.available.pbz_refill_shachi=self.available.pbz_stamina
+    if self.health_reason then values.reason_pbz_health=self.health_reason; values.reason_pbz_heal=self.health_reason end
     if self.health_error then values.diagnostic_pbz_health_error=self.health_error end
     local attack=self:_read("Attack")
     local base=self:_base(pawn)
@@ -336,8 +450,35 @@ function T:refresh()
     if attack~=nil then values.pbz_attack=string.format("%.3f",attack) end
     if self.flags.pbz_damage and self.damage then values.pbz_damage=tostring(self.damage.multiplier)
     elseif not self.damage then values.pbz_damage="1" end
+    local pending_override=false
+    for id,spec in pairs(overrides) do
+        local set=self:_attribute_set(pawn)
+        local current=self:_override_value(id,pawn,set)
+        local target=self:_override_target(id,pawn)
+        local base=spec.attribute and self:_value(spec.field,"BaseValue",pawn,set) or nil
+        local lease=self.overrides[id]
+        if lease and self.flags[id] and (not same(pawn,lease.pawn)
+            or target~=nil and not same(target,lease.target)
+            or spec.attribute and not same(set,lease.set)
+            or current~=nil and not matching(current,lease.applied)
+            or spec.attribute and base~=nil and not close(base,lease.base)) then
+            self.flags[id]=false; self.overrides[id]=nil; lease=nil
+        end
+        if lease and (current==nil or spec.attribute and base==nil) then self.flags[id]=false end
+        self.available[id]=current~=nil and (not spec.attribute or base~=nil and base>0 and (close(current,base) or self.flags[id]))
+            and (lease==nil or self.flags[id]==true)
+        if not spec.boolean then
+            if self.flags[id] and lease then values[id]=tostring(lease.multiplier)
+            elseif not lease then values[id]="1" end
+        end
+        if lease and not self.flags[id] then
+            pending_override=true
+            values["reason_"..id]=spec.label..": restoration pending; choose Off / 1x or Disable all to retry."
+        end
+    end
     self.ready=true
-    return true,self.damage and not self.flags.pbz_damage and "Attack restoration is pending; keep HappyCheats connected."
+    return true,pending_override and "Player control restoration failed; choose Disable all to retry."
+        or self.damage and not self.flags.pbz_damage and "Attack restoration is pending; keep HappyCheats connected."
         or "Experimental Phantom Blade Zero trainer connected. Gameplay effects are unverified.",values,self.available
 end
 function T:_refill(feature)
@@ -352,6 +493,16 @@ function T:_refill(feature)
 end
 function T:apply(action,enabled,amount)
     if action=="disable_all" then return self:disable_all() end
+    if overrides[action] then
+        if overrides[action].boolean and (type(enabled)~="boolean" or amount~=nil)
+            or not overrides[action].boolean and enabled~=nil then
+            return false,"Use this control's explicit toggle or numeric value."
+        end
+    end
+    if overrides[action] and (overrides[action].boolean and enabled==false or not overrides[action].boolean and amount==1) then
+        local restored=self:_restore_override(action)
+        return restored,restored and "Player control restored." or "Player control restoration failed; choose Disable all to retry."
+    end
     if resources[action] and enabled==false then
         self.flags[action]=false
         if action=="pbz_health" then self.health_fault,self.health_reason,self.health_error=nil,nil,nil end
@@ -365,7 +516,16 @@ function T:apply(action,enabled,amount)
     self:refresh()
     if identity=="" or self.identity~=identity then return false,"Phantom Blade Zero session changed; reconnect before trying again." end
     if not self.ready or not self.available[action] then
-        return false,action=="pbz_health" and self.health_reason or "This Phantom Blade Zero control is unavailable in the current session."
+        return false,(action=="pbz_health" or action=="pbz_heal") and self.health_reason or "This Phantom Blade Zero control is unavailable in the current session."
+    end
+    if action=="pbz_heal" or action=="pbz_refill_shachi" then
+        if enabled~=nil or amount~=nil then return false,"Refill actions do not accept toggle states or amounts." end
+        local ok,message=self:_refill(action=="pbz_heal" and "pbz_health" or "pbz_stamina")
+        return ok,ok and "Resource refilled once. / 已单次补满。" or message or "Resource refill could not be verified."
+    end
+    if overrides[action] then
+        if overrides[action].boolean and enabled~=true then return false,"An explicit toggle state is required." end
+        return self:_apply_override(action,amount)
     end
     if resources[action] then
         if enabled~=true then return false,"An explicit toggle state is required." end
@@ -399,14 +559,15 @@ function T:apply(action,enabled,amount)
 end
 function T:tick(reuse_refresh)
     if not reuse_refresh then self:refresh() end
-    if self.damage and not self.flags.pbz_damage then self:_restore_damage() end
+    if self.damage and not self.flags.pbz_damage then self:_restore_damage(true) end
+    for id in pairs(overrides) do if self.overrides[id] and not self.flags[id] then self:_restore_override(id,true) end end
     if not self.ready then return end
     for feature in pairs(resources) do
         if self.flags[feature] and (not self.available[feature] or not self:_refill(feature)) then self.flags[feature]=false end
     end
 end
 function M.new()
-    return setmetatable({identity="",next_discovery=0,available={},ready=false,
-        flags={pbz_health=false,pbz_stamina=false,pbz_damage=false}},T)
+    return setmetatable({identity="",next_discovery=0,available={},ready=false,overrides={},
+        flags={pbz_health=false,pbz_stamina=false,pbz_damage=false,pbz_guard=false,pbz_speed=false,pbz_regen=false,pbz_walk=false,pbz_jump=false,pbz_gravity=false}},T)
 end
 return M

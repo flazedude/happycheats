@@ -27,7 +27,7 @@ if($LASTEXITCODE -ne 0){throw 'Livin Cream DLL smoke host compilation failed.'}
 if($LASTEXITCODE -ne 0){throw 'Livin Cream packaged DLL startup smoke check failed.'}
 Copy-Item -LiteralPath $lcDll -Destination $lcOutput -Force
 @(
-    'HappyCheats Livin Cream trainer 1.0.3. Original bindings; game code/assets are not redistributed.',
+    'HappyCheats Livin Cream trainer 1.0.4. Original bindings; game code/assets are not redistributed.',
     'MinHook v1.3.4 with repository reviewed x64 allocation fixes: https://github.com/TsudaKageyu/minhook/tree/v1.3.4',
     (Get-Content (Join-Path $lcVendor 'minhook/LICENSE.txt') -Raw),
     'JSON for Modern C++ v3.12.0: https://github.com/nlohmann/json/tree/v3.12.0',
@@ -37,7 +37,7 @@ $lcPayload=Split-Path $lcOutput -Parent
 $lcFiles=@('HappyCheatsLivinCream/HappyCheats.LivinCream.dll','HappyCheatsLivinCream/ThirdPartyNotices.txt') | ForEach-Object {
     @{path=$_;sha256=(Get-FileHash -LiteralPath (Join-Path $lcPayload $_) -Algorithm SHA256).Hash}
 }
-@{schemaVersion=1;game='livin-cream';version='1.0.3';steamBuild='26525450';files=@($lcFiles);sources=@(@('trainer.cpp','game_api.h','runtime.h','bindings.h') | ForEach-Object {@{path=$_;sha256=(Get-FileHash -LiteralPath (Join-Path $lcNative $_)).Hash}})} | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $lcPayload 'package.json') -Encoding utf8NoBOM
+@{schemaVersion=1;game='livin-cream';version='1.0.4';steamBuild='26664226';files=@($lcFiles);sources=@(@('trainer.cpp','game_api.h','runtime.h','bindings.h') | ForEach-Object {@{path=$_;sha256=(Get-FileHash -LiteralPath (Join-Path $lcNative $_)).Hash}})} | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $lcPayload 'package.json') -Encoding utf8NoBOM
 Write-Host "Built Livin Cream payload: $lcOutput"
 
 & (Join-Path $PSScriptRoot 'Test-LivinCream.ps1')

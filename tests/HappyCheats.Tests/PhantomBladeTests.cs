@@ -10,16 +10,27 @@ internal static class PhantomBladeTests
     public static int RunAll()
     {
         passed = failed = 0;
-        Run("Phantom Blade identifies the inspected executable and three requested controls", () => {
+        Run("Phantom Blade identifies the inspected executable and eleven evidenced controls", () => {
             var module = new PhantomBladeModule("."); var definition = module.Definition;
             Assert(definition.Id == "phantom-blade-zero" && definition.AppId == "4115450");
             Assert(PhantomBladeModule.SupportedSteamBuild == "26367565");
             Assert(module.GameExecutables.SequenceEqual(new[] { "platform/steam/PBZ.exe" }));
-            Assert(definition.Features.Select(f => f.Id).SequenceEqual(new[] { "pbz_health", "pbz_stamina", "pbz_damage" }));
-            Assert(definition.Features.Select(f => f.Hotkey).SequenceEqual(new[] { "F1", "F2", "" }));
+            Assert(definition.Features.Select(f => f.Id).SequenceEqual(new[] { "pbz_health", "pbz_stamina", "pbz_damage", "pbz_guard", "pbz_heal", "pbz_refill_shachi", "pbz_speed", "pbz_regen", "pbz_walk", "pbz_jump", "pbz_gravity" }));
+            Assert(definition.Features.Select(f => f.Id).SequenceEqual(PhantomBladeModule.FeatureIds));
+            Assert(definition.Features.Take(3).Select(f => f.Hotkey).SequenceEqual(new[] { "F1", "F2", "" }));
+            Assert(definition.Features.Skip(3).All(f => f.Hotkey == "" && f.Name.Contains(" / ") && f.Description.Contains(" / ")));
             Assert(definition.Features.Take(2).All(f => f.IsToggle && f.Number == null));
             var damage = definition.Features[2];
             Assert(!damage.IsToggle && damage.Number == new FeatureNumber(1, 20, 2, Unit: "×"));
+            Assert(definition.Features.Single(f => f.Id == "pbz_guard").IsToggle);
+            Assert(definition.Features.Where(f => f.Id is "pbz_heal" or "pbz_refill_shachi").All(f => !f.IsToggle && f.Number == null));
+            foreach (var id in new[] { "pbz_speed", "pbz_regen", "pbz_walk", "pbz_jump", "pbz_gravity" }) {
+                var numeric = definition.Features.Single(f => f.Id == id);
+                Assert(!numeric.IsToggle && numeric.ChoiceValueKey == id
+                    && numeric.Number == new FeatureNumber(1, id == "pbz_regen" ? 10 : 5, 2, Unit: "×"));
+            }
+            Assert(definition.Features.Single(f => f.Id == "pbz_guard").Description.Contains("may bypass", StringComparison.Ordinal));
+            Assert(definition.Features.Single(f => f.Id == "pbz_speed").Description.Contains("rather than world time", StringComparison.Ordinal));
             Assert(module is IFeatureValueModule);
         });
         Run("Phantom Blade installs all verified files and removes only owned files", () => {
@@ -148,7 +159,7 @@ internal static class PhantomBladeTests
         });
         Run("Phantom Blade cleanup works without readiness but retains connection and session gates", () => {
             var current = Parse(Status()).Status with { Ready = false, Values = new Dictionary<string, string>() };
-            foreach (var feature in new[] { "pbz_health", "pbz_stamina" }) {
+            foreach (var feature in new[] { "pbz_health", "pbz_stamina", "pbz_guard" }) {
                 Assert(Command(current, current, feature, false).Contains("enabled=0\n"));
                 Fails(() => Command(current, current, feature, true));
             }
@@ -158,6 +169,43 @@ internal static class PhantomBladeTests
             Fails(() => Command(current with { Connected = false }, current, "disable_all", null));
             Fails(() => Command(current with { Connected = false }, current, "pbz_damage", null, 1));
             Fails(() => Command(current, current with { SessionId = "previous-session" }, "disable_all", null));
+        });
+        Run("Phantom Blade manual refills are one-shot commands with explicit availability", () => {
+            var current = Parse(Status()).Status;
+            foreach (var feature in new[] { "pbz_heal", "pbz_refill_shachi" }) {
+                var wire = Command(current, current, feature, null);
+                Assert(wire.Contains("action=" + feature + "\nenabled=0\n", StringComparison.Ordinal) && !wire.Contains("amount=", StringComparison.Ordinal));
+                Fails(() => Command(current, current, feature, true));
+                Fails(() => Command(current, current, feature, false));
+                Fails(() => Command(current, current, feature, null, 1));
+                Fails(() => Command(current with { Ready = false }, current, feature, null));
+                Fails(() => Command(current with { Values = new Dictionary<string, string>() }, current, feature, null));
+            }
+            Assert(Command(current, current, "pbz_guard", true).Contains("action=pbz_guard\nenabled=1\n", StringComparison.Ordinal));
+            Fails(() => Command(current, current, "pbz_guard", null));
+            Fails(() => Command(current, current, "pbz_guard", true, 2));
+        });
+        Run("Phantom Blade additional numeric controls enforce independent ranges and invariant wire format", () => {
+            var current = Parse(Status()).Status;
+            var previous = System.Globalization.CultureInfo.CurrentCulture;
+            try {
+                System.Globalization.CultureInfo.CurrentCulture = System.Globalization.CultureInfo.GetCultureInfo("ar-SA");
+                foreach (var feature in new[] { "pbz_speed", "pbz_regen", "pbz_walk", "pbz_jump", "pbz_gravity" }) {
+                    var maximum = feature == "pbz_regen" ? 10 : 5;
+                    Assert(Command(current, current, feature, null).EndsWith("amount=2\n", StringComparison.Ordinal));
+                    foreach (var value in new[] { 1m, 2m, (decimal)maximum })
+                        Assert(Command(current, current, feature, null, value).EndsWith("amount=" + value.ToString(System.Globalization.CultureInfo.InvariantCulture) + "\n", StringComparison.Ordinal));
+                    foreach (var value in new[] { 0m, -1m, 1.5m, maximum + 1m, decimal.MaxValue })
+                        Fails(() => Command(current, current, feature, null, value));
+                    Fails(() => Command(current, current, feature, true, 2));
+                    Fails(() => Command(current, current, feature, false, 2));
+                    var unavailable = current with { Ready = false, Values = new Dictionary<string, string>() };
+                    Assert(Command(unavailable, unavailable, feature, null, 1).EndsWith("amount=1\n", StringComparison.Ordinal));
+                    Fails(() => Command(unavailable, unavailable, feature, null, 2));
+                    Fails(() => Command(unavailable with { Connected = false }, unavailable, feature, null, 1));
+                    Fails(() => Command(unavailable, unavailable with { SessionId = "previous-session" }, feature, null, 1));
+                }
+            } finally { System.Globalization.CultureInfo.CurrentCulture = previous; }
         });
         Run("Phantom Blade acknowledgement ignores gaps and old responses, rejects failed matching responses", () => {
             var gap = new PhantomBladeModule.Snapshot(TrainerStatus.Offline(), false, "");

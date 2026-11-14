@@ -15,7 +15,7 @@ namespace HappyCheats.NomadDrive
     [BepInProcess("Nomad Drive.exe")]
     public sealed class Plugin : BaseUnityPlugin
     {
-        public const string Version = "1.0.1";
+        public const string Version = "1.0.2";
         public const string SupportedAssemblySha256 = "6957f9a1180d811ca2ae1bb44748157d794fed5befd845290fd15e41fb54ffaf";
         private string session = Guid.NewGuid().ToString("N");
         private readonly HashSet<string> handled = new HashSet<string>(StringComparer.Ordinal);

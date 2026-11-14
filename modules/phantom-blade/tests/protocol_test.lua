@@ -7,14 +7,14 @@ local function command(action,enabled,created,amount)
         (amount~=nil and "amount="..tostring(amount).."\n" or "")
 end
 local function parse(text,session,now) return P.parse(text,session or "test-session",now or 100) end
-for _,action in ipairs({"pbz_health","pbz_stamina"}) do
+for _,action in ipairs({"pbz_health","pbz_stamina","pbz_guard"}) do
     for _,enabled in ipairs({"0","1"}) do
         local result=assert(parse(command(action,enabled)))
         check(result.action==action and result.enabled==(enabled=="1"),"Explicit toggle state")
     end
     check(parse(command(action,"0",nil,1))==nil,"Amounts cannot affect toggles")
 end
-for _,action in ipairs({"pbz_damage","disable_all"}) do
+for _,action in ipairs({"pbz_damage","pbz_speed","pbz_regen","pbz_walk","pbz_jump","pbz_gravity","pbz_heal","pbz_refill_shachi","disable_all"}) do
     check(parse(command(action))~=nil,"Action accepted")
     check(parse(command(action,"1"))==nil,"Action cannot be latched on")
 end
@@ -27,6 +27,19 @@ for _,amount in ipairs({"0","-1","21","1.0","1e1","NaN","inf","+1"," 1","1 ","1;
 end
 check(parse(command("pbz_damage","0",nil,1).."amount=2\n")==nil,"Duplicate amount rejected")
 check(parse(command("disable_all","0",nil,1))==nil,"Disable all rejects amount")
+for _,action in ipairs({"pbz_heal","pbz_refill_shachi"}) do
+    check(parse(command(action,"0",nil,1))==nil,"Manual action rejects amount")
+end
+for action,maximum in pairs({pbz_speed=5,pbz_regen=10,pbz_walk=5,pbz_jump=5,pbz_gravity=5}) do
+    check(assert(parse(command(action))).amount==2,"Default feature multiplier: "..action)
+    for _,amount in ipairs({1,2,maximum}) do
+        check(assert(parse(command(action,"0",nil,amount))).amount==amount,"Independent numeric range: "..action)
+    end
+    for _,amount in ipairs({"0","-1",tostring(maximum+1),"1.0","1e1","NaN","inf","+1"," 1","1 ","99999999999999999999999999999999999999999999999999999999"}) do
+        check(parse(command(action,"0",nil,amount))==nil,"Malformed feature multiplier: "..action.."="..amount)
+    end
+    check(parse(command(action,"0",nil,1).."amount=2\n")==nil,"Duplicate numeric amount: "..action)
+end
 check(parse(command(),"previous-session")==nil,"Previous session rejected")
 check(parse(command(),nil,108)~=nil,"Eight-second age boundary accepted")
 check(parse(command(),nil,109)==nil,"Expired command rejected")

@@ -1,4 +1,4 @@
--- HappyCheats Phantom Blade Zero 0.1.4. UObject access stays on the game thread.
+-- HappyCheats Phantom Blade Zero 0.1.5. UObject access stays on the game thread.
 local source = debug.getinfo(1,"S").source:gsub("^@",""):gsub("\\","/")
 local scripts = assert(source:match("^(.*)/[^/]+$"))
 local bridge = scripts .. "/../bridge/"
@@ -8,7 +8,7 @@ local boot = tostring(os.time()) .. "-" .. tostring({}):gsub("[^%w]","")
 local serial, identity, session = 0, nil, boot .. "-0"
 local seen = {}
 local last_command, last_success, last_message = "", false, ""
-local status = {schema_version=1, version="0.1.4", session_id=session, ready=false,
+local status = {schema_version=1, version="0.1.5", session_id=session, ready=false,
     message="Phantom Blade Zero trainer starting; waiting for the game thread.", enabled={}, values={}, available={}}
 local published_at, published_controls, reported_connection
 local function publish()
@@ -37,13 +37,14 @@ local function refresh()
     if current ~= identity then
         identity = current; serial = serial + 1; session = boot .. "-" .. serial
         seen = {}; last_command, last_success, last_message = "", false, ""
-        trainer:disable_all()
+        trainer:disable_all(true)
     end
 end
 local function permitted(action, enabled, amount)
     -- Cleanup is allowed while a connected player's gameplay is temporarily unavailable.
-    if action == "disable_all" or action == "pbz_damage" and amount == 1 then return true end
-    if enabled == false and (action == "pbz_health" or action == "pbz_stamina") then return true end
+    if action == "disable_all" or amount == 1 and (action == "pbz_damage" or action == "pbz_speed" or action == "pbz_regen"
+        or action == "pbz_walk" or action == "pbz_jump" or action == "pbz_gravity") then return true end
+    if enabled == false and (action == "pbz_health" or action == "pbz_stamina" or action == "pbz_guard") then return true end
     if not status.ready then return false, status.message end
     if status.available[action] ~= true then return false, "This Phantom Blade Zero control is unavailable." end
     return true
@@ -64,10 +65,12 @@ local function tick()
             local allowed, why = permitted(command.action, command.enabled, command.amount)
             if not allowed then last_success, last_message = false, why
             else
-                local ok, success, message = pcall(function() return trainer:apply(command.action, command.enabled, command.amount) end)
+                local enabled
+                if command.action == "pbz_health" or command.action == "pbz_stamina" or command.action == "pbz_guard" then enabled=command.enabled end
+                local ok, success, message = pcall(function() return trainer:apply(command.action, enabled, command.amount) end)
                 last_success = ok and success == true
                 last_message = ok and tostring(message) or "Phantom Blade Zero command failed: " .. tostring(success)
-                if not ok then trainer:disable_all() end
+                if not ok then trainer:disable_all(true) end
                 refresh()
             end
         elseif reason then print("[HappyCheats] Ignored command: " .. reason .. "\n") end
@@ -85,7 +88,7 @@ end
 local function guarded(work)
     local ok, reason = pcall(work)
     if not ok then
-        pcall(function() trainer:disable_all() end)
+        pcall(function() trainer:disable_all(true) end)
         paused(reason)
     end
 end
@@ -122,4 +125,4 @@ for _, shortcut in ipairs({{Key.F1,"pbz_health"}, {Key.F2,"pbz_stamina"}, {Key.F
         if not queued then hotkey_pending = false; print("[HappyCheats] Hotkey scheduling failed: " .. tostring(reason) .. "\n") end
     end)
 end
-print("[HappyCheats] Phantom Blade Zero 0.1.4 loaded. All toggles start off.\n")
+print("[HappyCheats] Phantom Blade Zero 0.1.5 loaded. All toggles start off.\n")

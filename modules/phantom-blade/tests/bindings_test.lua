@@ -24,7 +24,7 @@ local paths = {
 local function make_player(class, world)
     local f=class.fixture
     local pawn, controller, set, local_player = object(), object(), object(), object()
-    pawn.base = {Health=50,Health_Max=100,Shachi=20,Shachi_Max=80,Attack=100}
+    pawn.base = {Health=50,Health_Max=100,Shachi=20,Shachi_Max=80,Attack=100,ShachiRegen=10}
     pawn.authoritative_health=50; pawn.health_notifications=0
     pawn.values = {}
     for key,value in pairs(pawn.base) do pawn.values[key] = value end
@@ -37,6 +37,29 @@ local function make_player(class, world)
     function pawn:GetWorld() return self.world end
     function set:IsA(wanted) return wanted==f.basic and self.correct_class~=false end
     function set:GetOuter() return self.owner end
+    local movement=object()
+    movement.owner=pawn
+    function movement:IsA(wanted) return wanted==f.movement_class and self.correct_class~=false end
+    function movement:GetOuter() return self.owner end
+    pawn.CharacterMovement=movement
+    local function properties(target,values)
+        target.properties=values
+        setmetatable(target,{
+            __index=function(_,key)
+                if f.property_read_error==key then error("fixture property read failed") end
+                return values[key]
+            end,
+            __newindex=function(_,key,value)
+                if values[key]==nil then rawset(target,key,value); return end
+                f.property_writes=(f.property_writes or 0)+1
+                if f.property_write_error==key then error("fixture property setter failed") end
+                if f.property_noop~=key then values[key]=value end
+                if f.after_property_write then f.after_property_write(target,key,value) end
+            end,
+        })
+    end
+    properties(pawn,{bCanBeDamaged=true,CustomTimeDilation=1})
+    properties(movement,{MaxWalkSpeed=600,JumpZVelocity=420,GravityScale=1})
     setmetatable(set,{__index=function(_,name)
         if pawn.base[name]==nil or f.missing_data[name] then return nil end
         f.data_reads=f.data_reads+1
@@ -74,7 +97,7 @@ end
 local function fixture()
     local f = {writes={},native_calls={},missing={},read_errors={},base_errors={},scans=0,finds={},now=1000,
         data_reads=0,missing_data={},invalid_data={},unmapped_object={},unmapped_property={}}
-    f.class, f.local_class, f.basic, f.world = object(), object(), object(), object()
+    f.class, f.local_class, f.basic, f.world, f.movement_class = object(), object(), object(), object(), object()
     f.class.fixture=f
     f.pawn, f.controller = make_player(f.class, f.world)
     f.controllers, f.attrs = {f.controller}, f.pawn.values
@@ -104,6 +127,7 @@ local function fixture()
         return f.native_after_result~=false
     end})
     f.objects = {[paths.player]=f.class,[paths.local_player]=f.local_class,[paths.basic]=f.basic,
+        ["/Script/Engine.CharacterMovementComponent"]=f.movement_class,
         [paths.health_library]=f.health_library,[paths.health_default]=f.health_default,
         [paths.health_restore]=f.health_restore,[paths.function_class]=f.function_class}
     local env = setmetatable({
@@ -747,5 +771,123 @@ test("replacement attribute sets never inherit an old multiplier lease",function
     equal(original.owner,f.pawn)
 end)
 
+test("manual resource actions refill once without latching or automatic replay",function()
+    local f=fixture(); ready(f)
+    equal(f.trainer:apply("pbz_heal"),true)
+    equal(f.attrs.Health,100); equal(#f.native_calls,1)
+    equal(f.trainer:enabled().pbz_health,false)
+    f.attrs.Health=60; f.pawn.base.Health=60
+    f.trainer:tick(); equal(f.attrs.Health,60); equal(#f.native_calls,1)
+    equal(f.trainer:apply("pbz_refill_shachi"),true); equal(f.attrs.Shachi,80)
+    equal(f.trainer:enabled().pbz_stamina,false)
+    f.attrs.Shachi=10; f.trainer:tick(); equal(f.attrs.Shachi,10)
+    equal(f.trainer:apply("pbz_heal",true),false)
+    equal(f.trainer:apply("pbz_refill_shachi",nil,2),false)
+end)
+test("damage guard preserves both boolean states and respects later game changes",function()
+    for _,original in ipairs({true,false}) do
+        local f=fixture(); f.pawn.bCanBeDamaged=original; ready(f)
+        equal(f.trainer:apply("pbz_guard",true),true)
+        equal(f.pawn.bCanBeDamaged,false); equal(f.trainer:enabled().pbz_guard,true)
+        equal(f.trainer:apply("pbz_guard",false),true)
+        equal(f.pawn.bCanBeDamaged,original)
+    end
+    local f=fixture(); ready(f); equal(f.trainer:apply("pbz_guard",true),true)
+    f.pawn.bCanBeDamaged=true; f.trainer:tick()
+    equal(f.trainer:enabled().pbz_guard,false)
+    local writes=f.property_writes; equal(f.trainer:disable_all(),true); equal(f.property_writes,writes)
+end)
+for _,spec in ipairs({{"pbz_speed","CustomTimeDilation",false},{"pbz_walk","MaxWalkSpeed",true},
+    {"pbz_jump","JumpZVelocity",true},{"pbz_gravity","GravityScale",true}}) do
+    test(spec[1].." scales once, restores its captured value and preserves recalculation",function()
+        local f=fixture(); ready(f)
+        local target=spec[3] and f.pawn.CharacterMovement or f.pawn
+        local original=target[spec[2]]
+        equal(f.trainer:apply(spec[1],nil,3),true)
+        equal(target[spec[2]],spec[1]=="pbz_gravity" and original/3 or original*3)
+        equal(f.trainer:apply(spec[1],nil,3),true,"Same request must not compound")
+        equal(f.trainer:apply(spec[1],nil,1),true); equal(target[spec[2]],original)
+        for _,amount in ipairs({0,-1,1.5,6,math.huge}) do equal(f.trainer:apply(spec[1],nil,amount),false) end
+        equal(f.trainer:apply(spec[1],nil,2),true)
+        target[spec[2]]=original*1.5; f.trainer:tick()
+        equal(f.trainer:enabled()[spec[1]],false)
+        equal(f.trainer:disable_all(),true); equal(target[spec[2]],original*1.5)
+    end)
+end
+test("regen multiplier keeps GAS base untouched and releases on game recalculation",function()
+    local f=fixture(); ready(f)
+    equal(f.trainer:apply("pbz_regen",nil,4),true)
+    equal(f.attrs.ShachiRegen,40); equal(f.pawn.base.ShachiRegen,10)
+    equal(f.trainer:apply("pbz_regen",nil,1),true); equal(f.attrs.ShachiRegen,10)
+    equal(f.trainer:apply("pbz_regen",nil,11),false)
+    f.attrs.ShachiRegen=12; equal(f.trainer:apply("pbz_regen",nil,2),false)
+    f.attrs.ShachiRegen=10; equal(f.trainer:apply("pbz_regen",nil,2),true)
+    f.pawn.base.ShachiRegen=15; f.attrs.ShachiRegen=15; f.trainer:tick()
+    equal(f.trainer:enabled().pbz_regen,false); equal(f.trainer:disable_all(),true)
+    equal(f.attrs.ShachiRegen,15)
+end)
+test("movement requires the exact component class and its player owner",function()
+    for _,alter in ipairs({function(f) f.pawn.CharacterMovement.owner=object() end,
+        function(f) f.pawn.CharacterMovement.correct_class=false end,
+        function(f) f.pawn.CharacterMovement.valid=false end}) do
+        local f=fixture(); alter(f); ready(f)
+        equal(f.trainer:apply("pbz_walk",nil,2),false)
+        equal(f.property_writes,nil)
+        equal(f.trainer:apply("pbz_guard",true),true,"Unrelated working control remains usable")
+    end
+end)
+test("failed player property writes stay unconfirmed and restoration retries are bounded",function()
+    local f=fixture(); ready(f); f.property_noop="CustomTimeDilation"
+    equal(f.trainer:apply("pbz_speed",nil,2),false); equal(f.trainer:enabled().pbz_speed,false)
+    f.property_noop=nil; equal(f.trainer:apply("pbz_speed",nil,2),true)
+    f.property_write_error="CustomTimeDilation"
+    equal(f.trainer:apply("pbz_speed",nil,1),false)
+    for _=1,20 do f.trainer:tick() end
+    local writes=f.property_writes
+    for _=1,20 do f.trainer:tick() end
+    equal(f.property_writes,writes,"No unbounded restoration dispatch loop")
+    f.property_write_error=nil; equal(f.trainer:disable_all(),true); equal(f.pawn.CustomTimeDilation,1)
+end)
+test("session and movement replacement never transfer leases to replacement targets",function()
+    local f=fixture(); ready(f); local old=f.pawn; local movement=old.CharacterMovement
+    equal(f.trainer:apply("pbz_walk",nil,2),true)
+    old.CharacterMovement=object(); f.trainer:tick()
+    equal(f.trainer:enabled().pbz_walk,false); equal(movement.MaxWalkSpeed,1200)
+    equal(f.trainer:apply("pbz_guard",true),true)
+    local replacement,controller=make_player(f.class,f.world)
+    f.pawn,f.controller,f.controllers=replacement,controller,{controller}
+    f.trainer.pawn=nil; f.trainer.controller=nil; f.trainer.next_discovery=0
+    ready(f); equal(old.bCanBeDamaged,true); equal(replacement.bCanBeDamaged,true)
+    equal(f.trainer:enabled().pbz_guard,false)
+end)
+test("component replacement between baseline read and dispatch cannot inherit the baseline",function()
+    local f=fixture(); ready(f)
+    local old=f.pawn.CharacterMovement
+    local original=f.trainer._override_value
+    local replacement=object(); replacement.MaxWalkSpeed=900
+    replacement.owner=f.pawn
+    function replacement:IsA(wanted) return wanted==f.movement_class end
+    function replacement:GetOuter() return self.owner end
+    function f.trainer:_override_value(id,pawn,set,target)
+        local value=original(self,id,pawn,set,target)
+        if id=="pbz_walk" and target then pawn.CharacterMovement=replacement end
+        return value
+    end
+    equal(f.trainer:apply("pbz_walk",nil,2),false)
+    equal(old.MaxWalkSpeed,600); equal(replacement.MaxWalkSpeed,900)
+    equal(f.trainer:enabled().pbz_walk,false)
+end)
+test("unreadable effects are unconfirmed and dead-player cleanup cannot bypass retry cap",function()
+    local f=fixture(); ready(f); equal(f.trainer:apply("pbz_speed",nil,2),true)
+    f.property_read_error="CustomTimeDilation"; f.trainer:refresh()
+    equal(f.trainer:enabled().pbz_speed,false)
+    f.property_read_error=nil; f.property_write_error="CustomTimeDilation"
+    f.attrs.Health=0
+    for _=1,20 do f.trainer:tick() end
+    local writes=f.property_writes
+    for _=1,20 do f.trainer:tick() end
+    equal(f.property_writes,writes)
+    f.property_write_error=nil; equal(f.trainer:disable_all(),true); equal(f.pawn.CustomTimeDilation,1)
+end)
 assert(failures==0,tostring(failures).." Phantom Blade binding fixture(s) failed")
 print("Phantom Blade Zero bindings: "..checks.." assertions passed")

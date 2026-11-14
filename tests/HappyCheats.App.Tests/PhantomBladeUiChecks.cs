@@ -31,8 +31,9 @@ internal static class PhantomBladeUiChecks
         void Check(bool condition, string message) { assertions++; if (!condition) throw new InvalidOperationException("Phantom Blade UI: " + message); }
         Check(game.Module is PhantomBladeModule && game.Module is IFeatureValueModule && definition.AppId == "4115450", "Steam module is missing");
         Check(game.Module.GameExecutables.SequenceEqual(new[] { "platform/steam/PBZ.exe" }), "menu target must be the real executable, not the launcher");
-        Check(definition.Features.Select(f => f.Id).SequenceEqual(new[] { "pbz_health", "pbz_stamina", "pbz_damage" }), "requested controls differ");
-        Check(definition.Features.Select(f => f.Hotkey).SequenceEqual(new[] { "F1", "F2", "" }), "damage editor must not advertise a fixed-value hotkey");
+        Check(definition.Features.Select(f => f.Id).SequenceEqual(new[] { "pbz_health", "pbz_stamina", "pbz_damage", "pbz_guard", "pbz_heal", "pbz_refill_shachi", "pbz_speed", "pbz_regen", "pbz_walk", "pbz_jump", "pbz_gravity" }), "requested controls differ");
+        Check(definition.Features.Take(3).Select(f => f.Hotkey).SequenceEqual(new[] { "F1", "F2", "" })
+            && definition.Features.Skip(3).All(f => f.Hotkey == ""), "new controls and damage editor must not advertise fixed-value hotkeys");
         Check(definition.Features[2].Number == new FeatureNumber(1, 20, 2, Unit: "×") && definition.Features[2].ChoiceValueKey == "pbz_damage", "multiplier range or confirmation key differs");
         Check(definition.Features[2].Description.Contains("Game stat recalculation may cancel it.", StringComparison.Ordinal), "CurrentValue recalculation limit must be visible");
         foreach (var uri in new[] { GameArtwork.IconUri(game.Id), GameArtwork.LogoUri(game.Id) }) {
@@ -89,6 +90,26 @@ internal static class PhantomBladeUiChecks
             Check(module.Commands.Last() == "pbz_health=False", "cleanup did not send explicit toggle off");
             Feature(new FeatureDefinition("disable_all", "Disable all", "", ""));
             Check(module.Commands.Last() == "disable_all=" && module.Status.Values["pbz_damage"] == "1", "disable all did not reach the fixture's multiplier restoration");
+            Update(confirmed);
+            foreach (var id in new[] { "pbz_speed", "pbz_regen", "pbz_walk", "pbz_jump", "pbz_gravity" }) {
+                var numeric = main.Features.Single(f => f.Definition.Id == id);
+                Check(numeric.Definition.Number == new FeatureNumber(1, id == "pbz_regen" ? 10 : 5, 2, Unit: "×")
+                    && numeric.HotkeyVisibility == Visibility.Collapsed, "additional numeric editor metadata differs: " + id);
+                numeric.NumberText = id == "pbz_regen" ? "10" : "5";
+                var previousCommands = module.Commands.Count;
+                Number(numeric);
+                Check(module.Values.Last() == (id, id == "pbz_regen" ? 10m : 5m) && module.Commands.Count == previousCommands,
+                    "numeric control did not route its explicit amount: " + id);
+            }
+            foreach (var id in new[] { "pbz_heal", "pbz_refill_shachi" }) {
+                Feature(definition.Features.Single(f => f.Id == id));
+                Check(module.Commands.Last() == id + "=", "manual refill was sent as a toggle: " + id);
+            }
+            Feature(definition.Features.Single(f => f.Id == "pbz_guard"));
+            Check(module.Commands.Last() == "pbz_guard=True", "damage guard did not send explicit On");
+            Update(module.Status with { Ready = false });
+            Feature(definition.Features.Single(f => f.Id == "pbz_guard"));
+            Check(module.Commands.Last() == "pbz_guard=False", "damage guard did not permit explicit Off while unavailable");
             Update(confirmed);
 
             var discoveryReasons = new[] {
@@ -154,7 +175,8 @@ internal static class PhantomBladeUiChecks
                 }
                 Update(confirmed);
                 if (language == "zh") {
-                    Check(fixture.Name == "影之刃零" && main.Features.All(f => f.Name != f.Definition.Name && f.Description != f.Definition.Description), "Chinese labels or descriptions are missing");
+                    Check(fixture.Name == "影之刃零" && main.Features.Take(3).All(f => f.Name != f.Definition.Name && f.Description != f.Definition.Description)
+                        && main.Features.Skip(3).All(f => f.Name.Contains(" / ", StringComparison.Ordinal) && f.Description.Contains(" / ", StringComparison.Ordinal)), "Chinese labels or bilingual module descriptions are missing");
                     Check(damage.Description.Contains("游戏重新计算属性时可能取消倍率。", StringComparison.Ordinal), "Chinese multiplier description omits recalculation limit");
                     Check(Localization.Message("This Phantom Blade Zero build needs a compatibility check.") == "此影之刃零版本需要兼容性检查。", "Chinese compatibility status is missing");
                     Check(Localization.Message("Phantom Blade Zero trainer paused: fixture") == "影之刃零修改器已暂停：fixture", "Chinese diagnostic prefix lost its detail");
@@ -165,7 +187,7 @@ internal static class PhantomBladeUiChecks
                     Check(Localization.Message("Experimental Phantom Blade Zero trainer connected. Gameplay effects are unverified.") == "影之刃零实验性修改器已连接；游戏内效果尚未验证。", "runtime limitation must remain visible in Chinese");
                 } else Check(main.Features.All(f => f.Name == f.Definition.Name && f.Description == f.Definition.Description), "English labels differ from the module");
                 var buttons = Descendants<Button>(main).Where(button => button.Tag is FeatureItem).ToArray();
-                Check(buttons.Length == 3 && buttons.All(button => button.IsEnabled), "three enabled control buttons must render");
+                Check(buttons.Length == 11 && buttons.All(button => button.IsEnabled), "eleven enabled control buttons must render");
                 foreach (var size in new[] { (1180, 820), (854, 534) }) {
                     main.Width = size.Item1; main.Height = size.Item2; main.UpdateLayout();
                     if (artifacts != null) {
@@ -181,7 +203,7 @@ internal static class PhantomBladeUiChecks
             main.SetLanguage(originalLanguage, persist: false); main.SetTheme(originalTheme, persist: false);
             main.Games[gameIndex] = game; library.SelectedItem = originalSelection; refresh.Invoke(main, null);
         }
-        return new { Screen = "phantom-blade-zero", Assertions = assertions, Controls = 3, NumericRouting = true, RetainedDraft = true,
+        return new { Screen = "phantom-blade-zero", Assertions = assertions, Controls = 11, NumericRouting = true, RetainedDraft = true,
             Cleanup = true, EnglishAndChinese = true, LightAndDark = true, NoGameCommands = true };
     }
     private static IEnumerable<T> Descendants<T>(DependencyObject root) where T : DependencyObject {
@@ -202,7 +224,12 @@ internal static class PhantomBladeUiChecks
         public GameDefinition Definition { get; } = definition;
         public GameInstallation Installation { get; } = new("C:/PhantomBladeUiFixture", "fixture", true, true, true, true, "Fixture only");
         public TrainerStatus Status { get; set; } = new(true, true, "Fixture only", "phantom-blade-ui-fixture", new Dictionary<string, bool>(),
-            new Dictionary<string, string> { ["available_pbz_health"] = "True", ["available_pbz_stamina"] = "True", ["available_pbz_damage"] = "True", ["pbz_damage"] = "1" });
+            InitialValues(definition));
+        private static Dictionary<string, string> InitialValues(GameDefinition definition) {
+            var values = definition.Features.ToDictionary(feature => "available_" + feature.Id, _ => "True");
+            foreach (var feature in definition.Features.Where(feature => feature.Number != null)) values[feature.Id] = "1";
+            return values;
+        }
         public List<string> Commands { get; } = new();
         public List<(string, decimal)> Values { get; } = new();
         public Task SetValueAsync(GameInstallation installation, TrainerStatus status, string featureId, decimal value) { Values.Add((featureId, value)); return Task.CompletedTask; }
@@ -210,7 +237,10 @@ internal static class PhantomBladeUiChecks
             Commands.Add(featureId + "=" + enabled);
             var effects = new Dictionary<string, bool>(Status.Enabled); var values = new Dictionary<string, string>(Status.Values);
             if (enabled.HasValue) effects[featureId] = enabled.Value;
-            if (featureId == "disable_all") { foreach (var key in effects.Keys) effects[key] = false; values["pbz_damage"] = "1"; }
+            if (featureId == "disable_all") {
+                foreach (var key in effects.Keys) effects[key] = false;
+                foreach (var feature in Definition.Features.Where(feature => feature.Number != null)) values[feature.Id] = "1";
+            }
             Status = Status with { Enabled = effects, Values = values }; return Task.CompletedTask;
         }
         public Task<TrainerStatus> ReadStatusAsync(GameInstallation installation) => Task.FromResult(Status);
