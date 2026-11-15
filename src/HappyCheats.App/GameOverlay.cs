@@ -177,7 +177,7 @@ internal sealed class GameOverlay : Window
         close.ToolTip = Localization.Choose("Close menu (Ctrl+Del / hold Menu + RB)", "关闭菜单（Ctrl+Del / 按住 Menu + RB）");
         shortcuts.Text = shortcutHint;
         shortcuts.Visibility = string.IsNullOrWhiteSpace(shortcutHint) ? Visibility.Collapsed : Visibility.Visible;
-        values.Text = MainWindow.FormatValues(game.Status.Values);
+        values.Text = MainWindow.FormatValues(game.Status.Values, game.Id);
         values.Visibility = string.IsNullOrWhiteSpace(values.Text) ? Visibility.Collapsed : Visibility.Visible;
         status.Text = message;
         status.Visibility = string.IsNullOrWhiteSpace(message) ? Visibility.Collapsed : Visibility.Visible;

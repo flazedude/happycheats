@@ -1,5 +1,7 @@
 # Single-EXE distribution
 
+Release **0.3.74** completes Nomad Drive's Chinese controls, descriptions, shared menu, resource labels and supported trainer messages. Game-scoped localization preserves Chinese Parents wording. Both complete formats retain all 21 payloads and Nomad Drive 1.0.2. Language switching and rendering were verified offline. See [release notes](releases/0.3.74.en.txt).
+
 Release **0.3.73** fixes Nomad Drive's Library icon and banner using original Steam artwork bundled for offline display. Both complete formats include all 21 current integrated trainer payloads, including Nomad Drive 1.0.2. The artwork change does not alter game files. See [release notes](releases/0.3.73.en.txt).
 
 Release **0.3.71** adds trainer update progress, elapsed time and copyable timestamped logs, including installer messages. Both complete formats retain all 21 current trainer payloads. See [release notes](releases/0.3.71.en.txt).
@@ -16,7 +18,7 @@ Release **0.3.66** adds red per-game sidebar warnings and a focused trainer upda
 
 Release **0.3.65** introduces [independent cheat updates](individual-cheat-updates.md). Install this complete client upgrade once. Thereafter, compatible per-game fixes and newly added games download through **Update** beside Library Sort without replacing this EXE or changing its client version. Client Updates remains separate. Validation is offline/synthetic; see [release notes](releases/0.3.65.en.txt).
 
-Give users **`dist/HappyCheats-0.3.73-win-x64-single-exe.zip`**. Extract **`HappyCheats.exe`** from the ZIP, then run it. The ZIP contains only that executable, and its SHA-256 checksum is provided separately. The raw **`dist/HappyCheats.exe`** is also available for direct distribution.
+Give users **`dist/HappyCheats-0.3.74-win-x64-single-exe.zip`**. Extract **`HappyCheats.exe`** from the ZIP, then run it. The ZIP contains only that executable, and its SHA-256 checksum is provided separately. The raw **`dist/HappyCheats.exe`** is also available for direct distribution.
 
 This self-contained Windows x64 file bundles the complete release: the client, all 21 trainer payloads, updater, runtime files and documentation. Stardew's payload includes the official SMAPI 4.5.2 installer, corresponding source and redistribution notices. It can be copied to another folder or PC by itself. The launcher does not require a separate .NET installation, installation wizard or administrator permission.
 

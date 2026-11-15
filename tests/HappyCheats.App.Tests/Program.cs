@@ -67,6 +67,7 @@ internal static class Program
             else if (args.Contains("--civ7")) Results.Add(Civ7UiChecks.Run(main, artifacts));
             else if (args.Contains("--elden-ring")) Results.Add(EldenRingUiChecks.Run(main, artifacts));
             else if (args.Contains("--phantom-blade")) Results.Add(PhantomBladeUiChecks.Run(main, artifacts));
+            else if (args.Contains("--nomad-drive")) Results.Add(NomadDriveUiChecks.Run(main));
             else if (args.Contains("--background-updates")) Results.Add(BackgroundUpdateUiChecks.Run(root));
             else
             {
@@ -118,6 +119,7 @@ internal static class Program
             Results.Add(Civ7UiChecks.Run(main, artifacts));
             Results.Add(EldenRingUiChecks.Run(main, artifacts));
             Results.Add(PhantomBladeUiChecks.Run(main, artifacts));
+            Results.Add(NomadDriveUiChecks.Run(main));
             Results.Add(Witcher3UiChecks.Run(main, artifacts));
             ValidateCrimsonInitializationFailure(main);
             ValidateCrimsonTeleportReporting(main);

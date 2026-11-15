@@ -4,11 +4,11 @@ A Windows trainer library with 21 bundled games, English / 中文, and one share
 
 **[Download HappyCheats.exe](https://github.com/flazedude/happycheats/releases/latest/download/HappyCheats.exe)** · [Latest release](https://github.com/flazedude/happycheats/releases/latest) · [Changelog](CHANGELOG.md) · [中文说明](README.zh-CN.md)
 
-## Latest version · 0.3.73
+## Latest version · 0.3.74
 
-Nomad Drive now displays its original Steam icon and banner logo in Library instead of the generic HappyCheats image. Artwork is bundled for offline use. The complete client includes all 21 current trainer payloads, including Nomad Drive 1.0.2, and retains independent Library Update support. This artwork release was validated offline without changing a running game.
+Nomad Drive now follows the selected language consistently across its 11 controls, descriptions, shared menu, resource values and supported trainer messages. Game-scoped translations prevent its energy controls from inheriting Chinese Parents wording. The complete client includes all 21 current trainer payloads, including unchanged Nomad Drive 1.0.2. Validated offline without interacting with a running game.
 
-[Full release notes](docs/releases/0.3.73.en.txt)
+[Full release notes](docs/releases/0.3.74.en.txt)
 
 **[Livin' the Cream 1.0.4](docs/livin-cream.md)** supports the inspected IL2CPP build with direct per-operation dispatch. This complete client includes the tracked 1.0.4 package. Validation is offline/static/synthetic; gameplay remains unverified.
 

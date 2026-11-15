@@ -2,7 +2,17 @@
 
 **[Download the latest release / 下载最新版本](https://github.com/flazedude/happycheats/releases/latest)** · [Home](README.md) · [中文首页](README.zh-CN.md)
 
-## Latest · 0.3.73
+## Latest · 0.3.74
+
+- Translate Nomad Drive controls, descriptions, shared-menu groups, resource labels and known trainer feedback consistently with the selected language.
+- Scope translations to the selected game so Nomad Drive energy controls no longer use Chinese Parents wording.
+- Verify Chinese → English → Chinese switching and shared menu rows offline; retain all 21 payloads and Nomad Drive 1.0.2.
+
+补齐 Nomad Drive 功能、说明、游戏内菜单、资源数值及已知反馈的中文翻译，并修复与《中国式家长》行动力翻译混用的问题。离线验证语言切换；未操作运行中的游戏。
+
+[English](docs/releases/0.3.74.en.txt) · [中文](docs/releases/0.3.74.zh.txt)
+
+## 0.3.73
 
 - Fix Nomad Drive's Library icon and banner with its original Steam artwork, bundled for offline display.
 - Preserve trainer 1.0.2 and game files; all 21 current integrated payloads remain in the complete client.

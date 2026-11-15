@@ -1,0 +1,7 @@
+HappyCheats 0.3.74
+
+Completes Nomad Drive's Chinese localization for all 11 control names and descriptions, the game summary/build subtitle, shared in-game menu groups, resource labels and known readiness, action, vehicle and installation messages. Switching language updates existing controls and their menu rows. Game-scoped translation keeps Nomad Drive energy separate from Chinese Parents' brain-digging action points.
+
+This is a client interface update, available through Client Updates. Nomad Drive's trainer remains 1.0.2; feature IDs, command format, hotkeys and game files are unchanged. The complete EXE and update ZIP retain all 21 integrated trainer payloads and independent Library Update support.
+
+Validation: offline Chinese → English → Chinese regression checks, shared-menu control bindings, resource formatting, cross-game translation isolation and rendered client previews, plus the normal release suites. No game was launched, closed or modified for this change. Gameplay, physical controller input and exclusive-fullscreen rendering were not tested. Install this client update after finishing your game.

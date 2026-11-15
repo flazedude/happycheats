@@ -77,7 +77,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public string ThemeToggleLabel => ThemeManager.IsLight ? Localization.Text("themeDark") : Localization.Text("themeLight");
     public string ThemeToggleHint => ThemeManager.IsLight ? Localization.Text("switchDark") : Localization.Text("switchLight");
     public GameItem? Selected => _selected;
-    public string Message => _localizedMessage?.Invoke() ?? Localization.Message(_message);
+    public string Message => _localizedMessage?.Invoke() ?? Localization.Message(_message, _selected?.Id);
     public Brush MessageBrush => ThemeManager.Brush(_messageIsError ? "ErrorBrush" : "MutedBrush");
     public bool CanManage => !_busy;
     public string ClientVersionLabel => "HappyCheats  /  " + UpdateLauncher.CurrentVersion;
@@ -110,20 +110,20 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         get
         {
-            if (WitcherPaused) return Localization.Message(_selected!.Status.Message);
+            if (WitcherPaused) return Localization.Message(_selected!.Status.Message, _selected.Id);
             if (_selected?.Id == "elden-ring" && _selected.Status.Ready) return Localization.Choose(
                 "Keep this page open for refills. F1–F4 apply controls; F12 stops refills. Gameplay effects remain unverified.",
                 "持续恢复时请保持本页开启。F1–F4 使用功能，F12 停止持续恢复。尚待游戏内验证。");
             if (_selected?.Status.Ready == true) return Localization.Text("readyHint");
             var reason = _selected?.Status.Message;
-            return string.IsNullOrWhiteSpace(reason) ? Localization.Text("offlineHint") : Localization.Message(reason);
+            return string.IsNullOrWhiteSpace(reason) ? Localization.Text("offlineHint") : Localization.Message(reason, _selected?.Id);
         }
     }
     public string InstallationPath => _selected?.Installation is { IsInstalled: true } installation ? installation.Directory : Localization.Text("folderMissing");
     public string InstallationLabel => _selected?.Id == "elden-ring" ? Localization.Choose("No game files installed", "不安装游戏文件")
         : Localization.Text(_selected?.Installation?.TrainerInstalled == true ? "trainerInstalled" : "trainerMissing");
-    public string BuildLabel => _selected?.Installation is { IsInstalled: true } installation ? $"{Localization.Choose("Steam build", "Steam 版本")} {Localization.Message(installation.Build)}  ·  {Localization.Message(installation.Message)}" : Localization.Text("steamDiscovery");
-    public string ValuesLine => _selected == null ? "" : FormatValues(_selected.Status.Values);
+    public string BuildLabel => _selected?.Installation is { IsInstalled: true } installation ? $"{Localization.Choose("Steam build", "Steam 版本")} {Localization.Message(installation.Build, _selected.Id)}  ·  {Localization.Message(installation.Message, _selected.Id)}" : Localization.Text("steamDiscovery");
+    public string ValuesLine => _selected == null ? "" : FormatValues(_selected.Status.Values, _selected.Id);
     public Visibility ValuesVisibility => string.IsNullOrEmpty(ValuesLine) ? Visibility.Collapsed : Visibility.Visible;
     public Visibility ControllerVisibility => _selected != null ? Visibility.Visible : Visibility.Collapsed;
     public Visibility DawnwalkerVisibility => _selected?.Id == "dawnwalker" ? Visibility.Visible : Visibility.Collapsed;
@@ -448,7 +448,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         Features.Clear();
         foreach (var definition in game.Module.Definition.Features.Where(f => f.Id != "disable_all"))
         {
-            var feature = new FeatureItem(definition);
+            var feature = new FeatureItem(definition, game.Id);
             Features.Add(feature);
         }
         SetMessage(_initialized ? game.Status.Message : "Finding your games in Steam…");
@@ -540,8 +540,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                         if (!target.Status.Enabled.GetValueOrDefault(restore.Id))
                             throw new InvalidOperationException(Localization.Choose(
                                 $"{restore.Name}: restoration is not confirmed. The On request is retained; turn it off and on to retry.",
-                                $"{Localization.FeatureName(restore)}：尚未确认恢复。已保留开启请求；关闭后重新开启可重试。"));
-                        SetLocalizedMessage(() => Localization.Choose($"{restore.Name}: restored after loading.", $"{Localization.FeatureName(restore)}：已在加载后恢复。"));
+                                $"{Localization.FeatureName(restore, game.Id)}：尚未确认恢复。已保留开启请求；关闭后重新开启可重试。"));
+                        SetLocalizedMessage(() => Localization.Choose($"{restore.Name}: restored after loading.", $"{Localization.FeatureName(restore, game.Id)}：已在加载后恢复。"));
                     }, Localization.Choose("Restoring requested trainer control…", "正在恢复已开启的修改器功能…"));
             }
         }
@@ -841,8 +841,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                     return;
                 }
                 SetLocalizedMessage(() => feature.IsToggle
-                    ? Localization.Choose($"{feature.Name}: request sent to the game.", $"{Localization.FeatureName(feature)}：请求已发送，等待游戏确认状态。")
-                    : Localization.Choose($"{feature.Name}: applied in game.", $"{Localization.FeatureName(feature)}：已在游戏中应用。"));
+                    ? Localization.Choose($"{feature.Name}: request sent to the game.", $"{Localization.FeatureName(feature, game.Id)}：请求已发送，等待游戏确认状态。")
+                    : Localization.Choose($"{feature.Name}: applied in game.", $"{Localization.FeatureName(feature, game.Id)}：已在游戏中应用。"));
             }, _witcherControlPending ? "Control queued. Resume The Witcher 3 to apply it. Waiting for confirmation…"
                 : _selected?.Id == "project-hospital" ? Localization.Choose("Control queued. Return to Project Hospital to apply it. Waiting for confirmation…", "指令已排队，请返回《医院计划》执行，正在等待确认…")
                 : "Applying trainer control…");
@@ -1001,7 +1001,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         Notify("");
     }
 
-    internal static string FormatValues(IReadOnlyDictionary<string, string> values)
+    internal static string FormatValues(IReadOnlyDictionary<string, string> values, string? gameId = null)
     {
         return string.Join("    ·    ", values
             .Where(pair => (pair.Key != "energy_max" || !values.ContainsKey("energy"))
@@ -1013,8 +1013,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 && !new[] { "dryMultiplier", "washAvailable", "dryAvailable", "shopAvailable", "collection_hook_registered", "collection_last_resource", "collection_scope", "soil_status", "selected_collection_multiplier", "selected_run_speed_multiplier", "witcher3_waiting_for_game" }.Contains(pair.Key))
             .Select(pair =>
             {
-                var label = Localization.ValueLabel(pair.Key);
-                var value = Localization.Message(pair.Key == "crimson_teleport_status" ? CrimsonTeleportMessage(pair.Value) : pair.Value);
+                var label = Localization.ValueLabel(pair.Key, gameId);
+                var value = Localization.Message(pair.Key == "crimson_teleport_status" ? CrimsonTeleportMessage(pair.Value) : pair.Value, gameId);
                 if (pair.Key is "health_percent" or "stamina_percent" or "blood"
                     && double.TryParse(pair.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var resource))
                     value = resource.ToString("0.#", CultureInfo.CurrentCulture) + (pair.Key.EndsWith("_percent", StringComparison.Ordinal) ? "%" : "");
@@ -1047,8 +1047,8 @@ public sealed class GameItem : INotifyPropertyChanged
         ? Localization.Choose($"Trainer {DownloadedCheatVersion} downloaded. Close this game and click Update to finish installing it.",
             $"修改器 {DownloadedCheatVersion} 已下载。请关闭此游戏并点击“更新”完成安装。")
         : HasCheatUpdate ? Localization.Choose($"Trainer update available: {LoadedCheatVersion} → {AvailableCheatVersion}.", $"修改器有可用更新：{LoadedCheatVersion} → {AvailableCheatVersion}。")
-        : TrainerVersionWarning.InstallationMismatch(Installation) ? Localization.Message(Installation!.Message)
-        : TrainerVersionWarning.RuntimeMismatch(Status) ? Localization.Message(Status.Message) : "";
+        : TrainerVersionWarning.InstallationMismatch(Installation) ? Localization.Message(Installation!.Message, Id)
+        : TrainerVersionWarning.RuntimeMismatch(Status) ? Localization.Message(Status.Message, Id) : "";
     public string TrainerWarningHint => Name + " · " + TrainerWarningReason + " "
         + Localization.Choose("Check for updates for this game.", "检查此游戏的修改器更新。");
     public string Id => Module.Definition.Id;
@@ -1072,6 +1072,7 @@ public sealed class GameItem : INotifyPropertyChanged
 public sealed class FeatureItem : INotifyPropertyChanged
 {
     public FeatureDefinition Definition { get; }
+    public string? GameId { get; }
     public IReadOnlyList<FeatureChoiceItem> Choices { get; }
     private bool _active;
     private bool _restorePending, _confirmedActive;
@@ -1082,8 +1083,8 @@ public sealed class FeatureItem : INotifyPropertyChanged
     private string? _confirmedNumber;
     private string? _numberErrorKey;
     public bool CanUse { get; private set; }
-    public string Name => Localization.FeatureName(Definition);
-    public string Description => Localization.FeatureDescription(Definition);
+    public string Name => Localization.FeatureName(Definition, GameId);
+    public string Description => Localization.FeatureDescription(Definition, GameId);
     public string Group => Localization.Group(Definition.Group);
     public string Hotkey => Definition.Hotkey;
     public Visibility HotkeyVisibility => string.IsNullOrEmpty(Hotkey) ? Visibility.Collapsed : Visibility.Visible;
@@ -1122,15 +1123,16 @@ public sealed class FeatureItem : INotifyPropertyChanged
         ? Localization.Choose("Queued", "已排队")
         : !_working && _restorePending ? Localization.Choose("On · waiting to restore", "已开启 · 等待恢复")
         : !_working && _connected && !CanUse && _unavailableReason != null
-            ? Localization.Message(_unavailableReason)
+            ? Localization.Message(_unavailableReason, GameId)
         : Localization.Text(_working ? "pleaseWait" : _unavailable ? "sceneUnavailable" : !CanUse ? (_connected ? (_initializationFailed ? "initializationFailed" : "waitingGameplay") : "waitingGame") : Definition.IsToggle ? (_active ? "enabled" : "off") : "ready");
     public string ActionLabel => Localization.Text(Definition.IsToggle ? (_active ? "turnOff" : "turnOn") : "apply");
     public Brush StateBrush => ThemeManager.Brush(_confirmedActive && CanUse ? "SuccessBrush" : "MutedBrush");
     public Brush ActionBrush => ThemeManager.Brush(_confirmedActive && CanUse ? "SuccessSurfaceBrush" : "ButtonBrush");
     public Brush ActionBorderBrush => ThemeManager.Brush(_confirmedActive && CanUse ? "SuccessBorderBrush" : "ButtonBorderBrush");
-    public FeatureItem(FeatureDefinition definition)
+    public FeatureItem(FeatureDefinition definition, string? gameId = null)
     {
         Definition = definition;
+        GameId = gameId;
         _numberText = definition.Number?.DefaultValue.ToString(CultureInfo.CurrentCulture) ?? "";
         Choices = definition.Choices?.Select(choice => new FeatureChoiceItem(this, choice)).ToArray() ?? Array.Empty<FeatureChoiceItem>();
     }

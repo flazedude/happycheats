@@ -69,6 +69,7 @@ public static class Localization
     };
     public static string Subtitle(GameDefinition definition) => definition.Id switch
     {
+        "nomad-drive" => Choose(definition.Subtitle, definition.Subtitle.Replace("Steam build ", "Steam 版本 ", StringComparison.Ordinal)),
         "chinese-parents" => Choose("LIFE SIMULATION", "人生模拟 · Steam 版"),
         "project-hospital" => Choose("HOSPITAL MANAGEMENT", "医院经营 · Steam 版"),
         "hotel-architect" => Choose("HOTEL SIMULATION", "酒店经营 · Steam 版"),
@@ -89,6 +90,7 @@ public static class Localization
     };
     public static string GameDescription(GameDefinition definition) => !Chinese ? definition.Description : definition.Id switch
     {
+        "nomad-drive" => "生存资源补满与持续恢复、中毒治疗、车辆加油和引擎维修。仅支持单人主机游戏。",
         "chinese-parents" => "给下一代多一点自由。轻松规划成长，探索属于你的不同人生。",
         "project-hospital" => "管理医院资金、时间、员工人数上限、战役和声望。实验性 Steam 模块，尚待游戏内验证。",
         "hotel-architect" => "24 项酒店、人物、时间与家具功能。实验性模块，尚待游戏内验证。",
@@ -209,9 +211,11 @@ public static class Localization
         ["stardew_refill"] = ("一键恢复", "立即补满生命、体力与背包内浇水壶的水量。"),
         ["disable_all"] = ("全部关闭", "关闭所有持续生效的功能。"), ["hud"] = ("游戏内状态", "显示或隐藏游戏内状态。")
     };
-    public static string FeatureName(FeatureDefinition definition) => !Chinese ? definition.Name
+    public static string FeatureName(FeatureDefinition definition, string? gameId = null) => !Chinese ? definition.Name
+        : gameId == "nomad-drive" ? NomadDriveLocalization.FeatureName(definition) ?? definition.Name
         : Witcher3Localization.FeatureName(definition) ?? Civ6Localization.FeatureName(definition) ?? Civ7Localization.FeatureName(definition) ?? HotelArchitectLocalization.Name(definition) ?? (Features.TryGetValue(definition.Id, out var value) ? value.Name : definition.Name);
-    public static string FeatureDescription(FeatureDefinition definition) => !Chinese ? definition.Description
+    public static string FeatureDescription(FeatureDefinition definition, string? gameId = null) => !Chinese ? definition.Description
+        : gameId == "nomad-drive" ? NomadDriveLocalization.FeatureDescription(definition) ?? definition.Description
         : Witcher3Localization.FeatureDescription(definition) ?? Civ6Localization.FeatureDescription(definition) ?? Civ7Localization.FeatureDescription(definition) ?? HotelArchitectLocalization.Description(definition) ?? (Features.TryGetValue(definition.Id, out var value) ? value.Description : definition.Description);
     public static string Group(string group) => !Chinese ? group : group switch
     {
@@ -219,7 +223,7 @@ public static class Localization
         "Hotel" => "酒店", "People" => "人物", "Rooms and furniture" => "房间与家具",
         "Units" => "单位", "Production" => "生产", "Selected unit" => "选中单位", "Selected city" => "选中城市",
         "Combat" => "战斗", "Progression" => "经营成长", "Machines" => "设备",
-        "Survival" => "生存", "Research" => "研究", "Exploration" => "探索", "Player" => "角色",
+        "Survival" => "生存", "Survival locks" => "生存资源保持", "Vehicle" => "车辆", "Research" => "研究", "Exploration" => "探索", "Player" => "角色",
         "Combat & movement" => "战斗与移动", "Inventory & XP" => "物品与经验",
         "Character growth" => "角色成长", "Horse" => "坐骑", "Law" => "通缉",
         "Story Mode · Player" => "故事模式 · 角色", "Story Mode · Horse" => "故事模式 · 坐骑",
@@ -230,8 +234,9 @@ public static class Localization
         "gold" or "g" => "金币", "HP" or "health" => "生命", "HHMM" => "HHMM", "speed" or "bonus" => "加成",
         "XP" or "xp" => "经验", "sparks" or "Sparks" => "灵光点", "will" or "Will" => "灵蕴", _ => unit
     };
-    public static string ValueLabel(string key)
+    public static string ValueLabel(string key, string? gameId = null)
     {
+        if (Chinese && gameId == "nomad-drive" && NomadDriveLocalization.ValueLabel(key) is { } nomadLabel) return nomadLabel;
         if (key == "FP") return Choose("FP", "专注值");
         if (key == "er_stamina_value") return Choose("Stamina", "精力");
         if (Witcher3Localization.ValueLabel(key) is { } witcherLabel) return witcherLabel;
@@ -899,12 +904,12 @@ public static class Localization
         ["安装过程中游戏被启动。请关闭游戏后重试。"] = "The game started during installation. Close it and try again."
     };
 
-    public static string Message(string source)
+    public static string Message(string source, string? gameId = null)
     {
         if (string.IsNullOrEmpty(source)) return source;
-        if (source.Contains('\n')) return string.Join(Environment.NewLine, source.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None).Select(Message));
+        if (source.Contains('\n')) return string.Join(Environment.NewLine, source.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None).Select(line => Message(line, gameId)));
         foreach (var prefix in new[] { ("Game found. ", "已找到游戏。"), ("Trainer installed. ", "修改器已安装。") })
-            if (source.StartsWith(prefix.Item1, StringComparison.Ordinal)) return Choose(prefix.Item1, prefix.Item2) + Message(source[prefix.Item1.Length..]);
+            if (source.StartsWith(prefix.Item1, StringComparison.Ordinal)) return Choose(prefix.Item1, prefix.Item2) + Message(source[prefix.Item1.Length..], gameId);
         if (!Chinese)
         {
             if (ImportedChineseMessages.TryGetValue(source, out var english)) return english;
@@ -915,6 +920,7 @@ public static class Localization
                 if (source.StartsWith(prefix.Item1, StringComparison.Ordinal)) return prefix.Item2 + source[prefix.Item1.Length..].Replace(" 倍", "×").Replace('。', '.');
             return source;
         }
+        if ((gameId == "nomad-drive" || source.Contains("Nomad Drive", StringComparison.Ordinal)) && NomadDriveLocalization.Message(source) is { } nomadMessage) return nomadMessage;
         if (Messages.TryGetValue(source, out var translated)) return translated;
         var dawnwalkerDamage = System.Text.RegularExpressions.Regex.Match(source, @"^The game did not confirm 10x damage for ([A-Za-z]+); active effects may override or scale the factor$");
         if (dawnwalkerDamage.Success) return $"游戏未确认 {dawnwalkerDamage.Groups[1].Value} 的 10 倍倍率；其他效果可能覆盖或缩放该属性";
@@ -965,7 +971,7 @@ public static class Localization
             ("Collection binding failed: ", "资源采集绑定失败："),
             ("Feature unavailable in this game build: ", "当前游戏版本不支持此功能："),
             ("Installing ", "正在安装 "), ("Trainer paused: ", "修改器已暂停："), ("Trainer removed. Backup: ", "修改器已移除。备份位置：") })
-            if (source.StartsWith(prefix.Item1, StringComparison.OrdinalIgnoreCase)) return prefix.Item2 + Message(source[prefix.Item1.Length..]);
+            if (source.StartsWith(prefix.Item1, StringComparison.OrdinalIgnoreCase)) return prefix.Item2 + Message(source[prefix.Item1.Length..], gameId);
         if (source.StartsWith("Choose the folder containing ", StringComparison.OrdinalIgnoreCase)) return "请选择包含 " + source[28..].TrimEnd('.') + " 的游戏文件夹。";
         return source;
     }
