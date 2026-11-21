@@ -10,15 +10,19 @@ internal static class EldenRingTests
     public static int RunAll()
     {
         passed = failed = 0;
-        Run("Elden Ring catalog advertises only implemented offline resource controls", () =>
+        Run("Elden Ring catalog advertises implemented offline resources and player controls", () =>
         {
             using var module = new EldenRingModule(".");
             var definition = module.Definition;
             Assert(definition.Id == "elden-ring" && definition.AppId == "1245620");
-            Assert(definition.Features.Select(feature => feature.Id).SequenceEqual(new[] { "er_health", "er_fp", "er_stamina", "er_restore" }));
+            Assert(definition.Features.Select(feature => feature.Id).SequenceEqual(new[] { "er_health", "er_fp", "er_stamina", "er_restore", "er_damage_protection", "er_consumables", "er_runes" }));
             Assert(definition.Features.Take(3).All(feature => feature.IsToggle));
             Assert(!definition.Features.Last().IsToggle);
-            Assert(definition.Features.Select(feature => feature.Hotkey).Distinct().Count() == 4);
+            Assert(definition.Features.Take(4).Select(feature => feature.Hotkey).Distinct().Count() == 4);
+            Assert(definition.Features.Skip(4).All(feature => feature.Hotkey == ""));
+            Assert(definition.Features.Skip(4).Take(2).All(feature => feature.IsToggle));
+            Assert(module is IFeatureValueModule && definition.Features.Last().Number is { Minimum: 0, Maximum: 999_999_999, Step: 1 });
+            Assert(definition.Features.Last().ChoiceValueKey == "Runes / 卢恩");
             Assert(definition.Features[0].Description.Contains("lethal damage", StringComparison.OrdinalIgnoreCase));
         });
         Run("Elden Ring accepts root and Game folder selections without editing either", () =>
@@ -78,6 +82,92 @@ internal static class EldenRingTests
             Assert(status.Values["Health"] == "100 / 100");
             session.Poll();
             Assert(runtime.Writes.Count == 1);
+        });
+        Run("Elden Ring rune input rejects fractions unknown controls and out of range values", () =>
+        {
+            Assert(EldenRingSession.ValidateValue("er_runes", 0) == 0);
+            Assert(EldenRingSession.ValidateValue("er_runes", 999_999_999) == 999_999_999);
+            foreach (var value in new[] { -1m, 0.5m, 1_000_000_000m, decimal.MaxValue, decimal.MinValue })
+                Fails(() => EldenRingSession.ValidateValue("er_runes", value));
+            Fails(() => EldenRingSession.ValidateValue("er_health", 100));
+            using var module = new EldenRingModule(".");
+            var installation = new GameInstallation(".", "", true, false, false, true, "fixture");
+            Fails(() => module.SetValueAsync(installation, TrainerStatus.Offline(), "er_runes", 1.5m));
+            Fails(() => module.SetValueAsync(installation, TrainerStatus.Offline(), "er_runes", 100).GetAwaiter().GetResult());
+        });
+        Run("Elden Ring rune assignment is one shot and stale numeric requests never replay", () =>
+        {
+            var runtime = new FakeRuntime();
+            using var session = new EldenRingSession(runtime);
+            var before = session.Poll();
+            var after = session.SetRunes(before, 12345);
+            Assert(runtime.RuneWrites.SequenceEqual(new[] { 12345 }));
+            Assert(after.Values["Runes / 卢恩"] == "12345");
+            session.Poll();
+            runtime.State = Live("replacement") with { Runes = 500 };
+            var current = session.Poll();
+            Fails(() => session.SetRunes(before, 23456));
+            Assert(runtime.RuneWrites.Count == 1 && current.Values["Runes / 卢恩"] == "500");
+            AssertOff(current);
+        });
+        Run("Elden Ring player flags confirm independently and Off preserves the other request", () =>
+        {
+            var runtime = new FakeRuntime();
+            using var session = new EldenRingSession(runtime);
+            var status = session.Command(session.Poll(), "er_damage_protection", true);
+            Assert(status.Enabled["er_damage_protection"] && !status.Enabled["er_consumables"]);
+            status = session.Command(status, "er_consumables", true);
+            Assert(status.Enabled["er_damage_protection"] && status.Enabled["er_consumables"]);
+            status = session.Command(status, "er_damage_protection", false);
+            Assert(!status.Enabled["er_damage_protection"] && status.Enabled["er_consumables"]);
+            Assert(runtime.Writes.Count == 0 && !runtime.State.DamageProtected && runtime.State.UnlimitedConsumables);
+            AssertOff(session.Command(status, "disable_all", null));
+            Assert(!runtime.State.DamageProtected && !runtime.State.UnlimitedConsumables);
+        });
+        Run("Elden Ring loading releases player effects and accepts explicit Off while waiting", () =>
+        {
+            var runtime = new FakeRuntime();
+            using var session = new EldenRingSession(runtime);
+            var status = session.Command(session.Poll(), "er_damage_protection", true);
+            runtime.State = runtime.State with { Ready = false, Health = 0 };
+            var waiting = session.Poll();
+            AssertOff(waiting);
+            Assert(!runtime.State.DamageProtected);
+            AssertOff(session.Command(status, "er_damage_protection", false));
+            runtime.State = Live("new-character");
+            var current = session.Poll();
+            AssertOff(current);
+            Assert(session.Command(current, "er_consumables", true).Enabled["er_consumables"]);
+            session.Dispose();
+            Assert(!runtime.State.UnlimitedConsumables);
+        });
+        Run("Elden Ring unconfirmed player flag never reports active or retries on later polls", () =>
+        {
+            var runtime = new FakeRuntime { IgnoreFlags = true };
+            using var session = new EldenRingSession(runtime);
+            Fails(() => session.Command(session.Poll(), "er_damage_protection", true));
+            var writes = runtime.FlagWrites.Count;
+            AssertOff(session.Poll());
+            Assert(runtime.FlagWrites.Count == writes);
+        });
+        Run("Elden Ring cleanup failure retains the specific control failure for logging", () =>
+        {
+            var runtime = new FakeRuntime();
+            using var session = new EldenRingSession(runtime);
+            var status = session.Poll();
+            runtime.FlagsError = runtime.CleanupError = true;
+            try
+            {
+                session.Command(status, "er_damage_protection", true);
+                throw new Exception("Expected control and cleanup failure.");
+            }
+            catch (IOException error)
+            {
+                Assert(error.Message.Contains("fixture flag failed") && error.Message.Contains("fixture cleanup failed"));
+                Assert(error.InnerException is AggregateException { InnerExceptions.Count: 2 });
+            }
+            finally { runtime.FlagsError = runtime.CleanupError = false; }
+            AssertOff(session.Poll());
         });
         Run("Elden Ring enabled refills only target explicitly selected resources", () =>
         {
@@ -224,7 +314,7 @@ internal static class EldenRingTests
         });
         Run("Elden Ring command schema rejects unknown, missing and extraneous toggle intent", () =>
         {
-            foreach (var feature in new[] { "er_health", "er_fp", "er_stamina" })
+            foreach (var feature in new[] { "er_health", "er_fp", "er_stamina", "er_damage_protection", "er_consumables" })
             {
                 EldenRingSession.ValidateCommand(feature, true);
                 EldenRingSession.ValidateCommand(feature, false);
@@ -236,7 +326,7 @@ internal static class EldenRingTests
                 Fails(() => EldenRingSession.ValidateCommand(feature, true));
                 Fails(() => EldenRingSession.ValidateCommand(feature, false));
             }
-            foreach (var feature in new[] { "runes", "online", "er_health\ner_restore", "" })
+            foreach (var feature in new[] { "er_runes", "runes", "online", "er_health\ner_restore", "" })
                 Fails(() => EldenRingSession.ValidateCommand(feature, true));
         });
         Run("Elden Ring disposal closes runtime once and prevents all further operations", () =>
@@ -458,7 +548,7 @@ internal static class EldenRingTests
             fixture.CreatePackage(gameplayVerified: true);
             FailsIo(() => EldenRingProfile.Load(fixture.Package));
             fixture.CreatePackage();
-            fixture.Manifest(version: "0.2.0");
+            fixture.Manifest(version: "0.1.1");
             FailsIo(() => EldenRingProfile.Load(fixture.Package));
         });
         Run("Elden Ring executable gate accepts exact WW version and rejects JP or future layouts", () =>
@@ -475,6 +565,7 @@ internal static class EldenRingTests
             }
             FailsIo(() => profile.VerifyExecutable(Path.Combine(fixture.Game, "Game", "start_protected_game.exe")));
         });
+        if (EldenRingExpansionMemoryTests.RunAll() != 0) failed++;
         Console.WriteLine($"Elden Ring tests: {passed} passed, {failed} failed.");
         return failed == 0 ? 0 : 1;
     }
@@ -495,8 +586,11 @@ internal static class EldenRingTests
         public EldenRingState State = Live();
         public bool ReadError, RefillError;
         public int Disposals;
+        public bool IgnoreFlags, FlagsError, CleanupError;
         public Func<EldenRingState, EldenRingState>? AfterRefill;
         public List<(bool Health, bool FP, bool Stamina)> Writes { get; } = [];
+        public List<int> RuneWrites { get; } = [];
+        public List<(string Feature, bool Enabled)> FlagWrites { get; } = [];
         public EldenRingState Read() => ReadError ? throw new IOException("fixture read failed") : State;
         public EldenRingState Refill(EldenRingState expected, bool health, bool fp, bool stamina)
         {
@@ -505,6 +599,24 @@ internal static class EldenRingTests
             State = State with { Health = health ? State.MaxHealth : State.Health, FP = fp ? State.MaxFP : State.FP, Stamina = stamina ? State.MaxStamina : State.Stamina };
             if (AfterRefill != null) State = AfterRefill(State);
             return State;
+        }
+        public EldenRingState SetRunes(EldenRingState expected, int value)
+        {
+            RuneWrites.Add(value);
+            return State = State with { Runes = value };
+        }
+        public EldenRingState SetPlayerFlag(EldenRingState expected, string featureId, bool enabled)
+        {
+            if (FlagsError) throw new IOException("fixture flag failed");
+            FlagWrites.Add((featureId, enabled));
+            if (!IgnoreFlags) State = featureId == "er_damage_protection"
+                ? State with { DamageProtected = enabled } : State with { UnlimitedConsumables = enabled };
+            return State;
+        }
+        public void ReleasePlayerFlags()
+        {
+            if (CleanupError) throw new IOException("fixture cleanup failed");
+            State = State with { DamageProtected = false, UnlimitedConsumables = false };
         }
         public void Dispose() => Disposals++;
     }
@@ -599,13 +711,13 @@ internal static class EldenRingTests
         {
             Directory.CreateDirectory(Package);
             ModuleIO.WriteJson(Path.Combine(Package, "profile.json"), new {
-                schemaVersion = 1, id = "elden-ring-ww-2.7.2.0-resources-v1", fileVersion,
+                schemaVersion = 1, id = "elden-ring-ww-2.7.2.0-controls-v2", fileVersion,
                 gameVersion = "1.17.2", gameplayVerified
             });
             File.WriteAllText(Path.Combine(Package, "ThirdPartyNotices.txt"), "Fixture notices.");
             Manifest();
         }
-        public void Manifest(string[]? paths = null, string version = "0.1.1")
+        public void Manifest(string[]? paths = null, string version = "0.2.0")
         {
             paths ??= ["profile.json", "ThirdPartyNotices.txt"];
             ModuleIO.WriteJson(Path.Combine(Package, "package.json"), new {

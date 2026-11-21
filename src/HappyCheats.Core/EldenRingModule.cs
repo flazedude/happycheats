@@ -6,26 +6,47 @@ using static HappyCheats.Core.ModuleIO;
 
 namespace HappyCheats.Core;
 
-public sealed class EldenRingModule(string baseDirectory) : IGameModule, IDisposable
+public sealed class EldenRingModule(string baseDirectory) : IGameModule, IFeatureValueModule, IDisposable
 {
-    public void Deactivate() => Stop();
+    public void Deactivate()
+    {
+        try { Stop(); }
+        catch (Exception error) when (Expected(error))
+        {
+            cleanupFailure = error.Message;
+            // Deactivate is called directly by the frozen host during page changes and exit.
+            // Record an unconfirmed cleanup without aborting the host's remaining shutdown work.
+            try
+            {
+                var directory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HappyCheats");
+                Directory.CreateDirectory(directory);
+                File.AppendAllText(Path.Combine(directory, "client-errors.log"),
+                    $"{DateTimeOffset.UtcNow:O} [elden-ring] {error.Message.ReplaceLineEndings(" ")}{Environment.NewLine}");
+            }
+            catch (Exception logging) when (logging is IOException or UnauthorizedAccessException) { }
+        }
+    }
     public IReadOnlyList<string> GameExecutables { get; } = [Executable];
-    public const string TrainerVersion = "0.1.1";
+    public const string TrainerVersion = "0.2.0";
     public const string Executable = "Game/eldenring.exe";
     private readonly string package = Path.Combine(baseDirectory, "payload", "elden-ring");
     private readonly object gate = new();
     private EldenRingSession? connection;
     private string connectedDirectory = "";
     private int connectedProcessId;
+    private string cleanupFailure = "";
     // Read by the low-level shortcut hook: never wait for a memory operation here.
     public int ConnectedProcessId => Volatile.Read(ref connectedProcessId);
 
     public GameDefinition Definition { get; } = new("elden-ring", "Elden Ring", "OFFLINE SINGLE PLAYER", "1245620", "ER",
-        "Experimental offline resource refills. Easy Anti-Cheat, online sessions and Seamless Co-op are unsupported. Start Steam, choose Offline launch, load a character and Connect trainer. Keep this page open. No game files or saves are edited by setup; gameplay effects are unverified.", [
+        "Experimental offline resource refills and player controls. Easy Anti-Cheat, online sessions and Seamless Co-op are unsupported. Start Steam, choose Offline launch, load a character and Connect trainer. Keep this page open. Setup does not edit saves; the game may save rune changes. Gameplay effects are unverified.", [
         new("er_health", "Refill health", "Periodically refill a living character's HP while this page is open. Not invulnerability; lethal damage can still kill.", "F1", true, "Resources"),
         new("er_fp", "Refill FP", "Periodically refill your current FP while this page is open. Does not change maximum FP.", "F2", true, "Resources"),
         new("er_stamina", "Refill stamina", "Periodically refill your current stamina while this page is open. Does not change maximum stamina.", "F3", true, "Resources"),
-        new("er_restore", "Restore all resources", "Refill current HP, FP and stamina once for a living offline character.", "F4", false, "Resources")]);
+        new("er_restore", "Restore all resources", "Refill current HP, FP and stamina once for a living offline character.", "F4", false, "Resources"),
+        new("er_damage_protection", "Damage protection / 伤害防护", "Experimental protection against incoming hits to your character. Protection from falls, scripted deaths and status effects is unverified. / 实验性玩家受击防护；尚未验证坠落、剧情死亡及异常状态的防护效果。", "", true, "Resources"),
+        new("er_consumables", "Unlimited consumables / 消耗品不减", "Prevent consumable depletion for your character. Flask, ammunition and quest-item coverage is unverified. / 防止玩家使用消耗品时数量减少；尚未验证圣杯瓶、弹药和任务物品的适用范围。", "", true, "Resources"),
+        new("er_runes", "Set runes / 设置卢恩", "Set the current character's rune balance once. The game may save this change; it is never replayed after loading. / 一次设置当前角色的卢恩数量；游戏可能保存此改动，加载后不会重复执行。", "", false, "Resources", ChoiceValueKey: "Runes / 卢恩", Number: new FeatureNumber(0, 999_999_999, 10_000, Unit: "runes / 卢恩"))]);
 
     internal static string NormalizeDirectory(string directory)
     {
@@ -81,9 +102,10 @@ public sealed class EldenRingModule(string baseDirectory) : IGameModule, IDispos
                 connection = new EldenRingSession(new MemoryAdapter(runtime));
                 connectedDirectory = game.Directory;
                 connectedProcessId = process.Id;
+                cleanupFailure = "";
                 progress?.Report(connection.Poll().Message);
             }
-            catch { StopCore(); throw; }
+            catch (Exception error) { StopAfterFailure(error); throw; }
         }
     });
 
@@ -130,7 +152,8 @@ public sealed class EldenRingModule(string baseDirectory) : IGameModule, IDispos
     {
         lock (gate)
         {
-            if (connection == null) return TrainerStatus.Offline("Use Offline launch, then load Elden Ring and choose Connect trainer.");
+            if (connection == null) return TrainerStatus.Offline(cleanupFailure.Length != 0 ? cleanupFailure
+                : "Use Offline launch, then load Elden Ring and choose Connect trainer.");
             try
             {
                 if (!installation.IsInstalled || !SameDirectory(installation.Directory, connectedDirectory))
@@ -140,7 +163,7 @@ public sealed class EldenRingModule(string baseDirectory) : IGameModule, IDispos
             }
             catch (Exception error) when (Expected(error))
             {
-                StopCore();
+                StopAfterFailure(error);
                 return TrainerStatus.Offline(error.Message);
             }
         }
@@ -160,7 +183,26 @@ public sealed class EldenRingModule(string baseDirectory) : IGameModule, IDispos
                     RequireUnprotectedEnvironment();
                     connection.Command(status, featureId, enabled);
                 }
-                catch { StopCore(); throw; }
+                catch (Exception error) { StopAfterFailure(error); throw; }
+            }
+        });
+    }
+
+    public Task SetValueAsync(GameInstallation installation, TrainerStatus status, string featureId, decimal value)
+    {
+        var runes = EldenRingSession.ValidateValue(featureId, value);
+        return Task.Run(() =>
+        {
+            lock (gate)
+            {
+                try
+                {
+                    if (connection == null || !installation.IsInstalled || !SameDirectory(installation.Directory, connectedDirectory))
+                        throw new InvalidOperationException("Connect the offline Elden Ring trainer before setting runes. / 请先连接离线修改器，再设置卢恩。");
+                    RequireUnprotectedEnvironment();
+                    connection.SetRunes(status, runes);
+                }
+                catch (Exception error) { StopAfterFailure(error); throw; }
             }
         });
     }
@@ -174,12 +216,24 @@ public sealed class EldenRingModule(string baseDirectory) : IGameModule, IDispos
         connection = null; connectedProcessId = 0; connectedDirectory = "";
         old?.Dispose();
     }
+    private void StopAfterFailure(Exception operation)
+    {
+        try { StopCore(); }
+        catch (Exception cleanup)
+        {
+            throw new IOException(operation.Message + " Player effect cleanup also failed: " + cleanup.Message,
+                new AggregateException(operation, cleanup));
+        }
+    }
     public void Dispose() => Stop();
 
     private sealed class MemoryAdapter(EldenRingMemory memory) : EldenRingSession.IRuntime
     {
         public EldenRingState Read() => memory.Read();
         public EldenRingState Refill(EldenRingState expected, bool health, bool fp, bool stamina) => memory.Refill(expected, health, fp, stamina);
+        public EldenRingState SetRunes(EldenRingState expected, int value) => memory.SetRunes(expected, value);
+        public EldenRingState SetPlayerFlag(EldenRingState expected, string featureId, bool enabled) => memory.SetPlayerFlag(expected, featureId, enabled);
+        public void ReleasePlayerFlags() => memory.ReleasePlayerFlags();
         public void Dispose() => memory.Dispose();
     }
 }

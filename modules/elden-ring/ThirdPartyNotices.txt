@@ -1,4 +1,4 @@
-HappyCheats Elden Ring resource refills 0.1.1
+HappyCheats Elden Ring offline controls 0.2.0
 Original managed implementation compiled into HappyCheats.Core; no third-party game or trainer binaries, Cheat Engine scripts or injected code are included.
 Interface facts were checked against these primary sources:
 
@@ -8,6 +8,10 @@ crates/eldenring/src/rva.rs and rva/rva_ww.rs: exact worldwide file 2.7.2.0 and 
 crates/eldenring/src/cs/game_man.rs: offline mode byte, server-enabled boolean and local/remote event world enum.
 crates/eldenring/src/cs/session_manager.rs: lobby and protocol None=0 states.
 crates/eldenring/src/cs/chr_ins/module/data.rs: current/max health, FP, stamina and resource owner.
+crates/eldenring/src/cs/chr_ins.rs: per-character ChrIns.debug_flags (0x538), ChrDebugFlags.disabled_hit (bit 3), infinite_consumables (bit 16), and PlayerIns.player_game_data (0x580).
+crates/eldenring/src/cs/game_data_man.rs: GameDataMan.main_player_game_data (0x8).
+crates/eldenring/src/cs/player_game_data.rs: PlayerGameData.rune_count (0x6C), game_data_man_index (0xD0), and is_main_player (0x8F0).
+Only the local player's two flag bits are changed; global WorldChrManDbgFlags and its All* flags are not used. The rune target is cross-checked against the player's own data and the main-player game-data pointer.
 
 MIT License
 
@@ -69,6 +73,7 @@ Historical release 1.9.7 documents in-game 1.17.1 as executable 2.7.1; the curre
 The Grand Archives table 1.19.1, commit 7926205c5a2ed236dd31278c4f5579c964ceec35:
 https://github.com/The-Grand-Archives/Elden-Ring-CT-TGA/tree/7926205c5a2ed236dd31278c4f5579c964ceec35
 Statistics/Character entries independently confirm WorldChrMan->0x10EF8->0->0x190->0 and current fields 0x138/0x148/0x154.
+Hero/Character Flags/No Hit.xml independently confirms the local-character 0x538 bit 3, and NoGoodsConsume.xml confirms 0x53A bit 0 (the same u32 bit 16).
 Main .cea documents unique GameDataMan/GameMan signatures. No table/scripts are distributed.
 
-This profile is experimental. Source layouts and fixtures were validated offline; actual gameplay was not tested.
+This profile is experimental. Source layouts and fixtures were validated offline; actual gameplay was not tested. During the 21 November 2026 expansion, no game was launched or attached and no save was changed. Incoming-hit protection does not promise protection from every damage or death mechanism, and no-consumption coverage has not been established in gameplay.

@@ -1,4 +1,5 @@
 using System.IO;
+using System.Globalization;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
@@ -34,9 +35,14 @@ internal static class EldenRingUiChecks
             if (!condition) throw new InvalidOperationException("Elden Ring UI: " + message);
         }
         Check(game.Module is EldenRingModule && definition.AppId == "1245620", "the catalog must expose the Steam module");
-        Check(definition.Features.Select(feature => feature.Id).SequenceEqual(new[] { "er_health", "er_fp", "er_stamina", "er_restore" })
-            && definition.Features.Count(feature => feature.IsToggle) == 3, "expected three refill toggles and one restore action");
-        Check(definition.Features.Select(feature => feature.Hotkey).SequenceEqual(new[] { "F1", "F2", "F3", "F4" }), "hotkey labels changed");
+        Check(definition.Features.Select(feature => feature.Id).SequenceEqual(new[] {
+                "er_health", "er_fp", "er_stamina", "er_restore", "er_damage_protection", "er_consumables", "er_runes" })
+            && definition.Features.Count(feature => feature.IsToggle) == 5, "expected five toggles, one restore action and one rune editor");
+        Check(definition.Features.Select(feature => feature.Hotkey).SequenceEqual(new[] { "F1", "F2", "F3", "F4", "", "", "" }),
+            "new controls must not advertise unsupported shortcuts on existing clients");
+        var runeDefinition = definition.Features.Single(feature => feature.Id == "er_runes");
+        Check(runeDefinition is { IsToggle: false, ChoiceValueKey: "Runes / 卢恩", Number: { Minimum: 0, Maximum: 999999999, Step: 1 } },
+            "runes must expose a bounded whole-number one-shot editor through existing metadata");
         foreach (var uri in new[] { GameArtwork.IconUri(game.Id), GameArtwork.LogoUri(game.Id) }) {
             var image = BitmapFrame.Create(uri, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
             Check(image.PixelWidth > 0 && image.PixelHeight > 0, "bundled artwork did not load");
@@ -80,17 +86,16 @@ internal static class EldenRingUiChecks
             Check(module.Commands.SequenceEqual(new[] { "er_health=True", "er_health=False", "er_fp=True", "er_stamina=True", "er_restore=" }),
                 "shortcuts routed incorrectly or failed to use confirmed toggle state");
             Update(module.Status with { Ready = false });
-            Check(main.CanDisableAll && main.Features.Where(feature => feature.Definition.Id is "er_fp" or "er_stamina").All(feature => feature.CanUse)
-                && main.Features.Where(feature => feature.Definition.Id is "er_health" or "er_restore").All(feature => !feature.CanUse),
-                "only active toggle cleanup should remain available while gameplay is unavailable");
+            Check(main.CanDisableAll && FeatureButtons(main).All(button => button.IsEnabled),
+                "gameplay readiness must not grey out client controls");
             Apply("F12");
             Check(module.Commands.Last() == "disable_all=" && module.Status.Enabled.Values.All(enabled => !enabled), "F12 failed to stop refill effects");
             foreach (var status in new[] { ready with { Connected = false, Ready = false }, ready }) {
                 Update(status, working: status.Connected);
                 var before = module.Commands.Count;
                 Apply("F1"); Apply("F4"); Apply("F12");
-                Check(!main.CanDisableAll && main.Features.All(feature => !feature.CanUse) && module.Commands.Count == before,
-                    "disconnected/busy controls dispatched a command");
+                Check(FeatureButtons(main).All(button => button.IsEnabled) && module.Commands.Count == before,
+                    "disconnected/busy controls must remain clickable while scoped shortcuts retain their guards");
             }
             Update(ready);
             handoff.SetValue(main, true);
@@ -106,8 +111,40 @@ internal static class EldenRingUiChecks
             fixture.Installation = fixture.Installation with { Compatible = false };
             Update(fixture.Status);
             Check(!main.CanLaunch && !main.CanInstall, "unsupported game build can launch/connect");
+            Check(Descendants<Button>(main).All(button => button.IsEnabled), "an unsupported build greyed out a setup or trainer button");
             fixture.Installation = module.Installation;
             Update(ready);
+
+            foreach (var featureId in new[] { "er_damage_protection", "er_consumables" }) {
+                var button = FeatureButtons(main).Single(button => ((FeatureItem)button.Tag).Definition.Id == featureId);
+                button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Check(module.Commands.Last() == featureId + "=True", "the new toggle button did not dispatch its explicit On state");
+                button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Check(module.Commands.Last() == featureId + "=False", "the new toggle button did not dispatch its explicit Off state");
+            }
+
+            var runes = main.Features.Single(feature => feature.Definition.Id == "er_runes");
+            var sendNumber = typeof(MainWindow).GetMethod("SendNumberAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            void ApplyRunes() => ((Task)sendNumber.Invoke(main, new object[] { runes })!).GetAwaiter().GetResult();
+            runes.NumberText = "123456";
+            ApplyRunes();
+            Check(module.Commands.Last() == "er_runes=123456" && module.Status.Values["Runes / 卢恩"] == "123456",
+                "the client numeric path failed to dispatch the explicit rune value");
+            var formattedRunes = MainWindow.FormatValues(module.Status.Values, "elden-ring");
+            Check(formattedRunes.Contains("Runes / 卢恩", StringComparison.Ordinal) && formattedRunes.Contains("123456", StringComparison.Ordinal)
+                && !formattedRunes.Contains("er_runes_value", StringComparison.Ordinal), "the frozen client exposed an internal rune value key");
+            var afterRuneEdit = module.Commands.Count;
+            foreach (var invalid in new[] { "-1", "1000000000", "1.5" }) {
+                runes.NumberText = invalid;
+                ApplyRunes();
+                Check(module.Commands.Count == afterRuneEdit, "an invalid rune edit reached the module");
+            }
+            runes.NumberText = "37";
+            CheckSharedMenu(fixture, ready, main.Features.ToArray(), Check);
+            Update(module.Status);
+            typeof(MainWindow).GetMethod("SetMessage", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(main,
+                new object[] { "Synthetic UI fixture; no game launched or attached. Gameplay remains unverified.", false });
+            commandCount = module.Commands.Count;
 
             foreach (var language in new[] { "en", "zh" })
             foreach (var theme in new[] { "dark", "light" }) {
@@ -115,8 +152,13 @@ internal static class EldenRingUiChecks
                 main.Width = 1180; main.Height = 820;
                 ((ScrollViewer)main.FindName("DetailScroll")).ScrollToTop(); main.UpdateLayout();
                 if (language == "zh") {
-                    Check(fixture.Name == "艾尔登法环" && main.Features.All(feature => feature.Name != feature.Definition.Name && feature.Description != feature.Definition.Description),
-                        "Chinese names or descriptions are missing");
+                    Check(fixture.Name == "艾尔登法环" && main.Features.Where(feature => feature.Definition.Id is "er_health" or "er_fp" or "er_stamina" or "er_restore")
+                        .All(feature => feature.Name != feature.Definition.Name && feature.Description != feature.Definition.Description),
+                        "legacy Chinese names or descriptions are missing");
+                    Check(main.Features.Where(feature => feature.Definition.Id is "er_damage_protection" or "er_consumables" or "er_runes")
+                        .All(feature => feature.Name.Any(character => character is >= '\u3400' and <= '\u9fff')
+                            && feature.Description.Any(character => character is >= '\u3400' and <= '\u9fff')),
+                        "new controls must carry bilingual metadata on frozen clients");
                     Check(fixture.HeroLine.Contains("离线", StringComparison.Ordinal) && fixture.HeroLine.Contains("不是无敌", StringComparison.Ordinal)
                         && fixture.HeroLine.Contains("尚待游戏内验证", StringComparison.Ordinal), "overview omitted scope or validation limits");
                     Check(main.LaunchLabel == "离线启动" && main.InstallLabel == "连接修改器" && main.RemoveLabel == "断开修改器", "Chinese action labels are missing");
@@ -129,12 +171,17 @@ internal static class EldenRingUiChecks
                 Check(resources.Contains(language == "en" ? "Stamina" : "精力", StringComparison.Ordinal)
                     && resources.Contains("30 / 90", StringComparison.Ordinal) && !resources.Contains("er_stamina_value", StringComparison.Ordinal),
                     "the game-specific stamina key must render as a translated resource label");
-                var buttons = Descendants<Button>(main).Where(button => button.Tag is FeatureItem).ToArray();
-                Check(buttons.Length == 4 && buttons.All(button => button.IsEnabled), "four usable feature buttons must render");
+                var buttons = FeatureButtons(main);
+                Check(buttons.Length == 7 && buttons.All(button => button.IsEnabled), "all seven clickable feature buttons must render");
                 if (artifacts != null) {
                     Capture(main, Path.Combine(artifacts, $"elden-ring-{theme}-{language}.png"));
+                    ((ScrollViewer)main.FindName("DetailScroll")).ScrollToBottom(); main.UpdateLayout();
+                    Capture(main, Path.Combine(artifacts, $"elden-ring-controls-{theme}-{language}.png"));
                     main.Width = 854; main.Height = 534; main.UpdateLayout();
+                    ((ScrollViewer)main.FindName("DetailScroll")).ScrollToTop(); main.UpdateLayout();
                     Capture(main, Path.Combine(artifacts, $"elden-ring-handheld-{theme}-{language}.png"));
+                    ((ScrollViewer)main.FindName("DetailScroll")).ScrollToBottom(); main.UpdateLayout();
+                    Capture(main, Path.Combine(artifacts, $"elden-ring-handheld-controls-{theme}-{language}.png"));
                 }
             }
             library.SelectedItem = main.Games.First(item => item.Id is not ("elden-ring" or "civilization-vi" or "civilization-vii"));
@@ -147,8 +194,41 @@ internal static class EldenRingUiChecks
             main.SetLanguage(originalLanguage, persist: false); main.SetTheme(originalTheme, persist: false);
             main.Games[gameIndex] = game; library.SelectedItem = originalSelection; refresh.Invoke(main, null);
         }
-        return new { Screen = "elden-ring", Assertions = assertions, Controls = 4, ScopedShortcuts = true,
-            OfflineLaunchGuards = true, EnglishAndChinese = true, LightAndDark = true, NoGameCommands = true };
+        return new { Screen = "elden-ring", Assertions = assertions, Controls = 7, ScopedShortcuts = true,
+            OfflineLaunchGuards = true, EnglishAndChinese = true, LightAndDark = true, NoGameCommands = true,
+            NumericRuneEditor = true, SharedMenuMetadata = true };
+    }
+
+    private static Button[] FeatureButtons(DependencyObject root) => Descendants<Button>(root).Where(button => button.Tag is FeatureItem).ToArray();
+
+    private static void CheckSharedMenu(GameItem game, TrainerStatus ready, FeatureItem[] features, Action<bool, string> check)
+    {
+        var sent = new List<string>();
+        var overlay = new GameOverlay(feature => { sent.Add(feature.Id); return Task.CompletedTask; },
+            _ => throw new InvalidOperationException("Elden Ring has no choice controls."), () => { }) { Left = -32000, Top = -32000 };
+        try {
+            overlay.Refresh(game, features, false, true, "Elden Ring synthetic menu fixture; no game connection");
+            overlay.Show(); overlay.UpdateLayout();
+            check(FeatureButtons(overlay).Select(button => ((FeatureItem)button.Tag).Definition.Id)
+                .SequenceEqual(features.Select(feature => feature.Definition.Id)), "shared menu omitted an Elden Ring control");
+            var editor = Descendants<TextBox>(overlay).Single(input => input.Tag is FeatureItem);
+            var runes = (FeatureItem)editor.Tag;
+            check(runes.Definition.Id == "er_runes" && editor.IsEnabled, "the shared menu must render one clickable rune editor");
+            editor.SetCurrentValue(TextBox.TextProperty, "37");
+            editor.GetBindingExpression(TextBox.TextProperty)!.UpdateSource();
+            foreach (var unavailable in new[] { false, true }) {
+                foreach (var feature in features) feature.Update(ready with { Ready = !unavailable }, !unavailable);
+                overlay.Refresh(game, features, unavailable, true, "Synthetic refresh");
+                overlay.UpdateLayout();
+                check(ReferenceEquals(editor, Descendants<TextBox>(overlay).Single(input => input.Tag is FeatureItem))
+                    && editor.Text == "37" && runes.NumberText == "37", "menu refresh replaced the rune draft");
+                check(editor.IsEnabled && FeatureButtons(overlay).All(button => button.IsEnabled), "menu status disabled an Elden Ring control");
+            }
+            var runeButton = FeatureButtons(overlay).Single(button => ((FeatureItem)button.Tag).Definition.Id == "er_runes");
+            runeButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            check(sent.SequenceEqual(new[] { "er_runes" }), "the shared menu did not route the rune action through its common callback");
+        }
+        finally { overlay.Close(); }
     }
 
     private static IEnumerable<T> Descendants<T>(DependencyObject root) where T : DependencyObject
@@ -167,7 +247,7 @@ internal static class EldenRingUiChecks
         var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(target));
         using var file = File.Create(path); encoder.Save(file);
     }
-    private sealed class FixtureModule(GameDefinition definition) : IGameModule
+    private sealed class FixtureModule(GameDefinition definition) : IGameModule, IFeatureValueModule
     {
         public GameDefinition Definition { get; } = definition;
         public GameInstallation Installation { get; } = new("C:/EldenRingUiFixture", "fixture", true, false, true, true, "Fixture only");
@@ -185,6 +265,13 @@ internal static class EldenRingUiChecks
             return Task.CompletedTask;
         }
         public Task<TrainerStatus> ReadStatusAsync(GameInstallation installation) => Task.FromResult(Status);
+        public Task SetValueAsync(GameInstallation installation, TrainerStatus status, string featureId, decimal value)
+        {
+            if (featureId != "er_runes") throw new ArgumentException("Unknown Elden Ring fixture value.");
+            Commands.Add(featureId + "=" + value.ToString(CultureInfo.InvariantCulture));
+            Status = Status with { Values = new Dictionary<string, string>(Status.Values) { ["Runes / 卢恩"] = value.ToString(CultureInfo.InvariantCulture) } };
+            return Task.CompletedTask;
+        }
         public Task<GameInstallation> DiscoverAsync(string? directory = null) => throw new NotSupportedException();
         public Task InstallAsync(GameInstallation installation, IProgress<string>? progress = null) => throw new NotSupportedException();
         public Task RemoveAsync(GameInstallation installation, IProgress<string>? progress = null) => throw new NotSupportedException();

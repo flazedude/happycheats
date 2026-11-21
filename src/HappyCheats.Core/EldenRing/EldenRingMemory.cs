@@ -7,11 +7,17 @@ using Microsoft.Win32.SafeHandles;
 namespace HappyCheats.Core.EldenRing;
 
 public sealed record EldenRingState(bool Ready, string Context, int Health = 0, int MaxHealth = 0,
-    int FP = 0, int MaxFP = 0, int Stamina = 0, int MaxStamina = 0);
+    int FP = 0, int MaxFP = 0, int Stamina = 0, int MaxStamina = 0,
+    int? Runes = null, bool DamageProtected = false, bool UnlimitedConsumables = false);
 
-/// <summary>Reads a verified local offline character and refills only three current resource integers.</summary>
+/// <summary>Guarded resource, rune and owned debug-flag operations for a verified offline local player.</summary>
 public sealed class EldenRingMemory : IDisposable
 {
+    public const int MaximumRunes = 999999999;
+    // Layout facts are independently described by the pinned fromsoftware-rs and Grand Archives sources.
+    internal const int PlayerFlagsOffset = 0x538, PlayerGameDataOffset = 0x580,
+        MainPlayerGameDataOffset = 0x8, RuneCountOffset = 0x6C;
+    private const uint DamageProtectionMask = 1u << 3, ConsumablesMask = 1u << 16;
     internal interface IMemory : IDisposable
     {
         byte[] Read(long address, int length);
@@ -22,6 +28,8 @@ public sealed class EldenRingMemory : IDisposable
     private readonly long image;
     private bool disposed;
     private readonly object gate = new();
+    private string flagsOwner = "";
+    private readonly Dictionary<uint, bool> originalFlags = [];
     internal EldenRingMemory(IMemory memory, long image) { this.memory = memory; this.image = image; }
 
     public static EldenRingMemory Open(int processId, DateTime started, string executablePath, EldenRingProfile profile)
@@ -49,8 +57,49 @@ public sealed class EldenRingMemory : IDisposable
     }
 
     public EldenRingState Read() { lock (gate) return Capture().State; }
-    private sealed record CaptureResult(EldenRingState State, long Data);
+    private sealed record CaptureResult(EldenRingState State, long Data, long Player = 0, string PlayerContext = "");
     private CaptureResult Capture()
+    {
+        var capture = CaptureCore();
+        if (capture.Player != 0)
+        {
+            // Only traverse the freshly verified current player. This identity is independent of
+            // transient managers and resource modules; PlayerGameData distinguishes reused addresses.
+            try { capture = capture with { PlayerContext = PlayerFlagIdentity(capture.Player) }; }
+            catch (Exception error) when (OptionalTargetError(error)) { }
+        }
+        // Absence is not proof of replacement. Keep original-bit bookkeeping, without ever
+        // dereferencing the remembered address, until a current player can be identified again.
+        if (flagsOwner.Length != 0 && capture.PlayerContext.Length != 0 && flagsOwner != capture.PlayerContext)
+        {
+            originalFlags.Clear();
+            flagsOwner = "";
+        }
+        if (capture.Player == 0) return capture;
+        var state = capture.State;
+        // New optional targets cannot veto the original resource-only controls.
+        try
+        {
+            var flags = UInt32(capture.Player + PlayerFlagsOffset);
+            state = state with { DamageProtected = (flags & DamageProtectionMask) != 0,
+                UnlimitedConsumables = (flags & ConsumablesMask) != 0 };
+        }
+        catch (Exception error) when (OptionalTargetError(error)) { }
+        if (state.Ready)
+        {
+            try { state = state with { Runes = RuneTarget(capture).Runes }; }
+            catch (Exception error) when (OptionalTargetError(error)) { }
+        }
+        return capture with { State = state };
+    }
+    private static bool OptionalTargetError(Exception error) => error is IOException or Win32Exception or InvalidOperationException;
+    private string PlayerFlagIdentity(long player)
+    {
+        var data = Pointer(player + PlayerGameDataOffset);
+        if (data == 0) throw new IOException("Elden Ring player effect identity is unavailable. Wait for the local character to finish loading.");
+        return $"{player:X}:{data:X}";
+    }
+    private CaptureResult CaptureCore()
     {
         ObjectDisposedException.ThrowIf(disposed, this);
         memory.CheckEnvironment();
@@ -63,10 +112,10 @@ public sealed class EldenRingMemory : IDisposable
         if (flags[0] != 0 || flags[1] > 1 || flags[2] != 0
             || Int32(session + 0xC) != 0 || Int32(session + 0x10) != 0
             || Pointer(session + 0x78) != Pointer(session + 0x80))
-            throw new IOException("Elden Ring is online or in a multiplayer session. Refills require offline single-player.");
+            throw new IOException("Elden Ring is online or in a multiplayer session. Trainer controls require offline single-player.");
         var steam = Pointer(session + 0x60);
         if (steam == 0 || Int32(steam + 0x710 + 0x24) != 0)
-            throw new IOException("Elden Ring has an active or unknown network session. Refills are blocked.");
+            throw new IOException("Elden Ring has an active or unknown network session. Trainer writes are blocked.");
         var world = Pointer(image + EldenRingProfile.WorldRva);
         if (world == 0) return new(new(false, ""), 0);
         var player = Pointer(world + 0x1E508);
@@ -76,9 +125,9 @@ public sealed class EldenRingMemory : IDisposable
         if (entries == 0 || Pointer(entries) != player || Pointer(player) != image + EldenRingProfile.PlayerVtableRva)
             throw new IOException("Elden Ring local player identity could not be verified.");
         var modules = Pointer(player + 0x190);
-        if (modules == 0) return new(new(false, ""), 0);
+        if (modules == 0) return new(new(false, ""), 0, player);
         var data = Pointer(modules);
-        if (data == 0) return new(new(false, ""), 0);
+        if (data == 0) return new(new(false, ""), 0, player);
         if (Pointer(data + 8) != player) throw new IOException("Elden Ring resource data belongs to a different character.");
         var bytes = memory.Read(data + 0x138, 0x24);
         var hp = BitConverter.ToInt32(bytes, 0); var maxHp = BitConverter.ToInt32(bytes, 4);
@@ -86,7 +135,7 @@ public sealed class EldenRingMemory : IDisposable
         var sp = BitConverter.ToInt32(bytes, 0x1C); var maxSp = BitConverter.ToInt32(bytes, 0x20);
         ValidateResource(hp, maxHp); ValidateResource(fp, maxFp); ValidateResource(sp, maxSp);
         var context = $"{game:X}:{session:X}:{steam:X}:{world:X}:{player:X}:{modules:X}:{data:X}";
-        return new(new(hp > 0, context, hp, maxHp, fp, maxFp, sp, maxSp), data);
+        return new(new(hp > 0, context, hp, maxHp, fp, maxFp, sp, maxSp), data, player);
     }
 
     internal static void ValidateResource(int current, int maximum)
@@ -106,11 +155,129 @@ public sealed class EldenRingMemory : IDisposable
             return CheckedCapture(expected).State;
         }
     }
+
+    private sealed record RuneLocation(long PlayerData, long Address, int Runes);
+    private RuneLocation RuneTarget(CaptureResult capture)
+    {
+        if (capture.Player == 0) throw new IOException("Elden Ring rune target is unavailable. Load a local character.");
+        var manager = Pointer(image + EldenRingProfile.GameDataRva);
+        if (manager == 0) throw new IOException("Elden Ring GameDataMan rune target is unavailable.");
+        var data = Pointer(manager + MainPlayerGameDataOffset);
+        if (data == 0 || Pointer(capture.Player + PlayerGameDataOffset) != data)
+            throw new IOException("Elden Ring rune data does not match the current local character.");
+        // PlayerGameData::game_data_man_index and is_main_player positively identify the host slot.
+        if (Int32(data + 0xD0) != 0 || memory.Read(data + 0x8F0, 1)[0] != 1)
+            throw new IOException("Elden Ring rune data is not the main local player's data.");
+        var runes = Int32(data + RuneCountOffset);
+        if (runes is < 0 or > MaximumRunes) throw new IOException("Elden Ring rune count is outside the supported range.");
+        return new(data, data + RuneCountOffset, runes);
+    }
+
+    public EldenRingState SetRunes(EldenRingState expected, int value)
+    {
+        if (value is < 0 or > MaximumRunes) throw new ArgumentOutOfRangeException(nameof(value), $"Runes must be between 0 and {MaximumRunes}.");
+        lock (gate)
+        {
+            var capture = CheckedCapture(expected);
+            var target = RuneTarget(capture);
+            if (target.Runes == value) return capture.State;
+            WriteValue(target.Address, BitConverter.GetBytes(value), () =>
+            {
+                var fresh = CheckedCapture(expected);
+                var latest = RuneTarget(fresh);
+                if (fresh.Player != capture.Player || latest.PlayerData != target.PlayerData || latest.Address != target.Address)
+                    throw new IOException("Elden Ring rune target changed before the write.");
+            });
+            var result = CheckedCapture(expected);
+            var confirmed = RuneTarget(result);
+            if (confirmed.PlayerData != target.PlayerData || confirmed.Runes != value)
+                throw new IOException("Elden Ring rune change was not confirmed. Refresh the current rune count before trying again.");
+            return result.State with { Runes = confirmed.Runes };
+        }
+    }
+
+    private static uint FlagMask(string featureId) => featureId switch
+    {
+        "er_damage_protection" => DamageProtectionMask,
+        "er_consumables" => ConsumablesMask,
+        _ => throw new ArgumentException("Unknown Elden Ring player flag.", nameof(featureId))
+    };
+
+    public EldenRingState SetPlayerFlag(EldenRingState expected, string featureId, bool enabled)
+    {
+        var mask = FlagMask(featureId);
+        lock (gate)
+        {
+            var capture = enabled ? CheckedCapture(expected) : Capture();
+            if (!enabled && !originalFlags.ContainsKey(mask)) return capture.State;
+            var owner = capture.PlayerContext;
+            if (capture.Player == 0 || owner.Length == 0)
+            {
+                if (!enabled) return capture.State;
+                throw new IOException("Elden Ring player effect identity is unavailable. Wait for the local character to finish loading.");
+            }
+            var before = UInt32(capture.Player + PlayerFlagsOffset);
+            if (enabled && !originalFlags.ContainsKey(mask))
+            {
+                flagsOwner = owner;
+                originalFlags.Add(mask, (before & mask) != 0);
+            }
+            var set = enabled || originalFlags[mask];
+            var after = set ? before | mask : before & ~mask;
+            if (after != before)
+            {
+                WriteValue(capture.Player + PlayerFlagsOffset, BitConverter.GetBytes(after), () =>
+                {
+                    var fresh = enabled ? CheckedCapture(expected) : Capture();
+                    if (fresh.Player != capture.Player || fresh.PlayerContext != owner || flagsOwner != owner
+                        || UInt32(fresh.Player + PlayerFlagsOffset) != before)
+                        throw new IOException("Elden Ring player flags changed before the write. Refresh and retry this control.");
+                });
+            }
+            var result = Capture();
+            if (result.PlayerContext == owner && result.Player == capture.Player
+                && ((UInt32(result.Player + PlayerFlagsOffset) & mask) != 0) != set)
+                throw new IOException("Elden Ring player flag change was not confirmed.");
+            // Absence after a write is not readback confirmation. Keep the original bit until
+            // this same current identity is readable again (or Capture confirms replacement).
+            if (!enabled && result.PlayerContext == owner && result.Player == capture.Player)
+            {
+                originalFlags.Remove(mask);
+                if (originalFlags.Count == 0) flagsOwner = "";
+            }
+            if (enabled && (!result.State.Ready || result.State.Context != expected.Context || result.PlayerContext != owner || result.Player != capture.Player
+                || (UInt32(result.Player + PlayerFlagsOffset) & mask) == 0))
+                throw new IOException("Elden Ring player flag activation was not confirmed.");
+            return result.State;
+        }
+    }
+
+    public void ReleasePlayerFlags()
+    {
+        lock (gate)
+        {
+            if (originalFlags.Count == 0) return;
+            List<Exception> failures = [];
+            foreach (var mask in originalFlags.Keys.ToArray())
+            {
+                try { SetPlayerFlag(new(false, ""), mask == DamageProtectionMask ? "er_damage_protection" : "er_consumables", false); }
+                catch (Exception error) when (error is IOException or Win32Exception or InvalidOperationException)
+                { failures.Add(error); }
+            }
+            if (failures.Count != 0) throw new IOException("Elden Ring player effect cleanup was not confirmed for this offline character.", new AggregateException(failures));
+        }
+    }
+
+    private void WriteValue(long address, byte[] bytes, Action validate)
+    {
+        if (memory is NativeMemory native) native.WriteGuarded(address, bytes, validate);
+        else { validate(); memory.Write(address, bytes); }
+    }
     private CaptureResult CheckedCapture(EldenRingState expected)
     {
         var capture = Capture();
         if (!expected.Ready || !capture.State.Ready || expected.Context != capture.State.Context)
-            throw new IOException("Elden Ring character changed before refill. Refresh and enable the controls again.");
+            throw new IOException("Elden Ring character changed before the trainer operation. Refresh before trying again.");
         return capture;
     }
     private void RefillOne(EldenRingState expected, long data, int offset, Func<EldenRingState, int> current, Func<EldenRingState, int> maximum)
@@ -134,6 +301,7 @@ public sealed class EldenRingMemory : IDisposable
         CheckedCapture(expected);
     }
     private int Int32(long address) => BitConverter.ToInt32(memory.Read(address, 4));
+    private uint UInt32(long address) => BitConverter.ToUInt32(memory.Read(address, 4));
     private long Pointer(long address)
     {
         var pointer = BitConverter.ToInt64(memory.Read(address, 8));
@@ -141,7 +309,20 @@ public sealed class EldenRingMemory : IDisposable
             throw new IOException("Elden Ring returned an invalid memory pointer.");
         return pointer;
     }
-    public void Dispose() { lock (gate) { if (disposed) return; disposed = true; memory.Dispose(); } }
+    public void Dispose()
+    {
+        lock (gate)
+        {
+            if (disposed) return;
+            try
+            {
+                ReleasePlayerFlags();
+                if (originalFlags.Count != 0)
+                    throw new IOException("Elden Ring player effect cleanup could not be confirmed because the local player was unavailable. No saved player pointer was written.");
+            }
+            finally { disposed = true; memory.Dispose(); }
+        }
+    }
 
     private sealed class NativeMemory : IMemory
     {
@@ -276,16 +457,16 @@ public sealed class EldenRingMemory : IDisposable
                 || region.State != 0x1000 || region.Type != 0x20000 || (region.Protect & 0x100) != 0
                 || (region.Protect & 0xFF) is not (0x04 or 0x08) || address < region.BaseAddress.ToInt64()
                 || (ulong)(address - region.BaseAddress.ToInt64()) + 4 > region.RegionSize)
-                throw new IOException("Elden Ring refill target is not writable character data.");
+                throw new IOException("Elden Ring trainer target is not writable local player data.");
             validateCharacter();
             using var writer = OpenProcess(0x438, false, pid);
-            if (writer.IsInvalid) throw new Win32Exception(Marshal.GetLastWin32Error(), "Cannot write offline Elden Ring resources.");
+            if (writer.IsInvalid) throw new Win32Exception(Marshal.GetLastWin32Error(), "Cannot write the offline Elden Ring trainer target.");
             if (!GetProcessTimes(writer, out var creation, out _, out _, out _)
                 || DateTime.FromFileTimeUtc(creation) != started)
-                throw new IOException("Elden Ring process changed before refill.");
+                throw new IOException("Elden Ring process changed before the trainer write.");
             validateCharacter();
             if (!WriteProcessMemory(writer, (nint)address, value, 4, out var written) || written != 4)
-                throw new Win32Exception(Marshal.GetLastWin32Error(), "Cannot refill Elden Ring resources.");
+                throw new Win32Exception(Marshal.GetLastWin32Error(), "Cannot write the offline Elden Ring trainer target.");
         }
         public void Dispose() => handle.Dispose();
     }

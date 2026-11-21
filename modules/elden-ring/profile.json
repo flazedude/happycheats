@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "id": "elden-ring-ww-2.7.2.0-resources-v1",
+  "id": "elden-ring-ww-2.7.2.0-controls-v2",
   "gameVersion": "1.17.2",
   "fileVersion": "2.7.2.0",
   "region": "worldwide",
@@ -8,7 +8,10 @@
   "features": [
     "health-refill",
     "fp-refill",
-    "stamina-refill"
+    "stamina-refill",
+    "incoming-hit-protection",
+    "no-item-consumption",
+    "set-runes"
   ],
   "globals": {
     "WorldChrMan": "0x3D6D018",
@@ -24,7 +27,9 @@
     "no lobby or protocol session",
     "empty remote player range",
     "zero Steam sessions",
-    "no EAC/protected launcher or known co-op/mod-loader modules"
+    "no EAC/protected launcher or known co-op/mod-loader modules",
+    "operation-specific local player ownership and value ranges",
+    "original toggle bits restored only for the verified owning character"
   ],
   "sources": [
     {

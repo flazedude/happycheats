@@ -33,7 +33,7 @@ public sealed class EldenRingProfile
         using var package = JsonDocument.Parse(File.ReadAllText(FilePath("package.json")));
         var root = package.RootElement;
         if (root.GetProperty("schemaVersion").GetInt32() != 1 || root.GetProperty("game").GetString() != "elden-ring"
-            || root.GetProperty("version").GetString() != "0.1.1")
+            || root.GetProperty("version").GetString() != "0.2.0")
             throw new IOException("Invalid Elden Ring package.");
         var files = root.GetProperty("files").EnumerateArray().ToArray();
         var expected = new HashSet<string>(["profile.json", "ThirdPartyNotices.txt"], StringComparer.Ordinal);
@@ -49,7 +49,7 @@ public sealed class EldenRingProfile
         using var profile = JsonDocument.Parse(File.ReadAllText(FilePath("profile.json")));
         var p = profile.RootElement;
         // The data file identifies the reviewed implementation; arbitrary offset overrides are deliberately unsupported.
-        if (p.GetProperty("schemaVersion").GetInt32() != 1 || p.GetProperty("id").GetString() != "elden-ring-ww-2.7.2.0-resources-v1"
+        if (p.GetProperty("schemaVersion").GetInt32() != 1 || p.GetProperty("id").GetString() != "elden-ring-ww-2.7.2.0-controls-v2"
             || p.GetProperty("fileVersion").GetString() != FileVersion || p.GetProperty("gameVersion").GetString() != GameVersion
             || p.GetProperty("gameplayVerified").GetBoolean()) throw new IOException("Unsupported Elden Ring profile.");
         return new EldenRingProfile();
